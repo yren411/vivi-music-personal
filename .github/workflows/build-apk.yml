@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    name: Build ARM64 GMS Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -20,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
@@ -30,13 +31,6 @@ jobs:
         with:
           packages: ''
 
-      - name: Install Android SDK components
-        run: |
-          sdkmanager --install \
-            "platforms;android-37" \
-            "build-tools;37.0.0" \
-            "ndk;27.0.12077973"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -44,12 +38,16 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build ARM64 GMS Debug APK
-        run: ./gradlew :app:assembleArm64GmsDebug --stacktrace
+        run: |
+          ./gradlew :app:assembleArm64GmsDebug \
+            --stacktrace \
+            --no-daemon
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: VIVI-Music-ARM64-GMS
-          path: app/build/outputs/apk/arm64Gms/debug/*.apk
+          path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 30
