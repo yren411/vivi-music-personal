@@ -37,6 +37,20 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
+      - name: Create debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair \
+            -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
       - name: Build ARM64 GMS Debug APK
         run: |
           ./gradlew :app:assembleArm64GmsDebug \
@@ -44,7 +58,6 @@ jobs:
             --no-daemon
 
       - name: Upload APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: VIVI-Music-ARM64-GMS
