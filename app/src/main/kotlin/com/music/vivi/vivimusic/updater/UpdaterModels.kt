@@ -1,35 +1,19 @@
 package com.music.vivi.vivimusic.updater
 
-data class SDUIModifier(
-    val weight: Float? = null,
-    val heightDp: Int? = null,
-    val fillMaxWidth: Boolean = false,
-    val paddingDp: Int? = null,
-    val aspectRatio: Float? = null
-)
+/** All update decisions use Android's numeric installation version, never tag ordering. */
+data class InstalledVersion(val name: String, val code: Long, val variant: String, val sdk: Int, val abis: List<String>)
+data class ReleaseAsset(val name: String, val size: Long, val url: String)
+data class PublishedRelease(val tag: String, val prerelease: Boolean, val body: String, val assets: List<ReleaseAsset>)
+data class TiniumUpdate(val versionName: String, val versionCode: Long, val channel: String, val tag: String,
+    val asset: ReleaseAsset, val notes: String)
 
-class SDUIBlock(
-    val type: String,
-    val url: String? = null,
-    val modifierParams: SDUIModifier? = null,
-    val children: List<SDUIBlock>? = null
-)
-
-data class ChangelogSection(val title: String, val items: List<String>, val description: String? = null, val blocks: List<SDUIBlock>? = null)
-
-sealed class ViviUpdateStatus {
-    object Idle : ViviUpdateStatus()
-    object Checking : ViviUpdateStatus()
-    data class Available(
-        val version: String,
-        val changelog: List<ChangelogSection>,
-        val size: String,
-        val releaseDate: String,
-        val description: String?,
-        val imageUrl: String?,
-        val apkUrl: String?
-    ) : ViviUpdateStatus()
-
-    data class NoUpdate(val version: String) : ViviUpdateStatus()
-    data class Error(val message: String) : ViviUpdateStatus()
+enum class UpdateProblem { NETWORK, RATE_LIMIT, INVALID_RELEASE, HTTP }
+class UpdateFailure(val problem: UpdateProblem, val retryAt: Long = 0) : Exception(problem.name)
+sealed interface UpdateStatus {
+    data object Idle : UpdateStatus
+    data object Checking : UpdateStatus
+    data object NoPublishedReleases : UpdateStatus
+    data object UpToDate : UpdateStatus
+    data class Available(val update: TiniumUpdate) : UpdateStatus
+    data class Error(val problem: UpdateProblem) : UpdateStatus
 }

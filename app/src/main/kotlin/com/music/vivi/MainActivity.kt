@@ -156,16 +156,8 @@ import com.music.vivi.constants.MiniPlayerBottomSpacing
 import com.music.vivi.constants.MiniPlayerHeight
 import com.music.vivi.constants.NavigationBarAnimationSpec
 import com.music.vivi.constants.NavigationBarHeight
-import com.music.vivi.vivimusic.updater.checkForUpdate
-import com.music.vivi.vivimusic.updater.getAutoUpdateCheckSetting
-import com.music.vivi.vivimusic.updater.isNewerVersion
-import com.music.vivi.vivimusic.updater.saveUpdateAvailableState
-import com.music.vivi.vivimusic.updater.getUpdateNotificationsSetting
-import com.music.vivi.vivimusic.updater.getBetaUpdatesSetting
+import com.music.vivi.vivimusic.updater.TiniumUpdater
 import com.music.vivi.vivimusic.updater.getUpdateAvailableState
-import com.music.vivi.vivimusic.updater.shouldRunNightlyCheck
-import com.music.vivi.vivimusic.updater.markNightlyCheckDone
-import com.music.vivi.vivimusic.UpdateNotificationHelper
 import android.util.Log
 import androidx.compose.ui.platform.LocalContext
 import com.music.vivi.constants.PauseListenHistoryKey
@@ -417,43 +409,7 @@ class MainActivity : ComponentActivity() {
         }
 
         LaunchedEffect(Unit) {
-            if (getAutoUpdateCheckSetting(context)) {
-                val betaEnabled = getBetaUpdatesSetting(context)
-
-                // Beta/nightly path: only run once per day at 9 PM or later.
-                // The run-number comparison ("is there a new commit?") is already
-                // handled inside checkForUpdate — we just gate WHEN it is allowed
-                // to execute so it doesn't fire on every single app launch.
-                if (betaEnabled && !shouldRunNightlyCheck(context)) {
-                    Log.d("UpdateCheck", "Beta check skipped: outside 9 PM window or already ran today")
-                    return@LaunchedEffect
-                }
-
-                // Delay to not block app startup
-                delay(2000L)
-                checkForUpdate(
-                    context = context,
-                    onSuccess = { latestVersion, isAvailable, _, _, _, _, _, _ ->
-                        val currentVersion = BuildConfig.VERSION_NAME
-                        Log.d("UpdateCheck", "Startup check success. Latest: $latestVersion, Current: $currentVersion, isAvailable: $isAvailable")
-                        saveUpdateAvailableState(context, isAvailable)
-
-                        if (isAvailable && getUpdateNotificationsSetting(context)) {
-                            Log.d("UpdateCheck", "Posting update notification for $latestVersion")
-                            UpdateNotificationHelper.showUpdateNotification(context, latestVersion)
-                        }
-
-                        // Stamp today so no more nightly checks until tomorrow 9 PM
-                        if (betaEnabled) markNightlyCheckDone(context)
-                    },
-                    onError = {
-                        Log.e("UpdateCheck", "Startup check failed")
-                        // Do not clear the state on error, in case of offline launch
-                        // Note: we do NOT stamp markNightlyCheckDone on error so it
-                        // can retry later the same night if the user reopens the app.
-                    }
-                )
-            }
+            TiniumUpdater.automaticCheck(context)
         }
 
         LaunchedEffect(enableHighRefreshRate) {
@@ -921,7 +877,6 @@ class MainActivity : ComponentActivity() {
                         sharedPrefs.unregisterOnSharedPreferenceChangeListener(updateListener)
                     }
                 }
-                // Snackbar is now triggered in checkForUpdate directly
                 val coroutineScope = rememberCoroutineScope()
                 var sharedSong: SongItem? by remember {
                     mutableStateOf(null)
@@ -1416,6 +1371,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleDeepLinkIntent(intent: Intent, navController: NavHostController) {
+        if (intent.getBooleanExtra("tinium_open_updater", false)) {
+            intent.removeExtra("tinium_open_updater")
+            navController.navigate("update") { launchSingleTop = true }
+            return
+        }
         val uri = intent.data ?: intent.extras?.getString(Intent.EXTRA_TEXT)?.toUri() ?: return
         intent.data = null
         intent.removeExtra(Intent.EXTRA_TEXT)

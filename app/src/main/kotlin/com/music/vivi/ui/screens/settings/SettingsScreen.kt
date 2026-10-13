@@ -46,9 +46,7 @@ import com.music.vivi.ui.component.Material3SettingsItem
 import com.music.vivi.ui.screens.Screens
 import com.music.vivi.ui.utils.backToMain
 import com.music.vivi.vivimusic.updater.getUpdateAvailableState
-import com.music.vivi.vivimusic.updater.getAutoUpdateCheckSetting
-import com.music.vivi.vivimusic.updater.checkForUpdate
-import com.music.vivi.vivimusic.updater.saveUpdateAvailableState
+import com.music.vivi.vivimusic.updater.TiniumUpdater
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -60,7 +58,6 @@ fun SettingsScreen(
     val context = LocalContext.current
     val isAndroid12OrLater = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
-    val autoUpdateSetting = remember { getAutoUpdateCheckSetting(context) }
     var isUpdateAvailable by remember { mutableStateOf(getUpdateAvailableState(context)) }
 
     DisposableEffect(context) {
@@ -77,17 +74,7 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (autoUpdateSetting) {
-            checkForUpdate(
-                context = context,
-                onSuccess = { _, isAvailable, _, _, _, _, _, _ ->
-                    saveUpdateAvailableState(context, isAvailable)
-                },
-                onError = {}
-            )
-        }
-    }
+    LaunchedEffect(Unit) { TiniumUpdater.automaticCheck(context) }
 
     Column(
         Modifier
@@ -120,7 +107,7 @@ fun SettingsScreen(
                                     color = MaterialTheme.colorScheme.error
                                 )
                             } else {
-                                Text(stringResource(R.string.app_update_uptodate))
+                                Text(stringResource(R.string.tinium_update_settings_status))
                             }
                         },
                         onClick = { navController.navigate("settings/update") }

@@ -270,14 +270,6 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
         )
     }
 
-    var canInstallPackages by remember {
-        mutableStateOf(
-            if (BuildConfig.FLAVOR.contains("gms") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
-            } else true
-        )
-    }
-
     var isLastPageScrolledToEnd by remember { mutableStateOf(true) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -289,9 +281,6 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                         context,
                         Manifest.permission.POST_NOTIFICATIONS
                     ) == PackageManager.PERMISSION_GRANTED
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    canInstallPackages = runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
                 }
             }
         }
@@ -305,14 +294,6 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
             hasNotificationPermission = isGranted
         }
     )
-
-    val installParamsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            canInstallPackages = runCatching { context.packageManager.canRequestPackageInstalls() }.getOrDefault(false)
-        }
-    }
 
     val pages = listOf(
         OnboardingPageInfo(
@@ -464,7 +445,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                             iconTint = Color(0xFF8d0053),
                             title = stringResource(com.music.vivi.R.string.perm_notif_title),
                             description = stringResource(com.music.vivi.R.string.perm_notif_desc),
-                            shape = if (BuildConfig.FLAVOR.contains("gms", ignoreCase = true)) topCardShape else RoundedCornerShape(20.dp),
+                            shape = RoundedCornerShape(20.dp),
                             control = {
                                 Switch(
                                     checked = hasNotificationPermission,
@@ -510,35 +491,6 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                                 }
                             }
                         )
-
-                        if (BuildConfig.FLAVOR.contains("gms", ignoreCase = true)) {
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            PermissionCard(
-                                icon = painterResource(id = R.drawable.update),
-                                iconColor = Color(0xFFffb683),
-                                iconTint = Color(0xFF753403),
-                                title = stringResource(com.music.vivi.R.string.perm_install_title),
-                                description = stringResource(com.music.vivi.R.string.perm_install_desc),
-                                shape = bottomCardShape,
-                                control = {
-                                    Icon(
-                                        painter = painterResource(if (canInstallPackages) R.drawable.check else R.drawable.navigate_next),
-                                        contentDescription = null,
-                                        tint = if (canInstallPackages) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                },
-                                onClick = {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                        val intent =
-                                            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                                                data = Uri.parse("package:${context.packageName}")
-                                            }
-                                        installParamsLauncher.launch(intent)
-                                    }
-                                }
-                            )
-                        }
 
                         Spacer(modifier = Modifier.height(100.dp))
                     }

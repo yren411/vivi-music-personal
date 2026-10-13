@@ -56,7 +56,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.core.content.ContextCompat
-import com.music.vivi.vivimusic.updater.extractUrls
 @Composable
 fun AnimatedActionButton(
     text: String,
@@ -191,57 +190,6 @@ fun endItemShape(): RoundedCornerShape = RoundedCornerShape(
 )
 
 fun detachedItemShape(): RoundedCornerShape = RoundedCornerShape(EndCornerRadius.dp)
-
-@Composable
-fun ChangelogItem(
-    text: String,
-    shape: androidx.compose.ui.graphics.Shape,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh
-    ) {
-        val context = LocalContext.current
-        val urls = text.extractUrls()
-        val annotatedText = buildAnnotatedString {
-            append(text.trim())
-            urls.forEach { (range, url) ->
-                addStringAnnotation("URL", url, range.first, range.last + 1)
-                addStyle(
-                    SpanStyle(
-                        color = MaterialTheme.colorScheme.primary,
-                        textDecoration = TextDecoration.Underline
-                    ),
-                    range.first,
-                    range.last + 1
-                )
-            }
-        }
-
-        androidx.compose.foundation.layout.Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(50))
-            )
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(16.dp))
-            ClickableText(
-                text = annotatedText,
-                onClick = { offset ->
-                    annotatedText.getStringAnnotations("URL", offset, offset).firstOrNull()?.let {
-                        ContextCompat.startActivity(context, Intent(Intent.ACTION_VIEW, Uri.parse(it.item)), null)
-                    }
-                },
-                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
-            )
-        }
-    }
-}
 
 @Composable
 fun UpdaterBlobCluster(

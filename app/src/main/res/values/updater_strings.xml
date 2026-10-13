@@ -88,4 +88,27 @@
     <string name="enable_notifications">Enable Notifications</string>
     <string name="download_notifications">Download Notifications</string>
     <string name="download_notifications_desc">Show progress when downloading update.</string>
+    <string name="tinium_update_back">Back</string>
+    <string name="tinium_update_download">Download APK</string>
+    <string name="tinium_update_browser_error">No browser could open the APK link. Please install or enable a web browser and try again.</string>
+    <string name="tinium_update_idle">Check for Tinium updates</string>
+    <string name="tinium_update_checking">Checking for update…</string>
+    <string name="tinium_update_latest">You are already on the latest version.</string>
+    <string name="tinium_update_no_releases">No published Tinium updates are available yet.</string>
+    <string name="tinium_update_available">Tinium update available</string>
+    <string name="tinium_update_error">Unable to check for updates</string>
+    <string name="tinium_update_release_version">Tinium %1$s</string>
+    <string name="tinium_update_installed_version">Tinium version %1$s</string>
+    <string name="tinium_update_build_version">Build version: %1$d</string>
+    <string name="tinium_update_last_success">Last successful check for update:</string>
+    <string name="tinium_update_never_checked">No successful check yet</string>
+    <string name="tinium_update_no_notes">No release notes were provided.</string>
+    <string name="tinium_update_network_error">GitHub could not be reached. Check your connection and try again.</string>
+    <string name="tinium_update_rate_limit">GitHub has temporarily limited update requests. Please wait before trying again.</string>
+    <string name="tinium_update_invalid_release">The published release metadata or APK assets could not be verified. Please try again later.</string>
+    <string name="tinium_update_http_error">GitHub could not provide the release information. Please try again later.</string>
+    <string name="tinium_update_history">Tinium release history</string>
+    <string name="tinium_update_history_open">View published Tinium releases on GitHub</string>
+    <string name="tinium_update_settings_status">Check for update</string>
+    <string name="tinium_update_size">Size: %1$s</string>
 </resources>

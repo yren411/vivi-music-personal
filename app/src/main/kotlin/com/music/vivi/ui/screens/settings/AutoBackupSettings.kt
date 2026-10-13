@@ -53,7 +53,6 @@ import com.music.vivi.LocalPlayerAwareWindowInsets
 import com.music.vivi.R
 import com.music.vivi.constants.AutoBackupEnabledKey
 import com.music.vivi.constants.AutoBackupWeeklyKey
-import com.music.vivi.constants.AutoBackupBeforeUpdateKey
 import com.music.vivi.ui.component.ExpressiveSettingGroup
 import com.music.vivi.ui.component.IconButton
 import com.music.vivi.ui.component.Material3SettingsGroup
@@ -83,11 +82,6 @@ fun AutoBackupSettings(
         AutoBackupWeeklyKey,
         defaultValue = false
     )
-    val (autoBackupBeforeUpdate, onAutoBackupBeforeUpdateChange) = rememberPreference(
-        AutoBackupBeforeUpdateKey,
-        defaultValue = true
-    )
-
     var backupsList by remember { mutableStateOf(emptyList<File>()) }
     var backupToDelete by remember { mutableStateOf<File?>(null) }
     var backupToRestore by remember { mutableStateOf<File?>(null) }
@@ -193,21 +187,7 @@ fun AutoBackupSettings(
                         onAutoBackupWeeklyChange(!autoBackupWeekly)
                     }
                 ),
-                Material3SettingsItem(
-                    title = { Text(stringResource(R.string.backup_before_update)) },
-                    description = { Text(stringResource(R.string.backup_before_update_desc)) },
-                    trailingContent = {
-                        Checkbox(
-                            checked = autoBackupBeforeUpdate,
-                            onCheckedChange = null,
-                            enabled = autoBackupEnabled
-                        )
-                    },
-                    enabled = autoBackupEnabled,
-                    onClick = {
-                        onAutoBackupBeforeUpdateChange(!autoBackupBeforeUpdate)
-                    }
-                )
+
             )
         )
 

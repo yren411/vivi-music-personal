@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil3.compose.AsyncImage
 import com.music.innertube.utils.parseCookieString
-import com.music.vivi.BuildConfig
 import com.music.vivi.R
 import com.music.vivi.constants.AccountEmailKey
 import com.music.vivi.constants.InnerTubeCookieKey
@@ -156,8 +155,7 @@ fun SettingsDropdownMenu(
             IconButton(
                 onClick = { 
                     onDismissRequest()
-                    val targetApkName = if (BuildConfig.FLAVOR.contains("foss", ignoreCase = true)) "izzydroid-universal-foss-release.apk" else "vivi.apk"
-                    val shareUrl = "https://github.com/vivizzz007/vivi-music/releases/latest/download/$targetApkName"
+                    val shareUrl = "https://github.com/yren411/vivi-music-personal/releases"
                     val sendIntent = Intent(Intent.ACTION_SEND).apply {
                         putExtra(Intent.EXTRA_TEXT, shareUrl)
                         type = "text/plain"
