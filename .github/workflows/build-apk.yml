@@ -1,5 +1,5 @@
 
-name: Build VIVI Music APK
+name: Build Tinium Development APK
 
 on:
   push:
@@ -12,6 +12,7 @@ permissions:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     name: Build ARM64 GMS Debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -37,19 +38,10 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x gradlew
 
-      - name: Create debug keystore
-        run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair \
-            -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+      - name: Restore persistent debug keystore
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: bash scripts/restore-signing-keystore.sh debug "$HOME/.android/debug.keystore"
 
       - name: Build ARM64 GMS Debug APK
         run: |
@@ -64,3 +56,7 @@ jobs:
           path: app/build/outputs/apk/**/*.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Remove restored debug keystore
+        if: always()
+        run: rm -f "$HOME/.android/debug.keystore"

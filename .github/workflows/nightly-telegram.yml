@@ -1,13 +1,16 @@
 name: Nightly Telegram Build
 
+# Paused until a separate distribution task migrates these legacy beta-branch jobs.
 on:
-  schedule:
-    - cron: '0 0 * * *' # Midnight UTC
-  workflow_dispatch: # Allows you to manually trigger it for testing
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     name: Build and Send APK
+    if: ${{ false }}
     runs-on: ubuntu-latest
 
     steps:
