@@ -22,7 +22,7 @@ android {
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "com.vivi.vivimusic"
+        applicationId = "com.yren411.tinium"
         minSdk = 26
         targetSdk = 37
         versionCode = 77
@@ -127,7 +127,6 @@ buildTypes {
         buildConfigField("String", "ARCHITECTURE", "\"release\"")
     }
     debug {
-        applicationIdSuffix = ".debug"
         isDebuggable = true
         signingConfig = signingConfigs.getByName("debug")
         buildConfigField("String", "ARCHITECTURE", "\"debug\"")
