@@ -457,14 +457,14 @@ fun AccountSettingsScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.give_feedback),
+                        text = stringResource(R.string.upstream_link_label, stringResource(R.string.give_feedback)),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
                             fontWeight = FontWeight.Medium
                         ),
                         color = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.clickable {
-                            uriHandler.safeOpenUri(context, "https://github.com/yren411/vivi-music-personal/issues")
+                            uriHandler.safeOpenUri(context, "https://github.com/vivizzz007/vivi-music/issues")
                         }
                     )
                 }
