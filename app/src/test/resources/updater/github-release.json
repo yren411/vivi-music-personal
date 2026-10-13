@@ -1,0 +1,39 @@
+{
+  "id": 123,
+  "tag_name": "tinium-v6.0.9",
+  "name": "Tinium 6.0.9 (stable)",
+  "draft": false,
+  "prerelease": false,
+  "published_at": "2026-10-13T21:00:00Z",
+  "body": "# Tinium 6.0.9\n\n**Better updates** with *clear notes*.\n\n- First improvement\n- Second improvement\n\n1. Download\n2. Install\n\n[Details](https://github.com/yren411/vivi-music-personal) and `code`.\n\n<!-- tinium-release:{\"private-provenance\":\"not displayed\"} -->",
+  "assets": [
+    {
+      "id": 0,
+      "name": "tinium-stable-6.0.9-universal-gms.apk",
+      "size": 1024,
+      "state": "uploaded",
+      "browser_download_url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/tinium-stable-6.0.9-universal-gms.apk"
+    },
+    {
+      "id": 1,
+      "name": "tinium-stable-6.0.9-universal-foss.apk",
+      "size": 2048,
+      "state": "uploaded",
+      "browser_download_url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/tinium-stable-6.0.9-universal-foss.apk"
+    },
+    {
+      "id": 3,
+      "name": "release.json",
+      "size": 2000,
+      "state": "uploaded",
+      "browser_download_url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/release.json"
+    },
+    {
+      "id": 4,
+      "name": "release-notes.md",
+      "size": 100,
+      "state": "uploaded",
+      "browser_download_url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/release-notes.md"
+    }
+  ]
+}

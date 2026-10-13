@@ -193,7 +193,7 @@ Stable uses `tinium-v6.0.8` and
 `tinium-stable-6.0.8-universal-{gms,foss}.apk`. Release descriptions and notes use
 Tinium branding. Internal `tinium-code/*` reservations are never release downloads.
 
-## Future updater contract (no updater implementation yet)
+## GitHub Releases updater contract
 
 Every official release contains a versioned `release.json` asset:
 
@@ -223,16 +223,12 @@ Every official release contains a versioned `release.json` asset:
 ```
 
 Actual manifests always contain both GMS and FOSS entries with values measured
-from the APKs, not this example's placeholders. A future updater can:
-
-- Read `GET /repos/yren411/vivi-music-personal/releases/latest` for stable.
-- Enumerate non-draft prereleases for beta, reading their `release.json` assets and
-  selecting the appropriate higher versionCode. Prefer code over version-name text.
-- Check application ID and offer an update only when available versionCode is
-  greater than installed versionCode. Do not present a lower-code stable as an update.
-- Select GMS/FOSS according to the installed variant/user preference, check SDK and
-  ABI support, and download the explicitly named APK URL.
-- Check the APK checksum and signing identity, then display `release-notes.md`.
+from the APKs, not this example's placeholders. Tinium's updater reads the public
+release list and this metadata, selects the highest eligible numeric versionCode,
+and matches the installed GMS/FOSS flavor to an actual published APK asset.
+Downloads open externally in the browser. The visible notes come from the fresh
+GitHub release body. See [UPDATER.md](UPDATER.md) for validation, channel policy,
+manual testing, Android installer boundaries and automatic-check behavior.
 
 The release body includes a hidden machine metadata comment so the publisher can
 check all prior codes without downloading every APK. Keep that comment intact.
@@ -243,10 +239,7 @@ secrets, and the pin survives deletion of a GitHub Release.
 The permanent certificate and Android package installer remain part of the trust
 chain; a JSON checksum alone is not an alternative to signature verification.
 
-The repository already contains an upstream updater that references the original
-VIVI Music repository. Its Kotlin implementation is unchanged in this task and is
-**not wired to these Tinium releases yet**. Integration, channel settings and
-in-app installation handling belong to a later task.
+
 
 ## Checks and limitations
 

@@ -11,7 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
+import com.music.vivi.MainActivity
 import com.music.vivi.R
 import com.music.vivi.constants.EnableNotificationsKey
 import com.music.vivi.utils.dataStore
@@ -20,45 +20,22 @@ import com.music.vivi.utils.get
 object UpdateNotificationHelper {
     private const val CHANNEL_ID = "updates"
     private const val NOTIFICATION_ID = 1001
+    fun cancel(context: Context) { NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID) }
 
-    fun showUpdateNotification(context: Context, versionName: String) {
-        val notificationsEnabled = context.dataStore.get(EnableNotificationsKey, true)
-        if (!notificationsEnabled) return
-
-        val nm = context.getSystemService(NotificationManager::class.java)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                context.getString(R.string.app_updates_title),
-                NotificationManager.IMPORTANCE_DEFAULT
-            )
-            nm.createNotificationChannel(channel)
-        }
-
-        // Direct download URL format from vivimusicupdater - use the full tag (vX.X.X or bX.X.X) or nightly link
-        val apkUrl = if (versionName.contains("nightly", ignoreCase = true)) {
-            "https://nightly.link/vivizzz007/vivi-music/workflows/nightly.yml/main/vivi-music-gms-nightly.zip"
-        } else {
-            "https://github.com/vivizzz007/vivi-music/releases/download/$versionName/vivi.apk"
-        }
-        val intent = Intent(Intent.ACTION_VIEW, apkUrl.toUri())
-
-        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        val pending = PendingIntent.getActivity(context, NOTIFICATION_ID, intent, flags)
-
-        val notif = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.vivimusicnotification)
-            .setContentTitle(context.getString(R.string.update_available_title))
-            .setContentText(versionName)
-            .setContentIntent(pending)
-            .setAutoCancel(true)
-            .build()
-
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        ) {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notif)
-        }
+    /** Returns true only when a notification was actually posted, for persistent deduplication. */
+    fun showUpdateNotification(context: Context, versionName: String): Boolean {
+        if (!context.dataStore.get(EnableNotificationsKey, true) || !NotificationManagerCompat.from(context).areNotificationsEnabled()) return false
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+        val manager = context.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, context.getString(R.string.app_updates_title), NotificationManager.IMPORTANCE_DEFAULT))
+        val intent = Intent(context, MainActivity::class.java).putExtra("tinium_open_updater", true)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        val pending = PendingIntent.getActivity(context, NOTIFICATION_ID, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        return try {
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.vivimusicnotification).setContentTitle(context.getString(R.string.tinium_update_available))
+                .setContentText(context.getString(R.string.tinium_update_release_version, versionName)).setContentIntent(pending).setAutoCancel(true).build())
+            true
+        } catch (_: SecurityException) { false }
     }
 }

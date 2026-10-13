@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "repository": "yren411/vivi-music-personal",
+  "release": {
+    "schemaVersion": 1,
+    "channel": "stable",
+    "versionName": "6.0.9",
+    "versionCode": 79,
+    "applicationId": "com.yren411.tinium",
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "tag": "tinium-v6.0.9"
+  },
+  "build": {
+    "buildRunId": 12345,
+    "buildAttempt": 1,
+    "commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "channel": "stable"
+  },
+  "certificateSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "assets": [
+    {
+      "variant": "gms",
+      "abi": "universal",
+      "filename": "tinium-stable-6.0.9-universal-gms.apk",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 1024,
+      "minSdk": 26,
+      "targetSdk": 37,
+      "supportedAbis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/tinium-stable-6.0.9-universal-gms.apk"
+    },
+    {
+      "variant": "foss",
+      "abi": "universal",
+      "filename": "tinium-stable-6.0.9-universal-foss.apk",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 2048,
+      "minSdk": 26,
+      "targetSdk": 37,
+      "supportedAbis": [
+        "arm64-v8a",
+        "armeabi-v7a",
+        "x86",
+        "x86_64"
+      ],
+      "url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.9/tinium-stable-6.0.9-universal-foss.apk"
+    }
+  ],
+  "notes": {
+    "filename": "release-notes.md",
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  }
+}

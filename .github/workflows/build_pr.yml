@@ -60,6 +60,9 @@ jobs:
           trap 'rm -f "$TINIUM_DEBUG_TEST_KEYSTORE"' EXIT
           python3 -m unittest discover -s tests -v
 
+      - name: Test GitHub Releases updater (fixtures only)
+        run: ./gradlew :app:testUniversalFossDebugUnitTest --no-configuration-cache --console=plain
+
       - name: Build and Lint Universal FOSS Debug APK
         run: ./gradlew --console=plain assembleUniversalFossDebug :app:lintUniversalFossDebug --warning-mode summary
         env:

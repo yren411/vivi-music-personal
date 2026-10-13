@@ -275,3 +275,5 @@
   <p align="center"><strong>Made with ❤️ for music lovers everywhere</strong></p>
   <p align="center">⭐ Star this repo if you enjoy Tinium!</p>
 </div>
+
+Tinium app update behavior and testing: [GitHub Releases updater](docs/UPDATER.md).

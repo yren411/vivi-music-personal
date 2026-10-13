@@ -57,6 +57,9 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
+      - name: Test GitHub Releases updater (fixtures only)
+        run: ./gradlew :app:testUniversalGmsDebugUnitTest --no-configuration-cache --console=plain
+
       - name: Build Debug APK
         run: |
           ./gradlew assembleUniversalGmsDebug --no-configuration-cache --console=plain --warning-mode summary

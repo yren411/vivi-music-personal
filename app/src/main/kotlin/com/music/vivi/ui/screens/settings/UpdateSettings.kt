@@ -36,20 +36,18 @@ import com.music.vivi.R
 import com.music.vivi.ui.component.IconButton
 import com.music.vivi.ui.component.ExpressiveSettingGroup
 import com.music.vivi.ui.component.Material3SettingsItem
-import com.music.vivi.vivimusic.component.UpdateInfoDialog
 import com.music.vivi.ui.utils.backToMain
 import com.music.vivi.vivimusic.updater.getAutoUpdateCheckSetting
 import com.music.vivi.vivimusic.updater.saveAutoUpdateCheckSetting
 import com.music.vivi.vivimusic.updater.getUpdateAvailableState
-import com.music.vivi.vivimusic.updater.saveUpdateAvailableState
 import android.widget.Toast
 import androidx.compose.ui.res.pluralStringResource
-import com.music.vivi.vivimusic.updater.getDownloadedApkCount
-import com.music.vivi.vivimusic.updater.clearDownloadedApks
 import com.music.vivi.vivimusic.updater.getBetaUpdatesSetting
 import com.music.vivi.vivimusic.updater.saveBetaUpdatesSetting
-import com.music.vivi.vivimusic.updater.autoClearOldApks
 import androidx.compose.material3.MaterialTheme
+import com.music.vivi.vivimusic.updater.TiniumUpdater
+import androidx.compose.runtime.collectAsState
+import com.music.vivi.vivimusic.updater.UpdateStatus
 import com.music.vivi.BuildConfig
 import com.music.vivi.utils.rememberPreference
 import com.music.vivi.constants.EnableNotificationsKey
@@ -60,9 +58,8 @@ import android.Manifest
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.Lifecycle
-import com.music.vivi.vivimusic.updater.checkForUpdate
 
-//here b5.0.1 must be used for the beta tag
+
 
 /**
  * vivimusic Project (C) 2026
@@ -82,8 +79,8 @@ fun UpdateSettings(
     var autoUpdateEnabled by remember { mutableStateOf(getAutoUpdateCheckSetting(context)) }
     var betaUpdatesEnabled by remember { mutableStateOf(getBetaUpdatesSetting(context)) }
     var isUpdateAvailable by remember { mutableStateOf(getUpdateAvailableState(context)) }
-    var apkCount by remember { mutableStateOf(getDownloadedApkCount(context)) }
-    var showInfoDialog by remember { mutableStateOf(false) }
+    val checker = remember { TiniumUpdater.get(context) }
+    val status by checker.state.collectAsState()
 
     // Detect system permission state dynamically
     var hasSystemPermission by remember {
@@ -136,23 +133,7 @@ fun UpdateSettings(
         }
     }
 
-    LaunchedEffect(Unit) {
-        autoClearOldApks(context)
-        apkCount = getDownloadedApkCount(context)
-        if (autoUpdateEnabled) {
-            checkForUpdate(
-                context = context,
-                onSuccess = { _, isAvailable, _, _, _, _, _, _ ->
-                    saveUpdateAvailableState(context, isAvailable)
-                },
-                onError = {}
-            )
-        }
-    }
-
-    if (showInfoDialog) {
-        UpdateInfoDialog(onDismiss = { showInfoDialog = false })
-    }
+    LaunchedEffect(Unit) { TiniumUpdater.automaticCheck(context) }
 
     Column(
         Modifier
@@ -181,7 +162,7 @@ fun UpdateSettings(
                                 color = MaterialTheme.colorScheme.error
                             )
                         } else {
-                            Text(stringResource(R.string.app_update_uptodate))
+                            Text(stringResource(if (status == UpdateStatus.UpToDate) R.string.tinium_update_latest else R.string.tinium_update_settings_status))
                         }
                     },
                     onClick = {
@@ -191,7 +172,7 @@ fun UpdateSettings(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.info),
                     title = { Text(stringResource(R.string.app_version)) },
-                    trailingContent = { Text(BuildConfig.VERSION_NAME) }
+                    trailingContent = { Text(checker.installed.name) }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.stockpot_flavour),
@@ -217,9 +198,6 @@ fun UpdateSettings(
                             onCheckedChange = { enabled ->
                                 autoUpdateEnabled = enabled
                                 saveAutoUpdateCheckSetting(context, enabled)
-                                if (!enabled) {
-                                    saveUpdateAvailableState(context, false)
-                                }
                             },
                             thumbContent = {
                                 Icon(
@@ -235,9 +213,6 @@ fun UpdateSettings(
                     onClick = {
                         autoUpdateEnabled = !autoUpdateEnabled
                         saveAutoUpdateCheckSetting(context, autoUpdateEnabled)
-                        if (!autoUpdateEnabled) {
-                            saveUpdateAvailableState(context, false)
-                        }
                     }
                 ),
 
@@ -280,48 +255,6 @@ fun UpdateSettings(
                     },
                     onClick = {
                         navController.navigate("settings/update/notification_permission")
-                    }
-                )
-            )
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        ExpressiveSettingGroup(
-            items = listOf(
-                Material3SettingsItem(
-                    icon = painterResource(R.drawable.delete),
-                    title = { Text(stringResource(R.string.clear_downloaded_updates)) },
-                    description = if (apkCount > 0) {
-                        {
-                            Text(
-                                text = pluralStringResource(R.plurals.n_apk_found, apkCount, apkCount),
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    } else null,
-                    trailingContent = {
-                        IconButton(
-                            onClick = { showInfoDialog = true },
-                            onLongClick = {}
-                        ) {
-                            Icon(
-                                painterResource(R.drawable.info),
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    },
-                    onClick = {
-                        if (apkCount > 0) {
-                            if (clearDownloadedApks(context)) {
-                                apkCount = 0
-                                Toast.makeText(context, "Deleted successfully", Toast.LENGTH_SHORT).show()
-                            } else {
-                                Toast.makeText(context, "Failed to delete some files", Toast.LENGTH_SHORT).show()
-                                apkCount = getDownloadedApkCount(context)
-                            }
-                        }
                     }
                 )
             )
