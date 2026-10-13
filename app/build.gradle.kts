@@ -86,52 +86,41 @@ android {
         }
     }
 
-   signingConfigs {
-    create("persistentDebug") {
-        storeFile = file("persistent-debug.keystore")
-        storePassword = "android"
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
-    }
-    create("release") {
-        val keystoreFile = file("keystore/release.keystore")
-        if (keystoreFile.exists()) {
-            storeFile = keystoreFile
-            storePassword = System.getenv("STORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS")
-            keyPassword = System.getenv("KEY_PASSWORD")
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+        create("release") {
+            // CI restores the permanent keystore outside the checkout. Never fall back to debug.
+            storeFile = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull?.let { file(it) }
+            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
         }
     }
-    getByName("debug") {
-        keyAlias = "androiddebugkey"
-        keyPassword = "android"
-        storePassword = "android"
-        storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
-    }
-}
 
-buildTypes {
-    release {
-        signingConfig = if (file("keystore/release.keystore").exists())
-            signingConfigs.getByName("release")
-        else
-            signingConfigs.getByName("debug")
-        isMinifyEnabled = true
-        isShrinkResources = true
-        isCrunchPngs = false
-        isDebuggable = false
-        proguardFiles(
-            getDefaultProguardFile("proguard-android-optimize.txt"),
-            "proguard-rules.pro"
-        )
-        buildConfigField("String", "ARCHITECTURE", "\"release\"")
+    buildTypes {
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            isCrunchPngs = false
+            isDebuggable = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            buildConfigField("String", "ARCHITECTURE", "\"release\"")
+        }
+        debug {
+            isDebuggable = true
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("String", "ARCHITECTURE", "\"debug\"")
+        }
     }
-    debug {
-        isDebuggable = true
-        signingConfig = signingConfigs.getByName("debug")
-        buildConfigField("String", "ARCHITECTURE", "\"debug\"")
-    }
-}
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
@@ -316,3 +305,29 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
 }
 
+// Keep credential validation lazy so PR/debug builds do not need release secrets.
+val validateReleaseSigningCredentials = tasks.register("validateReleaseSigningCredentials") {
+    group = "verification"
+    description = "Require permanent release signing credentials before packaging."
+    doLast {
+        val names = listOf(
+            "ANDROID_KEYSTORE_PATH", "ANDROID_KEYSTORE_PASSWORD",
+            "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"
+        )
+        val missing = names.filter { providers.environmentVariable(it).orNull.isNullOrBlank() }
+        check(missing.isEmpty()) {
+            "Release signing requires: ${missing.joinToString()}. See docs/APK_SIGNING.md."
+        }
+        val keystore = file(providers.environmentVariable("ANDROID_KEYSTORE_PATH").get())
+        check(keystore.isFile && keystore.canRead()) { "Release keystore must be a readable file." }
+        check(providers.environmentVariable("ANDROID_KEY_ALIAS").get() != "androiddebugkey") {
+            "The Android debug key cannot be used for release signing."
+        }
+    }
+}
+
+tasks.configureEach {
+    if (name.endsWith("Release") && listOf("assemble", "bundle", "package", "validateSigning").any { name.startsWith(it) }) {
+        dependsOn(validateReleaseSigningCredentials)
+    }
+}

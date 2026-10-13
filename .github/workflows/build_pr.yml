@@ -5,6 +5,9 @@ on:
     branches:
       - "**"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -47,15 +50,21 @@ jobs:
               -dname "CN=Android Debug,O=Android,C=US"
           fi
 
+      - name: Validate signing helpers with disposable PR key
+        env:
+          TINIUM_DEBUG_TEST_KEYSTORE: ${{ runner.temp }}/signing-test-debug.keystore
+        run: |
+          # Tests use a copy of this run's disposable debug identity, never a secret.
+          umask 077
+          cp "$HOME/.android/debug.keystore" "$TINIUM_DEBUG_TEST_KEYSTORE"
+          trap 'rm -f "$TINIUM_DEBUG_TEST_KEYSTORE"' EXIT
+          python3 -m unittest discover -s tests -v
+
       - name: Build and Lint Universal FOSS Debug APK
         run: ./gradlew --console=plain assembleUniversalFossDebug :app:lintUniversalFossDebug --warning-mode summary
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           PULL_REQUEST: "true"
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
-          VIVI_GITHUB_CLIENT_ID: ${{ secrets.VIVI_GITHUB_CLIENT_ID }}
-          VIVI_GITHUB_CLIENT_SECRET: ${{ secrets.VIVI_GITHUB_CLIENT_SECRET }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

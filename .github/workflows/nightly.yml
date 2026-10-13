@@ -1,15 +1,17 @@
 name: Nightly GMS Release Build
 
+# Paused until a separate distribution task migrates these legacy beta-branch jobs.
 on:
-  schedule:
-    - cron: '0 0 * * *' # Midnight UTC
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build_nightly:
     name: Build Universal GMS Release
     runs-on: ubuntu-latest
-    if: github.actor != 'dependabot[bot]'
+    if: ${{ false }}
 
     steps:
       - uses: actions/checkout@v4
