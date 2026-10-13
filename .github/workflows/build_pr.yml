@@ -66,6 +66,11 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           PULL_REQUEST: "true"
 
+      - name: Verify APK signing regression cases
+        env:
+          TINIUM_SIGNING_TEST_APK: app/build/outputs/apk/universalFoss/debug/app-universal-foss-debug.apk
+        run: python3 -m unittest discover -s tests -p test_apk_verification.py -v
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

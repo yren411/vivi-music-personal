@@ -13,14 +13,20 @@ sdk=${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}
 # Use the newest installed stable build-tools, with their matching apksigner.
 apksigner=$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name apksigner | sed -nE '\|/[0-9]+\.[0-9]+\.[0-9]+/apksigner$|p' | sort -V | tail -n 1)
 [[ -x "$apksigner" ]] || fail 'Android build-tools/apksigner is missing.'
-expected=$(keytool -exportcert -keystore "$keystore" -storepass:env ANDROID_KEYSTORE_PASSWORD \
-  -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | sha256sum | cut -d ' ' -f 1)
+[[ -f "$keystore" && -r "$keystore" ]] || fail 'Configured release keystore is missing or unreadable.'
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+printf 'Using Android Build-Tools %s for cryptographic APK verification.\n' "$(basename "$(dirname "$apksigner")")"
+if ! expected=$(keytool -exportcert -keystore "$keystore" -storepass:env ANDROID_KEYSTORE_PASSWORD \
+  -alias "$ANDROID_KEY_ALIAS" 2>/dev/null | sha256sum | cut -d ' ' -f 1); then
+  fail 'Cannot read the configured signing certificate; check the keystore password and alias.'
+fi
 for apk in "$@"; do
   [[ -f "$apk" ]] || fail 'An expected release APK is missing.'
   if ! report=$("$apksigner" verify --verbose --print-certs "$apk" 2>&1); then
     fail 'APK signature verification failed.'
   fi
-  actual=$(printf '%s\n' "$report" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-  [[ "$report" == *'Number of signers: 1'* && "$actual" == "$expected" ]] || fail 'APK does not use the configured permanent release certificate.'
-  printf 'Verified %s; release certificate SHA-256: %s\n' "$apk" "$actual"
+  # Build-Tools 36 uses "Signer #1 ..."; 37 uses "V2 Signer: ..." or
+  # "V3.0 Signer: ...". Parse the successful report without printing raw output.
+  printf '%s\n' "$report" | python3 "$script_dir/check-apksigner-report.py" "$expected"
+  printf 'Verified %s against the configured permanent release certificate.\n' "$apk"
 done

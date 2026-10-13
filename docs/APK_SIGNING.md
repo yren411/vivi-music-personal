@@ -279,3 +279,42 @@ is a CI restoration input; Gradle itself reads the decoded file. Without those
 four environment values, release packaging fails rather than signing with debug.
 Do not change or remove an old keystore until its fingerprint has been compared
 with previously distributed APKs.
+
+## APK verifier compatibility and retesting
+
+Android Build-Tools 36 prints certificate lines as `Signer #1 certificate SHA-256
+digest: ...`; 37 prints scheme-specific labels such as `V2 Signer: certificate
+SHA-256 digest: ...` and `V3.0 Signer: certificate SHA-256 digest: ...`. The earlier
+verifier parsed only the first form, so it reported a mismatch with an empty
+fingerprint even when the APK signature and certificate were valid. The
+`Number of signers: 1` summary is still present in both tested versions; the
+verifier now parses its numeric value exactly rather than using a substring
+(which would also match `Number of signers: 10`).
+
+Verification first requires successful cryptographic `apksigner verify`, then
+exactly one signer and a matching SHA256 fingerprint for every reported APK
+signing scheme. Repeated reports of the same certificate across schemes are
+allowed; additional signers, unexpected certificate formats, missing APKs,
+invalid signatures and different certificates fail. Diagnostics show the
+selected Build-Tools version and public fingerprints only, never raw keystore,
+password or certificate-report contents.
+
+After merging the verifier fix, leave all five signing secrets and original
+keystores unchanged. Start fresh **Beta Release Build** and **Production Release
+Build** runs on `main` with **Run workflow**; rerunning an old failed run uses its
+old commit and may reproduce the old bug. Both GMS and FOSS APKs should pass
+**Verify signing certificates and prepare artifacts** and produce Actions
+artifacts without a public release. Check that all logged fingerprints match
+your saved release certificate. A remaining explicit fingerprint mismatch is a
+real identity issue to investigate, not a reason to replace your signing key.
+
+Regression tests use disposable test keystores only, stored in protected
+TemporaryDirectories and removed after testing. They never read or change the
+permanent release keystore. With an existing built APK and Android SDK available:
+
+```bash
+TINIUM_SIGNING_TEST_APK=app/build/outputs/apk/universalFoss/debug/app-universal-foss-debug.apk \
+  python3 -m unittest discover -s tests -p test_apk_verification.py -v
+```
+
+PR CI runs these cryptographic tests after building its disposable debug APK.
