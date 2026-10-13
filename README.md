@@ -1,48 +1,19 @@
 <div align="center">
-  <a href="https://vivimusic.mkmdevilmi.workers.dev/">
-    <img src="assets/bannerofficial.png" alt="VIVI Music Banner" style="display: block; margin: 0 auto; max-width: 100%"/>
-  </a>
-  <br>
-  <h1>VIVI Music</h1>
-  <h3>More Than Just Music — Your Ultimate Audio Experience</h3>
-
-  <p>
-    <a href="https://github.com/vivizzz007/vivi-music/releases">
-      <img src="https://img.shields.io/github/v/release/vivizzz007/vivi-music?label=Download&style=for-the-badge&color=4CAF50" alt="Download Latest">
-    </a>
-    <a href="https://github.com/vivizzz007/vivi-music/releases">
-      <img src="https://img.shields.io/github/downloads/vivizzz007/vivi-music/total?style=for-the-badge&color=blue" alt="Downloads">
-    </a>
-    <a href="LICENSE">
-      <img src="https://img.shields.io/github/license/vivizzz007/vivi-music?style=for-the-badge" alt="License">
-    </a>
-    <a href="https://ko-fi.com/vividhpashokan">
-      <img src="https://img.shields.io/badge/Support-Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi">
-    </a>
-  </p>
-
-  <p align="center">
-    <a href="https://trendshift.io/repositories/17110?utm_source=repository-badge&utm_medium=badge&utm_campaign=badge-repository-17110" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/17110" alt="vivizzz007%2Fvivi-music | Trendshift" width="250" height="55"/></a>
-  </p>
-  <p align="center">
-    <a href="https://trendshift.io/repositories/17110?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-17110" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/17110/daily?language=Kotlin" alt="vivizzz007%2Fvivi-music | Trendshift" width="250" height="55"/></a>
-    &nbsp;&nbsp;
-    <a href="https://trendshift.io/repositories/17110?utm_source=trendshift-badge&utm_medium=badge&utm_campaign=badge-trendshift-17110" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/17110/weekly?language=Kotlin" alt="vivizzz007%2Fvivi-music | Trendshift" width="250" height="55"/></a>
-  </p>
-
+  <img src="branding/Tinium%20Logo.png" width="160" alt="Tinium logo"/>
+  <h1>Tinium</h1>
+  <p>A personal Android music app fork of <a href="https://github.com/vivizzz007/vivi-music">Tinium</a>.</p>
+  <p><a href="https://github.com/yren411/vivi-music-personal/actions">APK build workflows</a></p>
 </div>
 
-<hr>
-
-<h2>🎵 About VIVI</h2>
+<h2>🎵 About Tinium</h2>
 
 <table align="center" width="100%">
   <tr valign="middle">
     <td width="60%" align="left">
-      <p>✨ <b>VIVI</b> isn't just another music player — it's a premium, modern audio ecosystem engineered for listeners who demand more. Powered by a responsive design engine that dynamically matches your album art's color palette, VIVI completely shifts to match your aesthetic on every single beat.</p>
+      <p>✨ <b>Tinium</b> isn't just another music player — it's a premium, modern audio ecosystem engineered for listeners who demand more. Powered by a responsive design engine that dynamically matches your album art's color palette, Tinium completely shifts to match your aesthetic on every single beat.</p>
       <p>From stunning animated canvas visualizers to fluid physics-based micro-animations, every interaction is crafted to elevate your listening. Stream ad-free, sync karaoke lyrics, share your sound instantly, and enjoy an elegant interface designed with modern Material 3 guidelines.</p>
       <blockquote>
-        <b>🎵 Your music, your aesthetic — only with VIVI.</b>
+        <b>🎵 Your music, your aesthetic — only with Tinium.</b>
       </blockquote>
     </td>
     <td width="40%" align="center">
@@ -58,6 +29,7 @@
 <hr>
 
 <h2>📸 Screenshots</h2>
+<p>Historical screenshots of upstream VIVI Music, retained for reference. Tinium uses its own name and official logo; updated device screenshots are not available yet.</p>
 
 <table align="center">
   <tr valign="top">
@@ -166,8 +138,8 @@
   <table border="0" cellpadding="15" cellspacing="0" width="85%">
     <tr>
       <td align="center">
-        <h3>💖 Support the Project</h3>
-        <p>If you love VIVI Music and want to support its maintenance and active development, please consider buying me a coffee! Your support helps keep this premium audio experience completely active, clean, and ad-free.</p>
+        <h3>💖 Support the Upstream Developer</h3>
+        <p>Tinium builds on VIVI Music. These donation links support its original developer, Vividh P Ashokan.</p>
         <br>
         <a href="https://ko-fi.com/vividhpashokan">
           <img src="https://img.shields.io/badge/Support-Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Support on Ko-fi">
@@ -183,7 +155,7 @@
 
 <h2>🚗 Android Auto Setup</h2>
 
-<p>If VIVI Music doesn't appear in Android Auto:</p>
+<p>If Tinium doesn't appear in Android Auto:</p>
 
 <ol>
   <li>Open <strong>Android Auto</strong> on your phone</li>
@@ -213,7 +185,7 @@
 
 <h2>🛡️ Privacy & Data Collection</h2>
 
-<p>At <strong>VIVI Music</strong>, your privacy is our top priority. We believe that your music and data belong exclusively to you.</p>
+<p>At <strong>Tinium</strong>, your privacy is our top priority. We believe that your music and data belong exclusively to you.</p>
 
 <ul>
   <li><strong>Zero Data Collection:</strong> We do <strong>not</strong> collect, store, or share any of your personal information, usage habits, or listening history.</li>
@@ -231,7 +203,7 @@
 
 <p>Any trademark, service mark, trade name, or other intellectual property rights used in this project are owned by their respective owners.</p>
 
-<p><strong>VIVI Music</strong> is an independent project created for educational and personal use purposes.</p>
+<p><strong>Tinium</strong> is an independent project created for educational and personal use purposes.</p>
 
 <hr>
 
@@ -269,7 +241,7 @@
 
   <h2>🙏 Special Thanks & Credits</h2>
 
-  <p>VIVI Music is built upon the foundation of amazing open-source projects and developers:</p>
+  <p>Tinium is a fork of VIVI Music by Vividh P Ashokan and retains its GPL license and upstream attribution. It is built upon the foundation of amazing open-source projects and developers:</p>
   <br>
 
   <table border="0" cellpadding="10" cellspacing="0" width="90%">
@@ -277,7 +249,7 @@
       <td width="40%" align="left">
         <b>💡 Special Thanks</b>
         <ul>
-          <li><strong><a href="https://github.com/mostafaalagamy">Mostafa Alagamy</a></strong> – Creator of <a href="https://github.com/mostafaalagamy/Metrolist">Metrolist</a>, the project that inspired VIVI Music. Huge thanks for the foundation and open-source contributions! 🌟</li>
+          <li><strong><a href="https://github.com/mostafaalagamy">Mostafa Alagamy</a></strong> – Creator of <a href="https://github.com/mostafaalagamy/Metrolist">Metrolist</a>, the project that inspired Tinium. Huge thanks for the foundation and open-source contributions! 🌟</li>
           <li><strong><a href="https://github.com/ZemerTeam/zemer-cipher">@Zemer</a></strong> – Huge congratulations and thanks for inventing the new playback method! 🎉</li>
         </ul>
       </td>
@@ -299,5 +271,5 @@
   <p align="center"><strong>Thank you to all the amazing developers who made this project possible!</strong></p>
   <hr width="60%">
   <p align="center"><strong>Made with ❤️ for music lovers everywhere</strong></p>
-  <p align="center">⭐ Star this repo if you enjoy VIVI Music!</p>
+  <p align="center">⭐ Star this repo if you enjoy Tinium!</p>
 </div>

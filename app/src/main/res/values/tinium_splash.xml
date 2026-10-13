@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tinium_splash_background">#FFFFFF</color>
+    <style name="Theme.vivimusic.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/tinium_splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.vivimusic</item>
+    </style>
+</resources>

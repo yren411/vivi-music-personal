@@ -408,11 +408,10 @@ fun LyricsImageCard(
                         contentAlignment = Alignment.Center
                     ) {
                         Image(
-                            painter = painterResource(id = R.drawable.vivimusicnotification),
+                            painter = painterResource(id = R.drawable.tinium_logo),
                             contentDescription = null,
                             modifier = Modifier
-                                .size(16.dp),
-                            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(backgroundSolidColor) // Try to use a contrasting color, fallback to solid bg color
+                                .size(16.dp)
                         )
                     }
 

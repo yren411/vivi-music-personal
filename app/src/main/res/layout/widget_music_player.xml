@@ -15,7 +15,7 @@
         android:layout_width="88dp"
         android:layout_height="88dp"
         android:scaleType="centerCrop"
-        android:src="@mipmap/ic_launcher"
+        android:src="@drawable/tinium_logo"
         android:contentDescription="@string/album_art" />
 
     <!-- Right Content Column -->

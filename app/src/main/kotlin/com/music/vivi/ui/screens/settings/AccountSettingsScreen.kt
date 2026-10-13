@@ -457,7 +457,7 @@ fun AccountSettingsScreen(
                     horizontalArrangement = Arrangement.Center
                 ) {
                     Text(
-                        text = stringResource(R.string.give_feedback),
+                        text = stringResource(R.string.upstream_link_label, stringResource(R.string.give_feedback)),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline,
                             fontWeight = FontWeight.Medium

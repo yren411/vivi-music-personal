@@ -33,6 +33,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -83,6 +84,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
@@ -332,7 +334,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                     val welcomeString = stringResource(id = com.music.vivi.R.string.welcome_to_vivi)
                     val annotatedWelcome = remember(welcomeString, primaryColor) {
                         buildAnnotatedString {
-                            val target = "Vivi"
+                            val target = "Tinium"
                             val index = welcomeString.indexOf(target)
                             if (index != -1) {
                                 val prefix = welcomeString.substring(0, index).trim()
@@ -393,7 +395,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                         onClick = {},
                         label = {
                             Text(
-                                text = "By vividh p ashokan",
+                                text = stringResource(R.string.upstream_developer_credit),
                                 fontFamily = GoogleSansFlex
                             )
                         },
@@ -568,7 +570,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
-                        text = "ViviMusic is open-source and depends on community support to grow. Your help makes a difference!",
+                        text = "Tinium is open-source and depends on community support to grow. Your help makes a difference!",
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontFamily = GoogleSansFlex
                         ),
@@ -597,7 +599,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                                 )
                             },
                             onClick = {
-                                uriHandler.safeOpenUri(context, "https://github.com/vivizzz007/vivi-music")
+                                uriHandler.safeOpenUri(context, "https://github.com/yren411/vivi-music-personal")
                             }
                         )
 
@@ -607,8 +609,8 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                             icon = painterResource(com.music.vivi.R.drawable.telegram),
                             iconColor = Color(0xFF67d4ff),
                             iconTint = Color(0xFF004e5d),
-                            title = "Join Telegram",
-                            description = "Get the latest updates and chat with the community.",
+                            title = "Join upstream Telegram",
+                            description = "Chat with the original VIVI Music community.",
                             shape = middleCardShape,
                             control = {
                                 Icon(
@@ -629,7 +631,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                             iconColor = Color(0xFFffb4ab),
                             iconTint = Color(0xFF690005),
                             title = "Support via UPI",
-                            description = "Directly support development via UPI.",
+                            description = stringResource(R.string.upstream_support),
                             shape = middleCardShape,
                             control = {
                                 Icon(
@@ -650,7 +652,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                             iconColor = Color(0xFFffb4ab),
                             iconTint = Color(0xFF690005),
                             title = "Buy Me a Coffee",
-                            description = "Support the project through Ko-fi.",
+                            description = stringResource(R.string.upstream_support),
                             shape = bottomCardShape,
                             control = {
                                 Icon(
@@ -976,7 +978,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "ViviMusic…",
+                        text = "Tinium…",
                         fontFamily = GoogleSansFlex,
                         fontWeight = FontWeight.Bold,
                         fontSize = 48.sp,
@@ -1131,11 +1133,11 @@ fun RotatingShapeContainer(modifier: Modifier = Modifier, rotate: Boolean = true
                 .rotate(rotation)
         )
 
-        Icon(
-            painter = painterResource(com.music.vivi.R.mipmap.ic_launcher_monochrome),
+        Image(
+            painter = painterResource(com.music.vivi.R.drawable.tinium_logo),
             contentDescription = null,
             modifier = Modifier.size(220.dp),
-            tint = backgroundColor
+            contentScale = ContentScale.Fit
         )
     }
 }

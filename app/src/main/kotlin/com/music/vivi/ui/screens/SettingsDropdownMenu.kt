@@ -108,7 +108,7 @@ fun SettingsDropdownMenu(
             IconButton(
                 onClick = { 
                     gitHubViewModel.toggleStar(context) {
-                        uriHandler.openUri("https://github.com/vivizzz007/vivi-music")
+                        uriHandler.openUri("https://github.com/yren411/vivi-music-personal")
                     }
                 }, 
                 modifier = iconButtonModifier,
@@ -305,9 +305,8 @@ fun SettingsDropdownMenu(
                         painter = painterResource(id = R.drawable.icon),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
+                            .size(24.dp),
+                        contentScale = ContentScale.Fit
                     )
                 },
                 onClick = {

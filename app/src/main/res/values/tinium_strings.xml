@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="upstream_developer">Upstream developer</string>
+    <string name="upstream_developer_credit">Based on VIVI Music by Vividh P Ashokan</string>
+    <string name="upstream_feature_credit">JioSaavn streaming and lyrics provider logic from VIVI Music.</string>
+    <string name="upstream_link_label">%1$s (upstream)</string>
+    <string name="upstream_support">Support the upstream developer</string>
+    <string name="upstream_vivi_version">VIVI Music (upstream) %1$s</string>
+</resources>
