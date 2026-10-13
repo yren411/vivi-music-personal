@@ -1,0 +1,101 @@
+name: Publish Tested Tinium Release
+
+# This is the only public-release entry point. Never trigger it from a build,
+# workflow_run, push, pull request or tag event.
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: 'Successful beta/production build run ID from its candidate summary'
+        required: true
+        type: string
+      build_attempt:
+        description: 'Exact tested build attempt (reruns have a different attempt)'
+        required: true
+        type: string
+        default: '1'
+      expected_tag:
+        description: 'Approve this exact tested tag, e.g. tinium-v6.0.8-beta.1'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    name: Verify and publish exact tested artifact (no rebuild)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: tinium-release-registry
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BUILD_RUN_ID: ${{ inputs.build_run_id }}
+      BUILD_ATTEMPT: ${{ inputs.build_attempt }}
+      APPROVED_TAG: ${{ inputs.expected_tag }}
+    steps:
+      - name: Checkout trusted main verifier and publisher
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate successful build and immutable artifact provenance
+        id: candidate
+        run: python3 scripts/manage_releases.py inspect-build --run-id "$BUILD_RUN_ID" --attempt "$BUILD_ATTEMPT"
+
+      - name: Require the built source commit to belong to main
+        env:
+          SOURCE_SHA: ${{ steps.candidate.outputs.source }}
+        run: git merge-base --is-ancestor "$SOURCE_SHA" HEAD
+
+      - name: Download exact tested artifact by immutable ID
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ steps.candidate.outputs.artifact_id }}
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.build_run_id }}
+          path: tested_release
+
+      - name: Set up Java 21 for certificate verification
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK for APK verification only
+        uses: android-actions/setup-android@v3
+        with:
+          packages: ''
+
+      - name: Set temporary release keystore path
+        run: echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/tinium-signing/release.keystore" >> "$GITHUB_ENV"
+
+      - name: Restore existing permanent keystore for verification only
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: bash scripts/restore-signing-keystore.sh release "$ANDROID_KEYSTORE_PATH"
+
+      - name: Verify exact APK bytes, signatures and versions, then publish approved release
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          python3 scripts/manage_releases.py publish --run-id "$BUILD_RUN_ID" \
+            --attempt "$BUILD_ATTEMPT" --expected-tag "$APPROVED_TAG" --directory tested_release
+
+      - name: Remove restored release keystore
+        if: always()
+        run: |
+          if [[ -n "${ANDROID_KEYSTORE_PATH:-}" ]]; then
+            rm -f "$ANDROID_KEYSTORE_PATH"
+          fi
