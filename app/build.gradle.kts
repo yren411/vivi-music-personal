@@ -25,9 +25,19 @@ android {
         applicationId = "com.yren411.tinium"
         minSdk = 26
         targetSdk = 37
-        versionCode = 77
+        // Development builds keep 77. Release workflows supply a reserved global code.
+        val releaseCode = providers.gradleProperty("releaseVersionCode").orNull
+        val releaseName = providers.gradleProperty("releaseVersionName").orNull
+        require((releaseCode == null) == (releaseName == null)) {
+            "releaseVersionCode and releaseVersionName must be supplied together."
+        }
+        versionCode = if (releaseCode == null) 77 else {
+            val parsed = releaseCode.toIntOrNull()
+            require(parsed != null && parsed in 78..2_100_000_000) { "Release versionCode must be between 78 and 2100000000." }
+            parsed
+        }
         val betaVersionName = project.findProperty("betaVersionName") as String?
-        versionName = betaVersionName ?: "6.0.8"
+        versionName = releaseName ?: betaVersionName ?: "6.0.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

@@ -2,22 +2,57 @@ name: Beta Release Build
 
 on:
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'New immutable candidate version (X.Y.Z-beta.N); add release-notes/<version>.md first'
+        required: true
+        type: string
+        default: '6.0.8-beta.1'
 
 permissions:
   contents: read
 
 jobs:
+  allocate_version:
+    name: Reserve coordinated version code (no publication)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: tinium-release-registry
+      cancel-in-progress: false
+    outputs:
+      code: ${{ steps.allocate.outputs.code }}
+      tag: ${{ steps.allocate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Allocate or reuse immutable candidate version
+        id: allocate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version_name }}
+        run: python3 scripts/manage_releases.py allocate --channel beta --version "$RELEASE_VERSION" --commit "$GITHUB_SHA"
+
   build_release:
     name: Build Signed Beta APK Artifacts
+    needs: allocate_version
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 60
-
+    env:
+      RELEASE_VERSION: ${{ inputs.version_name }}
+      RELEASE_CODE: ${{ needs.allocate_version.outputs.code }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Read reserved release plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/manage_releases.py plan --channel beta --version "$RELEASE_VERSION" --code "$RELEASE_CODE" --commit "$GITHUB_SHA" --output candidate-plan.json
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -52,19 +87,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Extract Version Info
-        id: version_info
-        run: |
-          VERSION_CODE=$(sed -nE 's/^[[:space:]]*versionCode = ([0-9]+).*$/\1/p' app/build.gradle.kts)
-          [[ "$VERSION_CODE" =~ ^[0-9]+$ ]] || { echo "Unable to read versionCode" >&2; exit 1; }
-          RAW_VERSION=$(sed -nE 's/^[[:space:]]*versionName = .*"([^"]+)".*$/\1/p' app/build.gradle.kts)
-          VERSION_NAME="$RAW_VERSION-r${{ github.run_number }}"
-          echo "Extracted Version Code: $VERSION_CODE"
-          echo "Extracted Version Name: $VERSION_NAME"
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
-
-      - name: Build GMS Release APK
+      - name: Build GMS and FOSS release APKs with the same reserved version
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -73,135 +96,27 @@ jobs:
           LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
           VIVI_GITHUB_CLIENT_ID: ${{ secrets.VIVI_GITHUB_CLIENT_ID }}
           VIVI_GITHUB_CLIENT_SECRET: ${{ secrets.VIVI_GITHUB_CLIENT_SECRET }}
-        run: ./gradlew assembleUniversalGmsRelease -PbetaVersionName="b${{ steps.version_info.outputs.version_name }}" --no-configuration-cache --console=plain --warning-mode summary -x lint
+        run: |
+          ./gradlew :app:assembleUniversalGmsRelease :app:assembleUniversalFossRelease \
+            -PreleaseVersionCode="$RELEASE_CODE" -PreleaseVersionName="$RELEASE_VERSION" \
+            --no-configuration-cache --console=plain --warning-mode summary -x lint
 
-      - name: Build FOSS Release APK
+      - name: Verify signing, APK identity/versions and prepare exact test artifacts
+        id: prepare
         env:
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-          LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
-          VIVI_GITHUB_CLIENT_ID: ${{ secrets.VIVI_GITHUB_CLIENT_ID }}
-          VIVI_GITHUB_CLIENT_SECRET: ${{ secrets.VIVI_GITHUB_CLIENT_SECRET }}
-        run: ./gradlew assembleUniversalFossRelease -PbetaVersionName="b${{ steps.version_info.outputs.version_name }}" --no-configuration-cache --console=plain --warning-mode summary -x lint
-
-      - name: Verify signing certificates and prepare artifacts
-        env:
+          GH_TOKEN: ${{ github.token }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
         run: |
-          bash scripts/verify-release-apks.sh "$ANDROID_KEYSTORE_PATH" \
-            app/build/outputs/apk/universalGms/release/*.apk \
-            app/build/outputs/apk/universalFoss/release/*.apk
-          mkdir -p release_assets
-          cp app/build/outputs/apk/universalGms/release/*.apk release_assets/tinium-gms.apk
-          cp app/build/outputs/apk/universalFoss/release/*.apk release_assets/tinium-foss.apk
+          python3 scripts/manage_releases.py prepare --plan candidate-plan.json \
+            --gms app/build/outputs/apk/universalGms/release/app-universal-gms-release.apk \
+            --foss app/build/outputs/apk/universalFoss/release/app-universal-foss-release.apk \
+            --directory release_assets
 
-      - name: Generate changelog.json
-        env:
-          VERSION_CODE: ${{ steps.version_info.outputs.version_code }}
-          VERSION_NAME: ${{ steps.version_info.outputs.version_name }}
-        shell: python
-        run: |
-          import os, json
-          version_code = os.environ.get('VERSION_CODE')
-          version_name = os.environ.get('VERSION_NAME')
-          changelog_file = f"Changelog/Betamd/{version_code}.md"
-          
-          features = []
-          fixes = []
-          description = None
-          image_url = "https://raw.githubusercontent.com/vivizzz007/vivi-music/main/assets/banner.png"
-          for ext in ["png", "jpg"]:
-              found = False
-              for prefix in ["v", ""]:
-                  potential_file = f"NEW-UI/update/{prefix}{version_name}.{ext}"
-                  if os.path.exists(potential_file):
-                      image_url = f"https://raw.githubusercontent.com/vivizzz007/vivi-music/main/NEW-UI/update/{prefix}{version_name}.{ext}"
-                      found = True
-                      break
-              if found:
-                  break
-          
-          if os.path.exists(changelog_file):
-              with open(changelog_file, 'r', encoding='utf-8') as f:
-                  for line in f:
-                      line_str = line.strip()
-                      if not line_str:
-                          continue
-                      if line_str.lower().startswith("description::"):
-                          description = line_str[len("description::"):].strip()
-                      elif line_str.lower().startswith("image::"):
-                          image_url = line_str[len("image::"):].strip()
-                      else:
-                          clean_line = line_str.lstrip("*-• ").strip()
-                          if "fix" in clean_line.lower() or "resolve" in clean_line.lower():
-                              fixes.append(clean_line)
-                          else:
-                              features.append(clean_line)
-          else:
-              features.append("Bug fixes and performance improvements.")
-              
-          if not description:
-              summary_items = []
-              for feat in features[:3]:
-                  val = feat
-                  for prefix in ["added new ", "added a ", "added ", "updated new ", "updated ", "new "]:
-                      if val.lower().startswith(prefix):
-                          val = val[len(prefix):]
-                          break
-                  if val:
-                      val = val[0].lower() + val[1:]
-                  summary_items.append(val)
-              
-              if summary_items:
-                  desc_text = "brings " + ", ".join(summary_items)
-                  if len(features) > 3:
-                      desc_text += ", and other improvements."
-                  else:
-                      desc_text += "."
-                  if fixes:
-                      desc_text += " It also includes several bug fixes."
-                  description = f"VIVI MUSIC v{version_name} {desc_text}"
-              else:
-                  description = f"VIVI MUSIC v{version_name} brings new updates, features, and bug fixes."
-                  
-          changelog_sections = []
-          if features:
-              changelog_sections.append({
-                  "title": "What's New",
-                  "items": features
-              })
-          if fixes:
-              changelog_sections.append({
-                  "title": "Fixes & Improvements",
-                  "items": fixes
-              })
-              
-          changelog_sections.append({
-              "title": "Support",
-              "items": [
-                  "Support development on Ko-fi: https://ko-fi.com/vividhpashokan",
-                  "Support via UPI: vividhpashokan@axl",
-                  "Support via PayPal: https://www.paypal.me/vividhpashokan"
-              ]
-          })
-              
-          data = {
-              "version": version_name,
-              "description": description,
-              "image": image_url,
-              "changelog": changelog_sections
-          }
-          
-          with open("release_assets/changelog.json", "w", encoding="utf-8") as f:
-              json.dump(data, f, indent=2)
-
-      - name: Upload signed APKs and changelog (no public release)
+      - name: Upload immutable candidate APKs and release metadata for testing
         uses: actions/upload-artifact@v4
         with:
-          name: tinium-beta-${{ steps.version_info.outputs.version_name }}
+          name: ${{ steps.prepare.outputs.artifact_name }}
           path: release_assets/
           if-no-files-found: error
           retention-days: 30

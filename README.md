@@ -4,6 +4,7 @@
   <p>A personal Android music app fork of <a href="https://github.com/vivizzz007/vivi-music">Tinium</a>.</p>
   <p><a href="https://github.com/yren411/vivi-music-personal/actions">APK build workflows</a></p>
   <p><a href="docs/APK_SIGNING.md">Windows 11 APK signing setup guide</a></p>
+  <p><a href="docs/RELEASING.md">Build, test, and publish Tinium beta and stable releases</a></p>
 </div>
 
 <h2>🎵 About Tinium</h2>

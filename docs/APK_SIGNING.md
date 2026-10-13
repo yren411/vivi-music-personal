@@ -1,8 +1,9 @@
 # Tinium APK signing setup (Windows 11)
 
 This implements persistent development signing and permanent beta/production signing.
-It does **not** implement an updater or publish GitHub Releases. Review and merge the
-signing pull request before running these workflows on `main`.
+For coordinated versions and separate manual GitHub publication, follow
+[RELEASING.md](RELEASING.md). This guide focuses on keys; no in-app updater changes
+are included. Review and merge the relevant pull requests before running on `main`.
 
 ## What changed and why
 
@@ -16,8 +17,9 @@ signing pull request before running these workflows on `main`.
 - **Beta Release Build** and **Production Release Build** are manual, `main`-only
   workflows. Both restore the same release secret outside the checkout, sign with
   Gradle, verify each APK against that keystore's certificate, and upload
-  Actions artifacts and the existing changelog. No release tags or public GitHub
-  Releases are created. This repository is public: signed APK artifacts can be downloaded by other logged-in GitHub users; signing keystores are never uploaded.
+  Actions artifacts, `release.json`, and reviewed Markdown notes. Builds reserve
+  internal version tags but do not create public GitHub Releases; the separate
+  **Publish Tested Tinium Release** workflow requires explicit manual authorization. This repository is public: signed APK artifacts can be downloaded by other logged-in GitHub users; signing keystores are never uploaded.
 - Gradle never falls back to debug signing for a release. Missing release
   credentials fail packaging clearly, while debug builds and IDE sync still work.
 - The legacy nightly and Telegram jobs are explicitly paused. They check out the
@@ -194,14 +196,16 @@ After adding all four `ANDROID_*` release secrets:
 1. Open **Actions → Beta Release Build → Run workflow**, select `main`, and run it.
 2. Repeat with **Production Release Build**.
 3. Both builds produce universal GMS and FOSS APKs in Actions artifacts, with the
-   existing changelog JSON. The signature-check step must succeed for both APKs.
+   `release.json` metadata and reviewed release notes. The signature-check step must succeed for both APKs.
 4. Compare the logged SHA256 fingerprints with your local release certificate:
    beta, production, GMS, and FOSS must all match. They must differ from debug.
-5. Download artifacts and test privately. These workflows have `contents: read`
-   permission and contain no public-release publishing step.
+5. Download artifacts and test privately. Their APK build jobs have `contents: read`
+   permission and contain no public-release publishing step; the allocation job
+   needs write access for internal version reservations.
 
-The current beta name remains `b6.0.8-r<workflow run number>`; production remains
-`6.0.8`. No release key has been generated in Codex Cloud, and no build using your
+Names are supplied when building: for example `6.0.8-beta.1` for beta and
+`6.0.8` for stable. Their coordinated codes are allocated automatically; see
+[RELEASING.md](RELEASING.md). No release key has been generated in Codex Cloud, and no build using your
 permanent release key can be verified until you supply those secrets.
 
 ## 8. Verify APK signatures on Windows
@@ -244,13 +248,12 @@ beta, GMS, FOSS, or ABI application-ID suffix. Namespace and source packages rem
 Export/backup your app data before uninstalling. A new persistent debug key cannot
 update an old APK signed by an unrelated temporary debug key.
 
-The current `versionCode` is **77** for all these variants. Beta's changing
-`versionName` does **not** increase the version code. Android normally permits
-same-code reinstalls with the same certificate, but use strictly increasing
-version codes for future distributed updates; some installers/distribution
-channels require an increase. Installing a lower code is a downgrade and normally
-fails. This change deliberately leaves versioning unchanged. A beta with a higher
-code will prevent returning to an older production code without uninstalling.
+Development builds retain **77**. Release builds use one coordinated, automatically
+reserved code sequence above 77 for beta and stable; see [RELEASING.md](RELEASING.md).
+Both variants of a release share its code. A newer beta cannot normally be replaced
+by a lower-code stable APK; wait for a stable with a sufficiently high code. Version
+names do not override Android's versionCode protections. Never regenerate keys or
+use downgrade flags to bypass this requirement.
 
 For a practical test, install the first persistent-debug APK, add a playlist or
 other harmless local state, run another development build using the same key,
