@@ -15,9 +15,9 @@ signing pull request before running these workflows on `main`.
   are for CI inspection, not for installing successive development updates.
 - **Beta Release Build** and **Production Release Build** are manual, `main`-only
   workflows. Both restore the same release secret outside the checkout, sign with
-  Gradle, verify each APK against that keystore's certificate, and upload private
+  Gradle, verify each APK against that keystore's certificate, and upload
   Actions artifacts and the existing changelog. No release tags or public GitHub
-  Releases are created. Artifacts remain accessible according to repository access.
+  Releases are created. This repository is public: signed APK artifacts can be downloaded by other logged-in GitHub users; signing keystores are never uploaded.
 - Gradle never falls back to debug signing for a release. Missing release
   credentials fail packaging clearly, while debug builds and IDE sync still work.
 - The legacy nightly and Telegram jobs are explicitly paused. They check out the
