@@ -1,4 +1,4 @@
-name: CI & Debug Build
+name: CI & ARM64 GMS Validation
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ on:
 
 jobs:
   build_debug:
-    name: Build Universal GMS Debug
+    name: Build ARM64 GMS Debug
     runs-on: ubuntu-latest
     if: github.actor != 'dependabot[bot]'
     steps:
@@ -47,7 +47,7 @@ jobs:
             -validity 10000 \
             -dname "CN=Android Debug,O=Android,C=US"
 
-      - name: Build Debug APK
+      - name: Build ARM64 GMS Debug APK
         env:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
@@ -59,5 +59,5 @@ jobs:
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-universal-gms-debug
-          path: app/build/outputs/apk/universalGms/debug/*.apk
+          name: app-arm64-gms-debug-validation
+          path: app/build/outputs/apk/arm64Gms/debug/*.apk
