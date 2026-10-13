@@ -54,7 +54,7 @@ jobs:
           VIVI_GITHUB_CLIENT_ID: ${{ secrets.VIVI_GITHUB_CLIENT_ID }}
           VIVI_GITHUB_CLIENT_SECRET: ${{ secrets.VIVI_GITHUB_CLIENT_SECRET }}
         run: |
-          ./gradlew assembleUniversalGmsDebug --no-configuration-cache --console=plain --warning-mode summary
+          ./gradlew :app:assembleArm64GmsDebug :app:lintArm64GmsDebug --no-configuration-cache --console=plain --warning-mode summary
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
