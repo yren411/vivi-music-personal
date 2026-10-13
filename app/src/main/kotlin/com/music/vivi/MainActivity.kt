@@ -566,11 +566,11 @@ class MainActivity : ComponentActivity() {
         ) {
             if (lastSeenStarPromptVersion != currentVersion && !hasStarredRepo && !isStarred) {
                 ActionPromptDialog(
-                    title = "Support ViviMusic \u2B50",
+                    title = "Support Tinium \u2B50",
                     onDismiss = { setLastSeenStarPromptVersion(currentVersion) },
                     onConfirm = {
                         setLastSeenStarPromptVersion(currentVersion)
-                        uriHandler.openUri("https://github.com/vivizzz007/vivi-music")
+                        uriHandler.openUri("https://github.com/yren411/vivi-music-personal")
                     },
                     onCancel = { setLastSeenStarPromptVersion(currentVersion) },
                     content = {
@@ -581,7 +581,7 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
                             Text(
-                                text = "If you enjoy using ViviMusic, would you consider starring our repository on GitHub?",
+                                text = "If you enjoy using Tinium, would you consider starring our repository on GitHub?",
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -621,6 +621,11 @@ class MainActivity : ComponentActivity() {
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center
+                            )
+                            Text(
+                                text = stringResource(R.string.upstream_support),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -942,7 +947,7 @@ class MainActivity : ComponentActivity() {
 
                 val currentTitleRes = remember(navBackStackEntry) {
                     when (navBackStackEntry?.destination?.route) {
-                        Screens.Home.route -> R.string.music
+                        Screens.Home.route -> R.string.app_name
                         Screens.Search.route -> R.string.search
                         Screens.Library.route -> R.string.filter_library
                         Screens.ListenTogether.route -> R.string.together
@@ -984,12 +989,11 @@ class MainActivity : ComponentActivity() {
                                         navigationIcon = {
                                             Box(modifier = Modifier.padding(start = 12.dp)) {
                                                 Image(
-                                                    painter = painterResource(R.drawable.icon),
+                                                    painter = painterResource(R.drawable.tinium_logo),
                                                     contentDescription = null,
                                                     modifier = Modifier
-                                                        .size(32.dp)
-                                                        .clip(CircleShape),
-                                                    contentScale = ContentScale.Crop
+                                                        .size(32.dp),
+                                                    contentScale = ContentScale.Fit
                                                 )
                                             }
                                         },
@@ -1000,6 +1004,8 @@ class MainActivity : ComponentActivity() {
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 24.sp
                                                 ),
+                                                maxLines = 1,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                             )
                                         },
                                         actions = {

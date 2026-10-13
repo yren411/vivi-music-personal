@@ -121,9 +121,9 @@ fun AboutScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
         AppVersionTile(
-            appName = stringResource(R.string.vivi_music_title),
+            appName = stringResource(R.string.app_name),
             description = "v${BuildConfig.VERSION_NAME} • ${stringResource(if (BuildConfig.IS_NIGHTLY) R.string.build_nightly else R.string.build_stable)}",
-            onGithubClick = { uriHandler.safeOpenUri(context, "https://github.com/vivizzz007/vivi-music") }
+            onGithubClick = { uriHandler.safeOpenUri(context, "https://github.com/yren411/vivi-music-personal") }
         )
         
         Spacer(modifier = Modifier.height(10.dp))
@@ -132,8 +132,13 @@ fun AboutScreen(
         ExpressiveSettingGroup(
             items = listOf(
                 Material3SettingsItem(
-                    title = { Text(stringResource(R.string.app_developer), color = MaterialTheme.colorScheme.primary) },
-                    description = { Text(stringResource(R.string.developer_name)) },
+                    title = { Text(stringResource(R.string.upstream_developer), color = MaterialTheme.colorScheme.primary) },
+                    description = {
+                        Column {
+                            Text(stringResource(R.string.developer_name))
+                            Text(stringResource(R.string.upstream_feature_credit), style = MaterialTheme.typography.bodySmall)
+                        }
+                    },
                     leadingContent = {
                         Image(
                             painter = painterResource(R.drawable.dev),
@@ -150,7 +155,7 @@ fun AboutScreen(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.favorite),
                     title = { Text(stringResource(R.string.support)) },
-                    description = { Text(stringResource(R.string.support_desc)) },
+                    description = { Text(stringResource(R.string.upstream_support)) },
                     onClick = { showSupportDialog = true }
                 ),
                 Material3SettingsItem(
@@ -174,18 +179,18 @@ fun AboutScreen(
                             Text("...")
                         }
                     },
-                    onClick = { uriHandler.safeOpenUri(context, "https://github.com/vivizzz007/vivi-music") },
+                    onClick = { uriHandler.safeOpenUri(context, "https://github.com/yren411/vivi-music-personal") },
                     isExternalLink = true
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.web_link),
-                    title = { Text(stringResource(R.string.website)) },
+                    title = { Text(stringResource(R.string.upstream_link_label, stringResource(R.string.website))) },
                     onClick = { uriHandler.safeOpenUri(context, "https://vivimusic.mkmdevilmi.workers.dev/") },
                     isExternalLink = true
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.telegram),
-                    title = { Text(stringResource(R.string.telegram_channel)) },
+                    title = { Text(stringResource(R.string.upstream_link_label, stringResource(R.string.telegram_channel))) },
                     onClick = { uriHandler.safeOpenUri(context, "https://t.me/vivimusicapp") },
                     isExternalLink = true
                 )
@@ -280,7 +285,6 @@ private fun AppVersionTile(
                     contentDescription = null,
                     modifier = Modifier
                         .size(40.dp)
-                        .clip(CircleShape)
                 )
             },
             colors = ListItemDefaults.colors(
@@ -328,7 +332,7 @@ private fun SupportDialog(
 ) {
     DialogBasic(
         show = true,
-        title = "Donate",
+        title = stringResource(R.string.upstream_support),
         dismissText = stringResource(android.R.string.cancel),
         showOnlyDismissAction = true,
         onDismiss = onDismiss

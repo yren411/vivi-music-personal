@@ -404,7 +404,7 @@ fun UpdateScreen(navController: NavHostController) {
                             else -> "V${rawVersion.uppercase()}"
                         }
                         Text(
-                            text = "VIVI MUSIC $displayVer",
+                            text = stringResource(R.string.upstream_vivi_version, displayVer),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground,
@@ -500,7 +500,7 @@ fun UpdateScreen(navController: NavHostController) {
                                             else -> "V${rawVersion.uppercase()}"
                                         }
                                         Text(
-                                            text = "VIVI MUSIC VERSION $displayVer",
+                                            text = "${stringResource(R.string.app_name)} VERSION $displayVer",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onBackground

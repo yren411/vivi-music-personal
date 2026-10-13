@@ -661,7 +661,7 @@ fun DiscordSettings(
                         Material3SettingsItem(
                             title = { Text(stringResource(R.string.discord_button_2)) },
                             description = {
-                                Text(button2Text.ifEmpty { "Visit vivimusic" })
+                                Text(button2Text.ifEmpty { "Visit Tinium" })
                             },
                             trailingContent = {
                                 Switch(
@@ -901,16 +901,16 @@ fun RichPresence(
             if (button2Visible) {
                 val resolvedButton2 = if (song != null) {
                     DiscordRPC.resolveVariables(
-                        button2Text.ifEmpty { "Visit vivimusic" }, song
+                        button2Text.ifEmpty { "Visit Tinium" }, song
                     )
                 } else {
-                    button2Text.ifEmpty { "Visit vivimusic" }
+                    button2Text.ifEmpty { "Visit Tinium" }
                 }
                 OutlinedButton(
                     onClick = {
                         val intent = Intent(
                             Intent.ACTION_VIEW,
-                            "https://github.com/vivimusicGroup/vivimusic".toUri()
+                            "https://github.com/yren411/vivi-music-personal".toUri()
                         )
                         context.startActivity(intent)
                     },

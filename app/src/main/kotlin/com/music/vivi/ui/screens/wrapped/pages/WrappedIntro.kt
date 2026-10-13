@@ -111,7 +111,6 @@ fun WrappedIntro(onNext: () -> Unit) {
                     contentDescription = stringResource(id = R.string.wrapped_logo_content_description),
                     modifier = Modifier
                         .size(100.dp)
-                        .clip(CircleShape)
                 )
             }
 

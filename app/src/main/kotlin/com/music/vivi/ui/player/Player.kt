@@ -1356,12 +1356,11 @@ fun BottomSheetPlayer(
                                         .background(MaterialTheme.colorScheme.surfaceVariant),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
+                                    Image(
                                         painter = painterResource(R.drawable.vivi_music_small_icon),
                                         contentDescription = null,
                                         modifier = Modifier
                                             .size(32.dp),
-                                        tint = textButtonColor.copy(alpha = 0.7f)
                                     )
                                 }
                             } else {

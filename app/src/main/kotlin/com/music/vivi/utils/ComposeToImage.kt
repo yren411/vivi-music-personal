@@ -12,8 +12,6 @@ import android.graphics.Canvas
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
@@ -254,12 +252,7 @@ object ComposeToImage {
         val rawLogo = context.getDrawable(R.drawable.vivi_music_small_icon)?.toBitmap()
         rawLogo?.let {
             val logoPaint = Paint().apply {
-                // If background is gradient/blur, tint might be tricky. 
-                // Using bgColor for tint is safe for Solid, but for Gradient/Blur 
-                // we might want a color that contrasts with secondaryTxtColor.
-                // Let's use the 'bgColor' passed in which is likely the dominant color or selected color.
-                // Or for simplicity, use a generic dark/light depending on theme.
-                colorFilter = PorterDuffColorFilter(bgColor, PorterDuff.Mode.SRC_IN)
+                // Preserve the official logo colors in exported lyric cards.
                 isAntiAlias = true
             }
             

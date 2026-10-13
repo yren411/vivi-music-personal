@@ -1,5 +1,7 @@
 package com.music.vivi.ui.player
 
+import androidx.compose.foundation.Image
+
 import android.content.BroadcastReceiver
 import android.content.Intent
 import android.content.IntentFilter
@@ -426,11 +428,10 @@ fun PlayerV2(
                                             modifier = Modifier.fillMaxSize(),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            Icon(
+                                            Image(
                                                 painter = painterResource(R.drawable.vivi_music_small_icon),
                                                 contentDescription = null,
                                                 modifier = Modifier.size(72.dp),
-                                                tint = adaptivePrimary.copy(alpha = 0.5f)
                                             )
                                         }
                                     } else {
@@ -600,11 +601,10 @@ fun PlayerV2(
                                                 modifier = Modifier.fillMaxSize(),
                                                 contentAlignment = Alignment.Center
                                             ) {
-                                                Icon(
+                                                Image(
                                                     painter = painterResource(R.drawable.vivi_music_small_icon),
                                                     contentDescription = null,
                                                     modifier = Modifier.size(32.dp),
-                                                    tint = adaptivePrimary.copy(alpha = 0.5f)
                                                 )
                                             }
                                         } else {

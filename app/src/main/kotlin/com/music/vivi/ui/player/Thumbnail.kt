@@ -5,6 +5,8 @@
 
 package com.music.vivi.ui.player
 
+import androidx.compose.foundation.Image
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -904,10 +906,9 @@ private fun HiddenThumbnailPlaceholder(
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
+        Image(
             painter = painterResource(R.drawable.vivi_music_small_icon),
             contentDescription = stringResource(R.string.hide_player_thumbnail),
-            tint = textBackgroundColor.copy(alpha = 0.7f),
             modifier = Modifier.size(120.dp)
         )
     }
