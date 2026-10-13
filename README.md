@@ -1,7 +1,7 @@
 <div align="center">
   <img src="branding/Tinium%20Logo.png" width="160" alt="Tinium logo"/>
   <h1>Tinium</h1>
-  <p>A personal Android music app fork of <a href="https://github.com/vivizzz007/vivi-music">Tinium</a>.</p>
+  <p>A personal Android music app fork of <a href="https://github.com/vivizzz007/vivi-music">Vivi Music</a>.</p>
   <p><a href="https://github.com/yren411/vivi-music-personal/actions">APK build workflows</a></p>
   <p><a href="docs/APK_SIGNING.md">Windows 11 APK signing setup guide</a></p>
 </div>
