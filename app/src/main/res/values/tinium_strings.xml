@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="build_beta">BETA</string>
+    <string name="build_development">DEVELOPMENT</string>
     <string name="upstream_developer">Upstream developer</string>
     <string name="upstream_developer_credit">Based on VIVI Music by Vividh P Ashokan</string>
     <string name="upstream_feature_credit">JioSaavn streaming and lyrics provider logic from VIVI Music.</string>

@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.music.vivi.BuildConfig
+import com.music.vivi.vivimusic.updater.installedVersion
 import com.music.vivi.LocalPlayerAwareWindowInsets
 import com.music.vivi.ui.component.TiniumBrandLogo
 import com.music.vivi.R
@@ -90,6 +91,7 @@ fun AboutScreen(
     }
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val installed = remember(context) { installedVersion(context) }
     var showSupportDialog by remember { mutableStateOf(false) }
     val unknownString = stringResource(R.string.unknown)
 
@@ -123,7 +125,7 @@ fun AboutScreen(
         Spacer(modifier = Modifier.height(16.dp))
         AppVersionTile(
             appName = stringResource(R.string.app_name),
-            description = "v${BuildConfig.VERSION_NAME} • ${stringResource(if (BuildConfig.IS_NIGHTLY) R.string.build_nightly else R.string.build_stable)}",
+            description = "v${installed.name} • ${stringResource(aboutBuildChannelLabel(installed.name, BuildConfig.IS_NIGHTLY, BuildConfig.DEBUG))}",
             onGithubClick = { uriHandler.safeOpenUri(context, "https://github.com/yren411/vivi-music-personal") }
         )
         
@@ -228,7 +230,7 @@ fun AboutScreen(
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.info),
                     title = { Text(stringResource(R.string.version_code)) },
-                    trailingContent = { Text(BuildConfig.VERSION_CODE.toString()) }
+                    trailingContent = { Text(installed.code.toString()) }
                 ),
                 Material3SettingsItem(
                     icon = painterResource(R.drawable.license_vivi),
