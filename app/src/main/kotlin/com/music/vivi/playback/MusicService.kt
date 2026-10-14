@@ -327,7 +327,7 @@ class MusicService :
                 autoMixProcessors.remove(pending)
                 pending.stop()
                 pending.clearMediaItems()
-                pending.release()
+                releaseAudioOutput(pending)
             }
             secondaryPlayer = null
         }
@@ -427,7 +427,22 @@ class MusicService :
 
     private val instantSilenceSkipEnabled = MutableStateFlow(false)
 
-    private var isAudioEffectSessionOpened = false
+    private var outputSequence = 0
+    private val outputIdentities = mutableMapOf<ExoPlayer, String>()
+    private val outputListeners = mutableMapOf<ExoPlayer, Player.Listener>()
+    private val effectSessions = com.music.vivi.playback.effects.AudioEffectSessions { event ->
+        Timber.tag("TiniumAudioSession").i("event=%s deck=%s session=%d role=%s", event.kind, event.deck, event.sessionId, event.role)
+        if (event.kind == com.music.vivi.playback.effects.AudioEffectSessions.Kind.OPEN ||
+            event.kind == com.music.vivi.playback.effects.AudioEffectSessions.Kind.CLOSE) {
+            sendBroadcast(Intent(if (event.kind == com.music.vivi.playback.effects.AudioEffectSessions.Kind.OPEN)
+                AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION else AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
+                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, event.sessionId)
+                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
+                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
+            })
+        }
+    }
+    private var loudnessEnhancerSessionId = 0
     private var loudnessEnhancer: LoudnessEnhancer? = null
 
     private var discordRpc: DiscordRPC? = null
@@ -498,8 +513,12 @@ class MusicService :
     }
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
+        override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            Timber.tag("TiniumAudioSession").i("event=route-removed types=%s", removedDevices?.map { it.type })
+        }
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
             super.onAudioDevicesAdded(addedDevices)
+            Timber.tag("TiniumAudioSession").i("event=route-added types=%s", addedDevices?.map { it.type })
             val hasBluetooth = addedDevices?.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO
@@ -1046,7 +1065,7 @@ class MusicService :
                         playerEqProcessors.remove(pending)?.let(equalizerService::removeAudioProcessor)
                         playerSilenceProcessors.remove(pending)
                         autoMixProcessors.remove(pending)
-                        pending.release()
+                        releaseAudioOutput(pending)
                     }
                     secondaryPlayer = null
                     _playerFlow.value = player // canceling a legacy standby must restore the actual UI player
@@ -1229,6 +1248,7 @@ class MusicService :
 
                 // Cleanup handled manually in onDestroy/release
             }
+        observeAudioOutput(player, publish)
         if (publish) _playerFlow.value = player
         return player
     }
@@ -2214,10 +2234,12 @@ class MusicService :
             return
         }
 
-        // Create or recreate enhancer if needed
+        // An effect belongs to its actual output, not whichever player is currently primary.
+        if (loudnessEnhancer != null && loudnessEnhancerSessionId != audioSessionId) releaseLoudnessEnhancer()
         if (loudnessEnhancer == null) {
             try {
                 loudnessEnhancer = LoudnessEnhancer(audioSessionId)
+                loudnessEnhancerSessionId = audioSessionId
                 Timber.tag(TAG).d("LoudnessEnhancer created for sessionId=$audioSessionId")
             } catch (e: Exception) {
                 reportException(e)
@@ -2248,6 +2270,8 @@ class MusicService :
                     val loudness = format?.loudnessDb ?: format?.perceptualLoudnessDb
 
                     withContext(Dispatchers.Main) {
+                        if (autoMixRequested || player.audioSessionId != audioSessionId ||
+                            player.currentMediaItem?.mediaId != currentMediaId) return@withContext
                         if (loudness != null) {
                             val loudnessDb = loudness.toFloat()
                             val targetGain = (-loudnessDb * 100).toInt()
@@ -2290,33 +2314,44 @@ class MusicService :
             reportException(e)
             Timber.tag(TAG).e(e, "Error releasing LoudnessEnhancer: ${e.message}")
         } finally {
+            loudnessEnhancerSessionId = 0
             loudnessEnhancer = null
         }
     }
 
-    private fun openAudioEffectSession() {
-        if (isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = true
-        setupLoudnessEnhancer()
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-                putExtra(AudioEffect.EXTRA_CONTENT_TYPE, AudioEffect.CONTENT_TYPE_MUSIC)
-            },
-        )
+    private fun observeAudioOutput(source: ExoPlayer, primary: Boolean) {
+        val identity = "deck-${++outputSequence}"
+        outputIdentities[source] = identity
+        effectSessions.register(identity, if (primary) com.music.vivi.playback.effects.AudioEffectSessions.Role.PRIMARY
+            else com.music.vivi.playback.effects.AudioEffectSessions.Role.PREPARED)
+        val listener = object : Player.Listener {
+            private var knownSession = 0
+            private fun update() {
+                val prepared = source.playerError == null && source.playbackState in listOf(Player.STATE_BUFFERING, Player.STATE_READY)
+                if (!prepared) knownSession = 0
+                else if (source.playbackState == Player.STATE_READY && knownSession <= 0) knownSession = source.audioSessionId
+                effectSessions.update(identity, knownSession, prepared)
+            }
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                knownSession = audioSessionId
+                update()
+                if (playerInitialized.value && source === player) setupLoudnessEnhancer()
+            }
+            override fun onEvents(player: Player, events: Player.Events) { update() }
+        }
+        outputListeners[source] = listener
+        source.addListener(listener)
     }
 
-    private fun closeAudioEffectSession() {
-        if (!isAudioEffectSessionOpened) return
-        isAudioEffectSessionOpened = false
-        releaseLoudnessEnhancer()
-        sendBroadcast(
-            Intent(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION).apply {
-                putExtra(AudioEffect.EXTRA_AUDIO_SESSION, player.audioSessionId)
-                putExtra(AudioEffect.EXTRA_PACKAGE_NAME, packageName)
-            },
-        )
+    private fun promoteAudioOutput(source: ExoPlayer) {
+        outputIdentities[source]?.let(effectSessions::promote)
+        setupLoudnessEnhancer()
+    }
+
+    private fun releaseAudioOutput(source: ExoPlayer) {
+        outputListeners.remove(source)?.let(source::removeListener)
+        val identity = outputIdentities.remove(source)
+        try { source.release() } finally { identity?.let(effectSessions::release) }
     }
 
     private var previousMediaItemIndex = C.INDEX_UNSET
@@ -2551,16 +2586,10 @@ class MusicService :
             )
         ) {
             scheduleCrossfade()
-            val isBufferingOrReady =
-                player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY
-            if (isBufferingOrReady && player.playWhenReady) {
-                val focusGranted = requestAudioFocus()
-                if (focusGranted) {
-                    openAudioEffectSession()
-                }
-            } else {
-                closeAudioEffectSession()
+            if (player.playWhenReady && player.playbackState in listOf(Player.STATE_BUFFERING, Player.STATE_READY)) {
+                requestAudioFocus()
             }
+
         }
         if (events.containsAny(EVENT_TIMELINE_CHANGED, EVENT_POSITION_DISCONTINUITY)) {
             currentMediaMetadata.value = player.currentMetadata
@@ -3642,7 +3671,7 @@ class MusicService :
             playerEqProcessors.remove(pending)?.let(equalizerService::removeAudioProcessor)
             playerSilenceProcessors.remove(pending)
             autoMixProcessors.remove(pending)
-            pending.release()
+            releaseAudioOutput(pending)
         }
         secondaryPlayer = null
 
@@ -3670,7 +3699,8 @@ class MusicService :
         playerEqProcessors.remove(player)?.let(equalizerService::removeAudioProcessor)
         autoMixProcessors.remove(player)
         autoMixDecks.clear()
-        player.release()
+        releaseAudioOutput(player)
+        effectSessions.closeAll()
         discordUpdateJob?.cancel()
         super.onDestroy()
     }
@@ -3904,6 +3934,7 @@ class MusicService :
             player.removeListener(this@MusicService)
             player.removeListener(sleepTimer)
             player = next
+            promoteAudioOutput(next)
             player.addListener(this@MusicService)
             player.addListener(sleepTimer)
             sleepTimer.player = player
@@ -3962,7 +3993,7 @@ class MusicService :
             playerEqProcessors.remove(source)?.let(equalizerService::removeAudioProcessor)
             playerSilenceProcessors.remove(source)
             autoMixProcessors.remove(source)
-            source.stop(); source.clearMediaItems(); source.release()
+            source.stop(); source.clearMediaItems(); releaseAudioOutput(source)
         }
     }
 
@@ -4017,7 +4048,7 @@ class MusicService :
         }
         if (targetIndex == C.INDEX_UNSET) return
 
-        secondaryPlayer = createExoPlayer()
+        secondaryPlayer = createExoPlayer(publish = false, autoMixDeck = true)
         val secPlayer = secondaryPlayer!!
         secPlayer.addListener(secondaryPlayerListener)
 
@@ -4160,7 +4191,7 @@ class MusicService :
         val savedRepeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
         val savedShuffleEnabled = runBlocking { dataStore.get(ShuffleModeKey, false) }
 
-        secondaryPlayer = createExoPlayer()
+        secondaryPlayer = createExoPlayer(publish = false, autoMixDeck = true)
         val secPlayer = secondaryPlayer!!
         secPlayer.addListener(secondaryPlayerListener)
 
@@ -4243,7 +4274,7 @@ class MusicService :
         val preservedShuffleOrder =
             if (carryingShuffle && sameQueue) getCurrentShuffleOrderIndices(player) else null
 
-        secondaryPlayer = createExoPlayer()
+        secondaryPlayer = createExoPlayer(publish = false, autoMixDeck = true)
         val secPlayer = secondaryPlayer!!
         secPlayer.addListener(secondaryPlayerListener)
 
@@ -4309,7 +4340,7 @@ class MusicService :
 
         val savedRepeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
 
-        secondaryPlayer = createExoPlayer()
+        secondaryPlayer = createExoPlayer(publish = false, autoMixDeck = true)
         val secPlayer = secondaryPlayer!!
         secPlayer.addListener(secondaryPlayerListener)
 
@@ -4339,6 +4370,8 @@ class MusicService :
 
         fadingPlayer = currentPlayer
         player = nextPlayer
+        currentPlayer.setPauseAtEndOfMediaItems(true)
+        promoteAudioOutput(nextPlayer)
         _playerFlow.value = player
         secondaryPlayer = null
 
@@ -4351,9 +4384,9 @@ class MusicService :
                 if (isCrossfading && fadingPlayer != null) {
                     if (isPlaying) {
                         fadingPlayer?.play()
-                    } else {
+                    } else if (!nextPlayer.playWhenReady) {
                         fadingPlayer?.pause()
-                    }
+                    } // buffering is not a user pause: keep the outgoing audio alive
                 } else {
                     player.removeListener(this)
                 }
@@ -4378,11 +4411,15 @@ class MusicService :
             val stepTime = duration / steps
             val startVolume = try { fadingPlayer?.volume ?: 1f } catch(e:Exception) { 1f }
 
-            for (i in 0..steps) {
+            val readyDeadline = android.os.SystemClock.elapsedRealtime() + 10_000
+            fade@ for (i in 0..steps) {
                 if (!isActive) break
                 // Pause volume ramp if player is paused
                 while (!player.isPlaying && isActive) {
-                    delay(100)
+                    if (player !== nextPlayer || player.playerError != null ||
+                        player.playbackState in listOf(Player.STATE_IDLE, Player.STATE_ENDED) ||
+                        (player.playWhenReady && android.os.SystemClock.elapsedRealtime() > readyDeadline)) break@fade
+                    delay(50)
                 }
 
                 val progress = i / steps.toFloat()
@@ -4414,7 +4451,7 @@ class MusicService :
         }
         fadingPlayer?.stop()
         fadingPlayer?.clearMediaItems()
-        fadingPlayer?.release()
+        fadingPlayer?.let(::releaseAudioOutput)
         fadingPlayer = null
         isCrossfading = false
         sleepTimer.notifySongTransition()
