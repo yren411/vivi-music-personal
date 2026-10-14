@@ -251,3 +251,7 @@ Exact repository paths (unchanged signing/workflows/dependencies are omitted):
 - `docs/AUTOMIX_QUALITY_AND_EXTERNAL_EQ.md`
 - `docs/AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md`
 - `release-notes/unreleased.md`
+
+The subsequent [active DJ mixing and log export](AUTOMIX_DJ_MIXING_AND_LOG_EXPORT.md)
+change adds paired active-material scoring, longer bounded refinement, recovery tiers
+and Downloads export. Its bounds/tier rules supersede the earlier quiet-only policy.
