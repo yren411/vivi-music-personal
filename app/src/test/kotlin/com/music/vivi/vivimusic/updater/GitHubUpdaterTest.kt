@@ -261,4 +261,13 @@ class GitHubUpdaterTest {
         assertEquals(0L, store.lastSuccess)
     }
 
+    @Test fun publisherNoteReviewFieldsRemainCompatibleWithUpdaterSchema() {
+        val f = fixture()
+        val notes = f.metadata.getValue("notes").jsonObject
+            .change("reviewStatus", JsonPrimitive("reviewed"))
+            .change("source", JsonPrimitive("release-notes/6.0.9.md"))
+            .change("sourceSha256", JsonPrimitive("a".repeat(64)))
+        assertTrue(check(f.metadataField("notes", notes)) is UpdateStatus.Available)
+    }
+
 }

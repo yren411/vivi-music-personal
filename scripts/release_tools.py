@@ -228,8 +228,10 @@ class Registry:
         return {'artifactId': artifact['id'], 'buildRunId': run_id, 'buildAttempt': attempt,
                 'channel': channel, 'commit': run['head_sha']}
 
-    def publish(self, record, provenance, files, notes, expected_tag, certificate):
+    def publish(self, record, provenance, files, notes, expected_tag, certificate, notes_reviewed=False):
         validate_record(record)
+        require(notes_reviewed is True, 'Explicit release-notes review approval is required before publication.')
+        require('UNREVIEWED DRAFT' not in notes and 'release notes not finalized' not in notes.casefold(), 'Unreviewed/placeholder release notes cannot be published.')
         require(isinstance(certificate, str) and re.fullmatch(r'[0-9a-f]{64}', certificate) is not None, 'A validated permanent certificate fingerprint is required.')
         require(expected_tag == record['tag'], 'Typed approval tag does not match the tested candidate.')
         require(provenance['channel'] == record['channel'] and provenance['commit'] == record['commit'], 'Build provenance mismatch.')

@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 from release_tools import APP_ID, ReleaseError, require, validate_record
+from release_notes import candidate_notes_for, render_notes, validate_public_notes
 
 
 def sha256(path):
@@ -56,13 +57,10 @@ def verify_signatures(keystore, apks):
 
 
 def notes_for(version):
-    path = Path('release-notes')/(version + '.md')
-    require(path.is_file() and not path.is_symlink() and not path.parent.is_symlink(),
-            f'Add reviewed release notes at release-notes/{version}.md before starting a build.')
-    require(0 < path.stat().st_size <= 50_000, 'Release notes must be non-empty and at most 50KB.')
-    notes = path.read_text(encoding='utf-8').strip()
-    require(bool(notes) and '<!-- tinium-release:' not in notes, 'Release notes are empty or contain the reserved metadata marker.')
-    return notes
+    """Legacy reviewed-notes helper; private builds use candidate_notes_for directly."""
+    selected = candidate_notes_for(version)
+    require(selected.review_status == 'reviewed', 'Reviewed version-specific source notes are required for public release preparation.')
+    return selected.text
 
 
 def apk_filename(record, variant):
@@ -77,7 +75,7 @@ def prepare_bundle(record, provenance, keystore, gms, foss, directory, repositor
     verify_signatures(keystore, sources.values())
     identities = {variant: apk_identity(badging(path), record) for variant, path in sources.items()}
     certificate = certificate_digest(keystore)
-    notes = notes_for(record['versionName'])
+    notes = candidate_notes_for(record['versionName'])
     directory = Path(directory)
     require(not directory.exists(), 'Candidate artifact directory already exists; refusing overwrite.')
     directory.mkdir(parents=True)
@@ -89,13 +87,12 @@ def prepare_bundle(record, provenance, keystore, gms, foss, directory, repositor
         assets.append({'variant': variant, 'abi': 'universal', 'filename': filename,
             'sha256': sha256(target), 'size': target.stat().st_size, **identities[variant],
             'url': f"https://github.com/{repository}/releases/download/{record['tag']}/{filename}"})
-    heading = f"# Tinium {record['versionName']}"
-    body = notes + '\n' if notes.splitlines()[0] == heading else heading + '\n\n' + notes + '\n'
-    (directory/'release-notes.md').write_text(body, encoding='utf-8')
+    (directory/'release-notes.md').write_bytes(render_notes(record['versionName'], notes))
     manifest = {'schemaVersion': 1, 'release': record, 'repository': repository,
         'build': {k: provenance[k] for k in ('buildRunId', 'buildAttempt', 'commit', 'channel')},
         'certificateSha256': certificate, 'assets': assets,
-        'notes': {'filename': 'release-notes.md', 'sha256': sha256(directory/'release-notes.md')}}
+        'notes': {'filename': 'release-notes.md', 'sha256': sha256(directory/'release-notes.md'),
+                  'reviewStatus': notes.review_status, 'source': notes.source, 'sourceSha256': notes.source_sha256}}
     (directory/'release.json').write_text(json.dumps(manifest, indent=2, sort_keys=True)+'\n', encoding='utf-8')
     return manifest
 
@@ -132,8 +129,7 @@ def validate_bundle(directory, provenance, registry, keystore, repository):
         require(asset.get('url') == f"https://github.com/{repository}/releases/download/{record['tag']}/{filename}", 'Unexpected APK download URL.')
         apks.append(path)
     notes = manifest.get('notes', {})
-    require(isinstance(notes, dict) and set(notes) == {'filename','sha256'}, 'Unexpected release-note metadata.')
-    require(notes.get('filename') == 'release-notes.md' and notes.get('sha256') == sha256(directory/'release-notes.md'), 'Tested release notes changed.')
+    validated_notes = validate_public_notes(record, notes, (directory/'release-notes.md').read_bytes())
     verify_signatures(keystore, apks)
     files = {path: sha256(path) for path in directory.iterdir()}
-    return record, files, (directory/'release-notes.md').read_text(encoding='utf-8')
+    return record, files, validated_notes

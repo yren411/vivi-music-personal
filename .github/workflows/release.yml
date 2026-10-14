@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'New immutable candidate version (X.Y.Z); add release-notes/<version>.md first'
+        description: 'New immutable candidate version (X.Y.Z); versioned notes, unreleased draft or internal-testing fallback'
         required: true
         type: string
         default: '6.0.8'

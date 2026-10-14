@@ -16,7 +16,8 @@ private storage. Use a private repository/storage if confidential testing is nee
 Codex tasks now prepare release-note drafts for review under `release-notes/`.
 See [the release-note preparation guide](../release-notes/README.md) and
 [AGENTS.md](../AGENTS.md). Without an assigned fresh version, changes accumulate
-in `release-notes/unreleased.md`; that file is not a candidate build input.
+in `release-notes/unreleased.md`; candidate builds may use it as an explicitly
+unreviewed snapshot, while public releases still need reviewed version-specific notes.
 
 ## How automatic version numbering works
 
@@ -101,17 +102,21 @@ debug and release still normally requires uninstalling and backing up app data.
 5. Old build artifacts from before this pipeline have no reservation/manifest and
    are not eligible for the new publisher. Start a new candidate build.
 
-For future versions, add `release-notes/<versionName>.md` to `main` through a reviewed
-PR before building. GitHub's **Add file → Create new file** is sufficient. Write the
-actual changes users should know, under Tinium branding. There is no need to edit
-versionCode or place credentials in the repository. Missing notes fail before
-allocating a code.
+Private/testing candidates do not require a version-specific notes file. Builds
+select valid `release-notes/<versionName>.md`, otherwise meaningful
+`release-notes/unreleased.md`, otherwise an identified internal-testing placeholder.
+They snapshot the exact rendered notes, SHA-256, source/hash and review status
+inside the immutable artifact. Draft/placeholder artifacts are **not publishable**.
+For public release preparation, commit reviewed version-specific notes through a
+PR, build/test a fresh candidate, then explicitly confirm note review when publishing.
+See [the notes guide](../release-notes/README.md) for fallback rules and tradeoffs.
 
 ## Build and test a beta
 
 1. Open **Actions → Beta Release Build → Run workflow**.
-2. Select `main` and enter the name of the reviewed notes file without `.md`, such
-   as `6.0.8-beta.1`. Click **Run workflow**.
+2. Select `main` and enter a fresh intended versionName, such as
+   `6.0.8-beta.3`. No version-specific notes file is required for a test build.
+   Click **Run workflow**.
 3. The allocation job creates/reuses the reservation; the build job compiles the
    universal GMS and FOSS release APKs with that same reserved version.
 4. The build verifies cryptographic signatures against your configured permanent
@@ -127,7 +132,8 @@ A successful build only produces a test artifact; it does not create a public
 release. A run that failed/cancelled later in the build is not eligible to publish.
 If you must rerun, prefer GitHub's **Re-run failed jobs** on the original commit.
 Before publication, a fresh build on unchanged `main` with the same name also
-reuses its code. If `main` has changed, select a new candidate name and notes file.
+reuses its code and source notes. If `main` has changed, select a new candidate
+name; a version-specific notes file is only needed for a publishable candidate.
 
 ## Build and test stable
 
@@ -141,7 +147,9 @@ controls Android update compatibility. Check the Summary before installation.
 
 ## Publish the exact tested APKs
 
-Only do this once you have installed and tested the downloaded artifact.
+Only do this once you have installed and tested a **reviewed** candidate artifact.
+Draft/placeholder candidates cannot be promoted in place: commit reviewed
+version-specific notes and build/test a fresh version, preserving source immutability.
 
 1. Open **Actions → Publish Tested Tinium Release → Run workflow**.
 2. Select `main`.
@@ -150,13 +158,17 @@ Only do this once you have installed and tested the downloaded artifact.
    use its attempt, not the original run's artifact.
 5. Enter the exact approval tag from the Summary, e.g. `tinium-v6.0.8-beta.1` or
    `tinium-v6.0.8`. This is the explicit approval to publish that candidate.
-6. Click **Run workflow**. Do not start this action merely because a build succeeded.
+6. Read the exact artifact's `release-notes.md` and check **notes_reviewed**.
+   This defaults to false and cannot override a draft/placeholder status.
+7. Click **Run workflow**. Do not start this action merely because a build succeeded.
 
 The publisher requires a successful manually dispatched `main` build from this
 repository and the matching immutable artifact ID. It verifies that the built
 commit belongs to `main`, downloads that artifact, and rechecks file checksums,
 package identity, versions, metadata and signatures with your same release
-keystore. It **never compiles, rebuilds or re-signs an APK**.
+keystore. It also matches reviewed notes to the version-specific file at the built
+commit (including legacy reviewed artifacts) and rejects forged review flags,
+placeholders or changed notes. It **never compiles, rebuilds or re-signs an APK**.
 
 It rejects stale codes, duplicate names, mismatching artifacts and unexpected
 assets. Uploads are staged in a draft GitHub Release. Server-reported asset hashes
@@ -172,7 +184,8 @@ commit and select the new artifact, provided publication has not already been
 approved. Otherwise prepare a new higher-code candidate. A previously published
 release cannot be rebuilt under its old name.
 
-By default, the separate manual dispatch plus typed tag is the approval boundary.
+By default, separate manual dispatch, typed tag and explicit note-review
+confirmation form the approval boundary.
 You can additionally configure a protected GitHub Environment with required
 reviewers on the publishing job if you want a second-person approval; it is not
 required by this implementation.
@@ -223,7 +236,9 @@ Every official release contains a versioned `release.json` asset:
      "supportedAbis": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
      "url": "https://github.com/yren411/vivi-music-personal/releases/download/tinium-v6.0.8-beta.1/tinium-beta-6.0.8-beta.1-universal-gms.apk"}
   ],
-  "notes": {"filename": "release-notes.md", "sha256": "<notes checksum>"}
+  "notes": {"filename": "release-notes.md", "sha256": "<notes checksum>",
+    "reviewStatus": "reviewed", "source": "release-notes/6.0.8-beta.1.md",
+    "sourceSha256": "<source notes checksum>"}
 }
 ```
 

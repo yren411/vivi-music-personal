@@ -97,7 +97,7 @@ class ReleaseManagementTest(unittest.TestCase):
 
     def publish(self, record, **changes):
         provenance = dict(self.provenance(record), **changes)
-        return self.registry.publish(record, provenance, self.files, '# Tinium release notes', record['tag'], 'ab'*32)
+        return self.registry.publish(record, provenance, self.files, '# Tinium release notes', record['tag'], 'ab'*32, notes_reviewed=True)
 
     def test_shared_beta_stable_sequence_starts_above_77(self):
         beta = self.registry.reserve('beta', '6.0.8-beta.1', COMMIT)
@@ -237,13 +237,23 @@ class ReleaseManagementTest(unittest.TestCase):
         self.github.published.clear()
         second=self.registry.reserve('beta','6.0.9-beta.1',COMMIT)
         with self.assertRaisesRegex(ReleaseError,'Permanent certificate changed'):
-            self.registry.publish(second,self.provenance(second),self.files,'Notes',second['tag'],'cd'*32)
+            self.registry.publish(second,self.provenance(second),self.files,'Notes',second['tag'],'cd'*32,notes_reviewed=True)
         self.assertEqual(self.github.published,[])
+
+    def test_notes_review_must_be_explicit_before_any_public_mutation(self):
+        record=self.registry.reserve('stable','6.0.8',COMMIT)
+        before=list(self.github.mutations)
+        with self.assertRaisesRegex(ReleaseError,'review approval'):
+            self.registry.publish(record,self.provenance(record),self.files,'Notes',record['tag'],'ab'*32)
+        self.assertEqual(self.github.mutations,before)
+        with self.assertRaisesRegex(ReleaseError,'placeholder'):
+            self.registry.publish(record,self.provenance(record),self.files,'Internal testing build — release notes not finalized.',record['tag'],'ab'*32,notes_reviewed=True)
+        self.assertEqual(self.github.mutations,before)
 
     def test_manual_approval_tag_must_match_candidate(self):
         record=self.registry.reserve('stable','6.0.8',COMMIT)
         with self.assertRaisesRegex(ReleaseError,'Typed approval'):
-            self.registry.publish(record,self.provenance(record),self.files,'Notes','wrong-tag','ab'*32)
+            self.registry.publish(record,self.provenance(record),self.files,'Notes','wrong-tag','ab'*32,notes_reviewed=True)
         self.assertEqual(self.github.published,[])
 
     def test_mutations_require_manual_main_workflow(self):

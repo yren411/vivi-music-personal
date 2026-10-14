@@ -18,6 +18,11 @@ on:
         description: 'Approve this exact tested tag, e.g. tinium-v6.0.8-beta.1'
         required: true
         type: string
+      notes_reviewed:
+        description: 'I reviewed the exact candidate release-notes.md; draft/internal-testing candidates remain blocked'
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,7 +45,15 @@ jobs:
       BUILD_RUN_ID: ${{ inputs.build_run_id }}
       BUILD_ATTEMPT: ${{ inputs.build_attempt }}
       APPROVED_TAG: ${{ inputs.expected_tag }}
+      NOTES_REVIEWED: ${{ inputs.notes_reviewed }}
     steps:
+      - name: Require explicit release-notes review approval
+        run: |
+          if [[ "$NOTES_REVIEWED" != "true" ]]; then
+            echo '::error::Review the exact candidate notes and select notes_reviewed before public publication.'
+            exit 1
+          fi
+
       - name: Checkout trusted main verifier and publisher
         uses: actions/checkout@v4
         with:

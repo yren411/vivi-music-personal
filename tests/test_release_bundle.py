@@ -56,6 +56,10 @@ class ReleaseBundleTest(unittest.TestCase):
         self.environ.start()
         self.addCleanup(self.environ.stop)
         prepare_bundle(self.record,self.provenance,self.key,self.apk,self.apk,self.directory,self.registry.github.repository)
+        original_notes=Path('release-notes/6.0.8.md').read_bytes()
+        self.notes_reader=patch('release_notes.committed_notes_bytes',return_value=original_notes)
+        self.notes_reader.start()
+        self.addCleanup(self.notes_reader.stop)
 
     def validate(self,provenance=None):
         return validate_bundle(self.directory,provenance or self.provenance,self.registry,self.key,self.registry.github.repository)
@@ -99,6 +103,38 @@ class ReleaseBundleTest(unittest.TestCase):
         metadata['release']['versionCode']=79
         (self.directory/'release.json').write_text(json.dumps(metadata))
         with self.assertRaises(ReleaseError):self.validate()
+
+    def test_private_draft_and_fallback_bundles_cannot_be_published(self):
+        from release_notes import CandidateNotes, DRAFT_BANNER, FALLBACK
+        for mode, text, source in [('unreviewed','- A real testing change.','release-notes/unreleased.md'),
+                                   ('internal-testing',FALLBACK,None)]:
+            directory=self.directory.parent/mode
+            candidate=CandidateNotes(text,source,'a'*64 if source else None,mode)
+            with patch('release_apks.candidate_notes_for',return_value=candidate):
+                manifest=prepare_bundle(self.record,self.provenance,self.key,self.apk,self.apk,directory,self.registry.github.repository)
+            self.assertEqual(manifest['notes']['reviewStatus'],mode)
+            self.assertEqual(len(list(directory.iterdir())),4)
+            self.assertIn(DRAFT_BANNER if mode=='unreviewed' else FALLBACK,(directory/'release-notes.md').read_text())
+            with self.assertRaisesRegex(ReleaseError,'unreviewed/internal-testing'):
+                validate_bundle(directory,self.provenance,self.registry,self.key,self.registry.github.repository)
+
+    def test_legacy_reviewed_artifact_matches_original_commit_notes(self):
+        path=self.directory/'release.json'
+        manifest=json.loads(path.read_text())
+        manifest['notes']={key:manifest['notes'][key] for key in ('filename','sha256')}
+        path.write_text(json.dumps(manifest))
+        self.validate()
+        with patch('release_notes.committed_notes_bytes',return_value=b'Different source notes'):
+            with self.assertRaisesRegex(ReleaseError,'built commit'):self.validate()
+
+    def test_reviewed_flag_and_rehashed_notes_cannot_replace_source_snapshot(self):
+        import hashlib
+        path=self.directory/'release.json';manifest=json.loads(path.read_text())
+        replacement=b'# Tinium 6.0.8\n\nChanged after testing.\n'
+        (self.directory/'release-notes.md').write_bytes(replacement)
+        manifest['notes']['sha256']=hashlib.sha256(replacement).hexdigest()
+        path.write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ReleaseError,'built commit'):self.validate()
 
 
 if __name__=='__main__':unittest.main()
