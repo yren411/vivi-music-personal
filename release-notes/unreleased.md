@@ -24,6 +24,20 @@ This is an unversioned draft for review. No release version or tag is assigned.
   labels and identifying ordinary debug builds as development. Display the installed
   application's version name and build number.
 
+## AutoMix
+
+- Add opt-in, analysis-driven AutoMix above Crossfade in Player and audio settings.
+  It analyzes bounded audio windows for rhythm, key, energy and transition level
+  balancing, then executes actual dual-decoder overlaps with beat-aligned timing,
+  conservative tempo matching and selective bass/filter processing.
+- Add persistent Efficient, Balanced and Performance analysis modes with 1, 2 and
+  4 bounded workers. Preserve the previous Crossfade choice while the modes are
+  mutually exclusive, and explain software-audio conflicts and safe fallbacks.
+- Credit BitChord's reference architecture. Tinium's implementation is independent;
+  no BitChord/Orchard code, native libraries or ONNX model assets are copied.
+  Vocal and phrase estimates are approximate DSP heuristics; perceived audio
+  quality and Android decoder/output behavior still require phone testing.
+
 ## Release preparation
 
 - Add project instructions for Codex to prepare accurate release-note drafts

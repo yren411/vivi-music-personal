@@ -48,7 +48,9 @@ AGPL/model code; this implementation deliberately avoids that issue.
 
 ## Analysis and planning
 
-- Decode at most 32 seconds of the outgoing tail and incoming head, split into
+- Use platform software codecs rather than reserving hardware/DSP decoder slots
+  required by audible playback. Missing software decoding uses the safe fallback.
+  Decode at most 32 seconds of the outgoing tail and incoming head, split into
   four disjoint 16s jobs for ordinary tracks. This lets Performance actually use
   four workers; all modes merge the same analyzed windows. Shorter tracks use
   fewer jobs. A pair-wide 25-second deadline, per-job 12MiB read budget and four
@@ -98,8 +100,13 @@ and latency need actual-device testing, particularly on Bluetooth/Cast changes.
 
 The controller uses player positions, not a wall-clock delay, for progress.
 Pause/focus loss pauses both decks and freezes the blend; ducking/mute/user volume
-affect both. Seek/skip, queue changes, a changed source, settings/mode changes and
-decoder failure invalidate the old operation. The outgoing deck cannot advance
+affect both. Seek/skip, obsolete queue preparation, a changed source, enabling/disabling AutoMix
+and decoder failure invalidate the old operation. Performance changes cancel
+upcoming analysis but preserve an already audible blend.
+Appending/reordering future queue entries also preserves an already audible pair
+if the active incoming song is unchanged; this prevents automatic queue expansion
+from unexpectedly cutting a transition. Changing/removing the active song cancels it.
+The outgoing deck cannot advance
 into the incoming song and is released once. MediaSession, player flow, metadata,
 notifications and widgets follow the promoted incoming player. Temporary EQ,
 silence-detector and AutoMix processor registrations are removed on release.
@@ -122,6 +129,11 @@ AutoMix defaults **Off**. Its performance selector is shown only while enabled:
 
 One service-owned executor has a four-task bounded waiting queue, deduplicates
 identical rendition/window requests and keeps at most 64 small feature results.
+Reusable keys include track ID, resolved source, audio quality, duration, format
+itag/length/codecs/sample rate and queue generation. Mutable file/content URIs
+and upcoming tracks without a confirmed format are deduplicated while running
+but never reused from the feature cache; no claim of a cryptographic content hash
+is made. A changed queue, source or rendition invalidates preparation.
 No full PCM survives analysis. A mode change cancels obsolete tasks and adjusts
 that executor live; cooperative loops stop promptly. An in-flight platform
 decoder/network call may take until its bounded return/timeout to finish cleanup.
@@ -137,8 +149,11 @@ If analysis is late or a prepared decoder misses the start deadline, normal
 playback wins; no delayed surprise transition is forced.
 
 Offload is effectively disabled without erasing its preference. EQ remains in
-the software path; hardware loudness normalization is suspended during an
-overlap and restored afterward. Mixing/analysis are bypassed during Cast,
+the software path; hardware loudness normalization is suspended while AutoMix is
+enabled to avoid abrupt session-effect changes during deck swaps. The disabled
+control explains AutoMix's measured transition level balancing; the saved
+normalization preference becomes effective again after disabling AutoMix.
+Mixing/analysis are bypassed during Cast,
 Listen Together, skip-silence, non-unit user speed/pitch, repeat-one, contiguous
 same-album playback and sleep-timer end-of-song pauses. These paths keep normal
 playback. Short, silent and live tracks do not force a mix. The original YouTube
@@ -155,6 +170,29 @@ risk, actual two-frequency rendered PCM and peaks, bounded workers/cancellation,
 and the same controller's preparation/promotion/pause/seek/queue/error states.
 Android MediaExtractor/MediaCodec and AudioTrack output require instrumentation
 or a phone; JVM fake-deck tests do not validate the OS decoder or listening quality.
+
+The ARM64 GMS debug and universal FOSS debug unit suites passed **107 tests each**,
+including **51 AutoMix tests each**, with no failures. Tests also exercise the real
+Media3 PCM processor's neutral prebuffer, Sonic's generated-tone duration/pitch,
+DataStore serialization, four-window scheduling, source changes and failed
+session promotion. No live music provider or private key is required for these
+fixtures. Run the suites with:
+
+```sh
+bash ./gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest
+```
+
+Universal GMS and FOSS release source compilation passed without packaging/signing
+an APK. Repeat that check with:
+
+```sh
+bash ./gradlew :app:compileUniversalGmsReleaseSources :app:compileUniversalFossReleaseSources
+```
+
+The release version allocator, signing configuration, updater, workflows, app ID,
+branding assets and database schema are unchanged. Full-project Android lint and
+instrumentation/listening are not claimed as passed; this environment has no
+attached Android device. No signed release APK or public release was created.
 
 On the Galaxy S25 Ultra, start with downloaded tracks of similar tempo and then
 try permitted streams. Verify next-song metadata/position and that the outgoing

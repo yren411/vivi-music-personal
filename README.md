@@ -5,6 +5,7 @@
   <p><a href="https://github.com/yren411/vivi-music-personal/actions">APK build workflows</a></p>
   <p><a href="docs/APK_SIGNING.md">Windows 11 APK signing setup guide</a></p>
   <p><a href="docs/RELEASING.md">Build, test, and publish Tinium beta and stable releases</a></p>
+  <p><a href="docs/AUTOMIX.md">Intelligent AutoMix: analysis, performance modes, and testing</a> · Inspired by <a href="https://github.com/kushagrasinghx/BitChord">BitChord</a>; independent DSP implementation, no copied models.</p>
 </div>
 
 <h2>🎵 About Tinium</h2>
