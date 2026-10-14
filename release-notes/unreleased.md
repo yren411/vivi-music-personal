@@ -15,6 +15,12 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Keep the transparent Tinium mark for compact UI, player placeholders, sharing
   and Android's required monochrome status-bar/themed icons.
 
+## Fixes
+
+- Correct the About screen's build label for beta releases, while retaining nightly
+  labels and identifying ordinary debug builds as development. Display the installed
+  application's version name and build number.
+
 ## Release preparation
 
 - Add project instructions for Codex to prepare accurate release-note drafts
