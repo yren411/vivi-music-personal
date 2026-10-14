@@ -21,19 +21,13 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -84,10 +78,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -120,6 +112,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.music.vivi.ui.component.TiniumBrandLogo
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.music.vivi.constants.IsFirstRunKey
@@ -304,7 +297,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                 ) {
                     Spacer(modifier = Modifier.height(48.dp))
 
-                    RotatingShapeContainer(
+                    TiniumBrandLogo(
                         modifier = Modifier
                             .size(280.dp)
                             .align(Alignment.CenterHorizontally)
@@ -941,7 +934,7 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                BlobClusterLoading(
+                TiniumBrandLogo(
                     modifier = Modifier
                         .size(180.dp)
                         .align(Alignment.CenterHorizontally)
@@ -979,118 +972,6 @@ fun WelcomePagerScreen(onFinished: () -> Unit) {
                 )
             )
         }
-    }
-}
-
-@Composable
-fun BlobClusterLoading(modifier: Modifier = Modifier) {
-    val infiniteTransition = rememberInfiniteTransition(label = "blobClusterRotation")
-    
-    val rotation1 by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(25000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation1"
-    )
-    val rotation2 by infiniteTransition.animateFloat(
-        initialValue = 360f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(30000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation2"
-    )
-    val rotation3 by infiniteTransition.animateFloat(
-        initialValue = 180f,
-        targetValue = 540f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "rotation3"
-    )
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        // Blob 1 (large, primary)
-        Icon(
-            painter = painterResource(id = com.music.vivi.R.drawable.ic_ten_sided_cookie),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier
-                .size(140.dp)
-                .rotate(rotation1)
-        )
-        // Blob 2 (medium, secondary, offset)
-        Icon(
-            painter = painterResource(id = com.music.vivi.R.drawable.ic_ten_sided_cookie),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.secondaryContainer,
-            modifier = Modifier
-                .size(100.dp)
-                .rotate(rotation2)
-                .align(Alignment.TopStart)
-                .padding(top = 16.dp, start = 16.dp)
-        )
-        // Blob 3 (small, tertiary, offset)
-        Icon(
-            painter = painterResource(id = com.music.vivi.R.drawable.ic_ten_sided_cookie),
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.tertiaryContainer,
-            modifier = Modifier
-                .size(80.dp)
-                .rotate(rotation3)
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 8.dp, end = 8.dp)
-        )
-    }
-}
-
-@Composable
-fun RotatingShapeContainer(modifier: Modifier = Modifier, rotate: Boolean = true) {
-    val rotation = if (rotate) {
-        val infiniteTransition = rememberInfiniteTransition(label = "shapeRotation")
-        infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(20000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "rotation"
-        ).value
-    } else {
-        0f
-    }
-
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val backgroundColor = MaterialTheme.colorScheme.background
-
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            painter = painterResource(id = com.music.vivi.R.drawable.ic_ten_sided_cookie),
-            contentDescription = null,
-            tint = primaryColor,
-            modifier = Modifier
-                .fillMaxSize()
-                .rotate(rotation)
-        )
-
-        Image(
-            painter = painterResource(com.music.vivi.R.drawable.tinium_logo),
-            contentDescription = null,
-            modifier = Modifier.size(220.dp),
-            contentScale = ContentScale.Fit
-        )
     }
 }
 

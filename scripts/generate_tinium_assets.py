@@ -38,6 +38,10 @@ def save(image, relative):
 ui_logo = RES / 'drawable-nodpi/tinium_logo.png'
 ui_logo.parent.mkdir(parents=True, exist_ok=True)
 ui_logo.write_bytes(original_bytes)
+# The owner-supplied full-color background artwork is copied verbatim, not derived
+# from the transparent mark or recompressed. Compose and the splash wrapper share it.
+(RES / 'drawable-nodpi/tinium_logo_background.png').write_bytes(
+    (ROOT / 'branding/Tinium Logo with Background.png').read_bytes())
 for name in ('icon', 'vivi_music_small_icon'):
     save(fit((512, 512)), f'app/src/main/res/drawable/{name}.png')
 

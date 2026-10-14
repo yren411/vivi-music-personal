@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.music.vivi.BuildConfig
 import com.music.vivi.LocalPlayerAwareWindowInsets
+import com.music.vivi.ui.component.TiniumBrandLogo
 import com.music.vivi.R
 import com.music.vivi.ui.component.IconButton
 import com.music.vivi.ui.component.ExpressiveSettingGroup
@@ -280,12 +281,7 @@ private fun AppVersionTile(
     ) {
         ListItem(
             leadingContent = {
-                Image(
-                    painter = painterResource(R.drawable.icon),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(40.dp)
-                )
+                TiniumBrandLogo(modifier = Modifier.size(40.dp))
             },
             colors = ListItemDefaults.colors(
                 containerColor = containerColor
