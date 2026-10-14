@@ -28,7 +28,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -122,6 +121,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import androidx.core.util.Consumer
 import androidx.core.view.WindowCompat
+import com.music.vivi.ui.component.TiniumBrandLogo
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.coroutineScope
@@ -943,13 +943,7 @@ class MainActivity : ComponentActivity() {
                                     TopAppBar(
                                         navigationIcon = {
                                             Box(modifier = Modifier.padding(start = 12.dp)) {
-                                                Image(
-                                                    painter = painterResource(R.drawable.tinium_logo),
-                                                    contentDescription = null,
-                                                    modifier = Modifier
-                                                        .size(32.dp),
-                                                    contentScale = ContentScale.Fit
-                                                )
+                                                TiniumBrandLogo(modifier = Modifier.size(36.dp))
                                             }
                                         },
                                         title = {

@@ -13,6 +13,11 @@ This repository is public. Actions artifacts can be downloaded by other logged-i
 GitHub users before publication. They support pre-release testing but are not
 private storage. Use a private repository/storage if confidential testing is needed.
 
+Codex tasks now prepare release-note drafts for review under `release-notes/`.
+See [the release-note preparation guide](../release-notes/README.md) and
+[AGENTS.md](../AGENTS.md). Without an assigned fresh version, changes accumulate
+in `release-notes/unreleased.md`; that file is not a candidate build input.
+
 ## How automatic version numbering works
 
 - Development builds retain their existing baseline `versionCode = 77` and

@@ -9,7 +9,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,13 +33,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.music.vivi.ui.component.TiniumBrandLogo
 import com.music.vivi.R
 import com.music.vivi.ui.screens.wrapped.components.WrappedBackground
 import com.music.vivi.ui.theme.bbhBartle
@@ -106,11 +105,9 @@ fun WrappedIntro(onNext: () -> Unit) {
                 enter = fadeIn(animationSpec = tween(FADE_IN_DURATION, delayMillis = ICON_DELAY)) +
                         slideInVertically(animationSpec = tween(SLIDE_IN_DURATION, delayMillis = ICON_DELAY))
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.icon),
-                    contentDescription = stringResource(id = R.string.wrapped_logo_content_description),
-                    modifier = Modifier
-                        .size(100.dp)
+                TiniumBrandLogo(
+                    modifier = Modifier.size(100.dp),
+                    contentDescription = stringResource(R.string.wrapped_logo_content_description),
                 )
             }
 

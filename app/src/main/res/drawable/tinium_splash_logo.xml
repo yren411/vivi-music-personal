@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Theme.SplashScreen uses a 288dp icon canvas and a 192dp safe circle.
+     The original circular artwork is centered at 180dp, including its background.
+     Only layout bounds change; the source PNG is neither cropped nor recolored. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="288dp" android:height="288dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+    <item android:width="180dp" android:height="180dp" android:gravity="center"
+        android:drawable="@drawable/tinium_logo_background" />
+</layer-list>

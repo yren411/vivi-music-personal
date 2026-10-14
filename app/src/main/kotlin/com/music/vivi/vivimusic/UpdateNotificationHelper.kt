@@ -1,6 +1,8 @@
 package com.music.vivi.vivimusic
 
 import android.Manifest
+import android.app.Notification
+import android.graphics.drawable.Icon
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -34,7 +36,10 @@ object UpdateNotificationHelper {
         return try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.vivimusicnotification).setContentTitle(context.getString(R.string.tinium_update_available))
-                .setContentText(context.getString(R.string.tinium_update_release_version, versionName)).setContentIntent(pending).setAutoCancel(true).build())
+                .setContentText(context.getString(R.string.tinium_update_release_version, versionName)).setContentIntent(pending).setAutoCancel(true).build().let { notification ->
+                    Notification.Builder.recoverBuilder(context, notification)
+                        .setLargeIcon(Icon.createWithResource(context, R.drawable.tinium_logo_background)).build()
+                })
             true
         } catch (_: SecurityException) { false }
     }
