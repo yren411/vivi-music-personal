@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -78,6 +79,10 @@ import com.music.vivi.ui.component.ActionPromptDialog
 import com.music.vivi.ui.component.CrossfadeCurvePreview
 import com.music.vivi.ui.component.DefaultDialog
 import com.music.vivi.ui.component.EnumDialog
+import com.music.vivi.constants.AutoMixEnabledKey
+import com.music.vivi.constants.AutoMixPerformanceKey
+import com.music.vivi.playback.automix.AutoMixPerformance
+import com.music.vivi.playback.automix.AutoMixSettings
 import com.music.vivi.ui.component.IconButton
 import com.music.vivi.ui.component.ExpressiveSettingGroup
 import com.music.vivi.ui.component.Material3SettingsItem
@@ -92,6 +97,10 @@ fun PlayerSettings(
     navController: NavController,
     scrollBehavior: TopAppBarScrollBehavior,
 ) {
+    val (autoMixEnabled, onAutoMixEnabledChange) = rememberPreference(AutoMixEnabledKey, false)
+    val (autoMixPerformance, onAutoMixPerformanceChange) = rememberEnumPreference(AutoMixPerformanceKey, AutoMixPerformance.BALANCED)
+    val autoMixSettings = AutoMixSettings(autoMixEnabled, autoMixPerformance)
+    var showAutoMixPerformance by remember { mutableStateOf(false) }
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
         AudioQualityKey,
         defaultValue = AudioQuality.AUTO
@@ -227,6 +236,22 @@ fun PlayerSettings(
 
     var showAudioQualityDialog by remember {
         mutableStateOf(false)
+    }
+
+    if (showAutoMixPerformance && autoMixSettings.showPerformance) {
+        EnumDialog(
+            onDismiss = { showAutoMixPerformance = false },
+            onSelect = { onAutoMixPerformanceChange(it); showAutoMixPerformance = false },
+            title = stringResource(R.string.automix_performance),
+            current = autoMixPerformance,
+            values = AutoMixPerformance.entries,
+            valueText = { autoMixPerformanceLabel(it) },
+            valueDescription = { mode -> stringResource(when (mode) {
+                AutoMixPerformance.EFFICIENT -> R.string.automix_efficient_description
+                AutoMixPerformance.BALANCED -> R.string.automix_balanced_description
+                AutoMixPerformance.PERFORMANCE -> R.string.automix_fast_description
+            }) },
+        )
     }
 
     if (showAudioQualityDialog) {
@@ -375,13 +400,39 @@ fun PlayerSettings(
                     onClick = { navController.navigate("settings/player/canvas") }
                 ))
                 add(Material3SettingsItem(
+                    icon = painterResource(R.drawable.equalizer),
+                    title = { Text(stringResource(R.string.automix)) },
+                    description = {
+                        Column {
+                            Text(stringResource(R.string.automix_description))
+                            if (autoMixEnabled) Text(stringResource(R.string.automix_compatibility),
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                    },
+                    trailingContent = { Switch(checked = autoMixEnabled, onCheckedChange = onAutoMixEnabledChange) },
+                    onClick = { onAutoMixEnabledChange(!autoMixEnabled) },
+                ))
+                if (autoMixSettings.showPerformance) add(Material3SettingsItem(
+                    icon = painterResource(R.drawable.settings),
+                    title = { Text(stringResource(R.string.automix_performance)) },
+                    description = {
+                        Column {
+                            Text(stringResource(R.string.automix_performance_description))
+                            Text(autoMixPerformanceLabel(autoMixPerformance))
+                        }
+                    },
+                    onClick = { showAutoMixPerformance = true },
+                ))
+                add(Material3SettingsItem(
                     icon = painterResource(R.drawable.linear_scale),
                     title = { Text(stringResource(R.string.crossfade)) },
-                    description = { Text(stringResource(R.string.crossfade_desc)) },
+                    description = { Text(stringResource(if (autoMixEnabled) R.string.automix_crossfade_disabled else R.string.crossfade_desc)) },
+                    enabled = autoMixSettings.crossfadeEditable,
                     showBadge = true,
                     trailingContent = {
                         Switch(
-                            checked = crossfadeEnabled,
+                            checked = crossfadeEnabled && autoMixSettings.crossfadeEditable,
+                            enabled = autoMixSettings.crossfadeEditable,
                             onCheckedChange = {
                                 if (!crossfadeEnabled) {
                                     showCrossfadeBetaDialog = true
@@ -392,7 +443,7 @@ fun PlayerSettings(
                             thumbContent = {
                                 Icon(
                                     painter = painterResource(
-                                        id = if (crossfadeEnabled) R.drawable.check else R.drawable.close
+                                        id = if (crossfadeEnabled && autoMixSettings.crossfadeEditable) R.drawable.check else R.drawable.close
                                     ),
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
@@ -412,12 +463,14 @@ fun PlayerSettings(
                     add(Material3SettingsItem(
                         icon = painterResource(R.drawable.timer),
                         title = { Text(stringResource(R.string.crossfade_duration)) },
+                        enabled = autoMixSettings.crossfadeEditable,
                         description = {
                             Column {
                                 Text(pluralStringResource(R.plurals.seconds, crossfadeDuration.toInt(), crossfadeDuration.toInt()))
                                 Slider(
                                     value = crossfadeDuration,
                                     onValueChange = onCrossfadeDurationChange,
+                                    enabled = autoMixSettings.crossfadeEditable,
                                     valueRange = 1f..15f,
                                     steps = 14
                                 )
@@ -427,6 +480,7 @@ fun PlayerSettings(
                     add(Material3SettingsItem(
                         icon = painterResource(R.drawable.linear_scale),
                         title = { Text(stringResource(R.string.crossfade_curve)) },
+                        enabled = autoMixSettings.crossfadeEditable,
                         description = {
                             Column {
                                 Text(
@@ -449,10 +503,12 @@ fun PlayerSettings(
                     add(Material3SettingsItem(
                         icon = painterResource(R.drawable.album),
                         title = { Text(stringResource(R.string.crossfade_gapless)) },
+                        enabled = autoMixSettings.crossfadeEditable,
                         description = { Text(stringResource(R.string.crossfade_gapless_desc)) },
                         trailingContent = {
                             Switch(
                                 checked = crossfadeGapless,
+                                enabled = autoMixSettings.crossfadeEditable,
                                 onCheckedChange = onCrossfadeGaplessChange,
                                 thumbContent = {
                                     Icon(
@@ -470,10 +526,12 @@ fun PlayerSettings(
                     add(Material3SettingsItem(
                         icon = painterResource(R.drawable.fast_forward),
                         title = { Text(stringResource(R.string.crossfade_manual_skip)) },
+                        enabled = autoMixSettings.crossfadeEditable,
                         description = { Text(stringResource(R.string.crossfade_manual_skip_desc)) },
                         trailingContent = {
                             Switch(
                                 checked = crossfadeManualSkip,
+                                enabled = autoMixSettings.crossfadeEditable,
                                 onCheckedChange = onCrossfadeManualSkipChange,
                                 thumbContent = {
                                     Icon(
@@ -549,9 +607,12 @@ fun PlayerSettings(
                 add(Material3SettingsItem(
                     icon = painterResource(R.drawable.volume_up),
                     title = { Text(stringResource(R.string.audio_normalization)) },
+                    enabled = !autoMixEnabled,
+                    description = { if (autoMixEnabled) Text(stringResource(R.string.automix_normalization_info)) },
                     trailingContent = {
                         Switch(
-                            checked = audioNormalization,
+                            checked = audioNormalization && !autoMixEnabled,
+                            enabled = !autoMixEnabled,
                             onCheckedChange = onAudioNormalizationChange,
                             thumbContent = {
                                 Icon(
@@ -569,21 +630,23 @@ fun PlayerSettings(
                 add(Material3SettingsItem(
                     icon = painterResource(R.drawable.graphic_eq),
                     title = { Text(stringResource(R.string.audio_offload)) },
+                    enabled = !autoMixEnabled && !crossfadeEnabled,
                     description = {
                         Text(
-                            if (crossfadeEnabled) stringResource(R.string.audio_offload_disabled_by_crossfade)
+                            if (autoMixEnabled) stringResource(R.string.automix_offload_disabled)
+                            else if (crossfadeEnabled) stringResource(R.string.audio_offload_disabled_by_crossfade)
                             else stringResource(R.string.audio_offload_description)
                         )
                     },
                     trailingContent = {
                         Switch(
-                            checked = if (crossfadeEnabled) false else audioOffload,
+                            checked = if (crossfadeEnabled || autoMixEnabled) false else audioOffload,
                             onCheckedChange = onAudioOffloadChange,
-                            enabled = !crossfadeEnabled,
+                            enabled = !crossfadeEnabled && !autoMixEnabled,
                             thumbContent = {
                                 Icon(
                                     painter = painterResource(
-                                        id = if (!crossfadeEnabled && audioOffload) R.drawable.check else R.drawable.close
+                                    id = if (!crossfadeEnabled && !autoMixEnabled && audioOffload) R.drawable.check else R.drawable.close
                                     ),
                                     contentDescription = null,
                                     modifier = Modifier.size(SwitchDefaults.IconSize)
@@ -591,7 +654,7 @@ fun PlayerSettings(
                             }
                         )
                     },
-                    onClick = { if (!crossfadeEnabled) onAudioOffloadChange(!audioOffload) }
+                    onClick = { if (!crossfadeEnabled && !autoMixEnabled) onAudioOffloadChange(!audioOffload) }
                 ))
                 // Only show Cast setting in GMS builds (not in F-Droid/FOSS)
                 if (BuildConfig.CAST_AVAILABLE) {
@@ -970,3 +1033,10 @@ fun PlayerSettings(
         }
     )
 }
+
+@Composable
+private fun autoMixPerformanceLabel(mode: AutoMixPerformance): String = stringResource(when (mode) {
+    AutoMixPerformance.EFFICIENT -> R.string.automix_efficient
+    AutoMixPerformance.BALANCED -> R.string.automix_balanced
+    AutoMixPerformance.PERFORMANCE -> R.string.automix_fast
+})

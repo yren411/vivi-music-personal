@@ -92,6 +92,9 @@ import com.music.vivi.constants.CrossfadeDurationKey
 import com.music.vivi.constants.CrossfadeEnabledKey
 import com.music.vivi.constants.CrossfadeGaplessKey
 import com.music.vivi.constants.CrossfadeManualSkipKey
+import com.music.vivi.constants.AutoMixEnabledKey
+import com.music.vivi.constants.AutoMixPerformanceKey
+import com.music.vivi.playback.automix.*
 import com.music.vivi.constants.DisableLoadMoreWhenRepeatAllKey
 import android.os.Handler
 import android.os.Looper
@@ -281,6 +284,15 @@ class MusicService :
     private var crossfadeManualSkipEnabled = false
     private var crossfadeCurve = CrossfadeCurve.EASE_OUT_QUAD
     private var crossfadeTriggerJob: Job? = null
+    private var autoMixRequested = false
+    private var autoMixFocusGain = 1f
+    private var intelligentAutoMix: AutoMixController? = null
+    private var autoMixTicker: Job? = null
+    private var autoMixQueueEpoch = 0L
+    private val autoMixProcessors = HashMap<ExoPlayer, AutoMixAudioProcessor>()
+    private val playerEqProcessors = HashMap<ExoPlayer, CustomEqualizerAudioProcessor>()
+    private val autoMixDecks = mutableMapOf<ExoPlayer, ServiceMixDeck>()
+    private val analysisDataSourceFactory by lazy { createCacheDataSource(writeCache = false) }
 
     /** Holds the combined crossfade-related settings emitted from DataStore. */
     private data class CrossfadeSettings(
@@ -289,6 +301,8 @@ class MusicService :
         val gapless: Boolean,
         val manualSkip: Boolean,
         val curve: CrossfadeCurve,
+        val autoMix: Boolean,
+        val performance: AutoMixPerformance,
     )
 
     /**
@@ -305,8 +319,16 @@ class MusicService :
     private val secondaryPlayerListener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
             Timber.tag(TAG).e(error, "Secondary player error")
-            secondaryPlayer?.stop()
-            secondaryPlayer?.clearMediaItems()
+            secondaryPlayer?.let { pending ->
+                pending.removeListener(this)
+                autoMixDecks.remove(pending)
+                playerEqProcessors.remove(pending)?.let(equalizerService::removeAudioProcessor)
+                playerSilenceProcessors.remove(pending)
+                autoMixProcessors.remove(pending)
+                pending.stop()
+                pending.clearMediaItems()
+                pending.release()
+            }
             secondaryPlayer = null
         }
     }
@@ -352,6 +374,7 @@ class MusicService :
         isMuted.value = newMutedState
         // Immediately update player volume to ensure it takes effect
         player.volume = if (newMutedState) 0f else playerVolume.value
+        autoMixDecks.values.forEach { it.applyUserVolume() }
     }
 
     fun setMuted(muted: Boolean) {
@@ -359,6 +382,7 @@ class MusicService :
         // Immediately update player volume to ensure it takes effect
         // This handles cases where the player reference may have changed
         player.volume = if (muted) 0f else playerVolume.value
+        autoMixDecks.values.forEach { it.applyUserVolume() }
     }
 
     fun setPreferredAudioDevice(deviceId: Int?) { // this helps us to change between devices
@@ -432,7 +456,7 @@ class MusicService :
     private var prefetchJob: Job? = null
 
     // URL cache for stream URLs - class-level so it can be invalidated on errors
-    private val songUrlCache = HashMap<String, Pair<String, Long>>()
+    private val songUrlCache = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
     // Flag to bypass cache when quality changes - forces fresh stream fetch
     private val bypassCacheForQualityChange = mutableSetOf<String>()
@@ -735,6 +759,7 @@ class MusicService :
             if (muted) 0f else volume
         }.collectLatest(scope) {
             player.volume = it
+            autoMixDecks.values.forEach { deck -> deck.applyUserVolume() }
         }
 
         playerVolume.debounce(1000).collect(scope) { volume ->
@@ -887,7 +912,7 @@ class MusicService :
 
         combine(
             dataStore.data.map { it[AudioOffload] ?: false },
-            dataStore.data.map { it[CrossfadeEnabledKey] ?: false }
+            dataStore.data.map { (it[CrossfadeEnabledKey] ?: false) || (it[AutoMixEnabledKey] ?: false) }
         ) { offloadPref, crossfadeEnabled ->
              // Force disable offload if crossfade is enabled to prevent volume ramp issues
              if (crossfadeEnabled) false else offloadPref
@@ -989,26 +1014,64 @@ class MusicService :
 
         combine(
             dataStore.data.map { prefs ->
+                val autoMix = readAutoMixSettings(prefs)
                 CrossfadeSettings(
                     enabled = prefs[CrossfadeEnabledKey] ?: false,
                     durationSeconds = prefs[CrossfadeDurationKey] ?: 5f,
                     gapless = prefs[CrossfadeGaplessKey] ?: true,
                     manualSkip = prefs[CrossfadeManualSkipKey] ?: false,
                     curve = prefs[CrossfadeCurveKey].toEnum(CrossfadeCurve.EASE_OUT_QUAD),
+                    autoMix = autoMix.enabled,
+                    performance = autoMix.performance,
                 )
             },
             listenTogetherManager.roomState
         ) { settings, roomState ->
             // Disable crossfade if user is in a listen together room
-            settings.copy(enabled = settings.enabled && roomState == null)
+            settings.copy(enabled = mixingPolicy(settings.autoMix, settings.enabled, false, roomState != null).crossfade)
         }
             .distinctUntilChanged()
             .collect(scope) { settings ->
+                autoMixRequested = settings.autoMix
                 crossfadeEnabled = settings.enabled
                 crossfadeDuration = settings.durationSeconds * 1000f // Convert to ms
                 crossfadeGapless = settings.gapless
                 crossfadeManualSkipEnabled = settings.manualSkip
                 crossfadeCurve = settings.curve
+                if (autoMixRequested) {
+                    crossfadeTriggerJob?.cancel()
+                    crossfadeJob?.cancel()
+                    secondaryPlayer?.let { pending ->
+                        pending.removeListener(secondaryPlayerListener)
+                        playerEqProcessors.remove(pending)?.let(equalizerService::removeAudioProcessor)
+                        playerSilenceProcessors.remove(pending)
+                        autoMixProcessors.remove(pending)
+                        pending.release()
+                    }
+                    secondaryPlayer = null
+                    _playerFlow.value = player // canceling a legacy standby must restore the actual UI player
+                    if (isCrossfading) {
+                        cleanupCrossfade()
+                        player.volume = if (isMuted.value) 0f else playerVolume.value
+                    }
+                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers())
+                }
+                intelligentAutoMix?.configure(autoMixRequested, settings.performance)
+                if (playerInitialized.value) setupLoudnessEnhancer()
+                if (autoMixRequested && autoMixTicker?.isActive != true) {
+                    autoMixTicker = scope.launch {
+                        while (isActive && autoMixRequested) {
+                            try { intelligentAutoMix?.tick() } catch (_: Exception) {
+                                intelligentAutoMix?.invalidate()
+                                Timber.tag("AutoMix").w("Transition unavailable; retaining normal playback")
+                            }
+                            delay(intelligentAutoMix?.nextTickDelayMs() ?: 1000)
+                        }
+                    }
+                } else if (!autoMixRequested) {
+                    autoMixTicker?.cancel(); autoMixTicker = null
+                }
+                scheduleCrossfade()
             }
 
         if (dataStore.get(PersistentQueueKey, true)) {
@@ -1119,11 +1182,12 @@ class MusicService :
         }
     }
 
-    private fun createExoPlayer(): ExoPlayer {
+    private fun createExoPlayer(publish: Boolean = true, autoMixDeck: Boolean = false): ExoPlayer {
         val eqProcessor = CustomEqualizerAudioProcessor()
         equalizerService.addAudioProcessor(eqProcessor)
 
         val silenceProcessor = SilenceDetectorAudioProcessor { handleLongSilenceDetected() }
+        val mixProcessor = AutoMixAudioProcessor()
 
         // Set initial state
         runBlocking {
@@ -1134,7 +1198,7 @@ class MusicService :
 
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(createMediaSourceFactory())
-            .setRenderersFactory(createRenderersFactory(eqProcessor, silenceProcessor))
+            .setRenderersFactory(createRenderersFactory(eqProcessor, silenceProcessor, mixProcessor, autoMixDeck))
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setAudioAttributes(
@@ -1150,19 +1214,22 @@ class MusicService :
             .build()
 
         playerSilenceProcessors[player] = silenceProcessor
+        autoMixProcessors[player] = mixProcessor
+        playerEqProcessors[player] = eqProcessor
 
         player.apply {
                 runBlocking {
                     val offload = dataStore.get(AudioOffload, false)
                     val crossfade = dataStore.get(CrossfadeEnabledKey, false)
-                    setOffloadEnabled(if (crossfade) false else offload)
+                    val autoMix = dataStore.get(AutoMixEnabledKey, false)
+                    setOffloadEnabled(if (crossfade || autoMix) false else offload)
                     skipSilenceEnabled = dataStore.get(SkipSilenceKey, false)
                 }
                 addAnalyticsListener(PlaybackStatsListener(false, this@MusicService))
 
                 // Cleanup handled manually in onDestroy/release
             }
-        _playerFlow.value = player
+        if (publish) _playerFlow.value = player
         return player
     }
 
@@ -1182,6 +1249,9 @@ class MusicService :
     }
 
     private fun handleAudioFocusChange(focusChange: Int) {
+        if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) autoMixFocusGain = 0.2f
+        else if (focusChange in listOf(AudioManager.AUDIOFOCUS_GAIN, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)) autoMixFocusGain = 1f
         when (focusChange) {
 
             AudioManager.AUDIOFOCUS_GAIN,
@@ -1241,6 +1311,8 @@ class MusicService :
                 lastAudioFocusState = focusChange
             }
         }
+        autoMixDecks.values.forEach { it.applyUserVolume() }
+        intelligentAutoMix?.syncPlaybackState()
     }
 
     private fun requestAudioFocus(): Boolean {
@@ -2134,6 +2206,7 @@ class MusicService :
     }
 
     private fun setupLoudnessEnhancer() {
+        if (autoMixRequested) { releaseLoudnessEnhancer(); return }
         val audioSessionId = player.audioSessionId
 
         if (audioSessionId == C.AUDIO_SESSION_ID_UNSET || audioSessionId <= 0) {
@@ -2248,10 +2321,18 @@ class MusicService :
 
     private var previousMediaItemIndex = C.INDEX_UNSET
 
+    override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+        if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+            autoMixQueueEpoch++
+            intelligentAutoMix?.playlistChanged(player.currentMediaItem?.mediaId)
+        }
+    }
+
     override fun onMediaItemTransition(
         mediaItem: MediaItem?,
         reason: Int,
     ) {
+        intelligentAutoMix?.trackChanged(mediaItem?.mediaId)
         // Force Repeat One if the player ignored it and auto-advanced
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
             if (previousMediaItemIndex != C.INDEX_UNSET && previousMediaItemIndex < player.mediaItemCount) {
@@ -2438,6 +2519,7 @@ class MusicService :
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        intelligentAutoMix?.syncPlaybackState()
         // Safety net: if local player tries to start while casting, immediately pause it
         if (playWhenReady && castConnectionHandler?.isCasting?.value == true) {
             player.pause()
@@ -2520,6 +2602,7 @@ class MusicService :
     }
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        intelligentAutoMix?.invalidate()
         updateNotification()
         if (shuffleModeEnabled) {
             // If queue is empty, don't shuffle
@@ -2548,6 +2631,7 @@ class MusicService :
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
+        intelligentAutoMix?.invalidate()
         updateNotification()
         scope.launch {
             dataStore.edit { settings ->
@@ -2761,6 +2845,7 @@ class MusicService :
     }
 
     override fun onPlayerError(error: PlaybackException) {
+        intelligentAutoMix?.invalidate()
         super.onPlayerError(error)
 
         // Safety check : ensuring player is still initialized
@@ -3137,7 +3222,7 @@ class MusicService :
         }
     }
 
-    private fun createCacheDataSource(): CacheDataSource.Factory =
+    private fun createCacheDataSource(writeCache: Boolean = true): CacheDataSource.Factory =
         CacheDataSource
             .Factory()
             .setCache(downloadCache)
@@ -3145,12 +3230,17 @@ class MusicService :
                 CacheDataSource
                     .Factory()
                     .setCache(playerCache)
+                    .apply { if (!writeCache) setCacheWriteDataSinkFactory(null) }
                     .setUpstreamDataSourceFactory(
                         DefaultDataSource.Factory(
                             this,
                             OkHttpDataSource.Factory(
                                 OkHttpClient
                                     .Builder()
+                                    .apply {
+                                        if (!writeCache) callTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+                                            .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+                                    }
                                     .dns(object : Dns {
                                         override fun lookup(hostname: String): List<InetAddress> {
                                             val addresses = Dns.SYSTEM.lookup(hostname)
@@ -3385,7 +3475,9 @@ class MusicService :
 
     private fun createRenderersFactory(
         eqProcessor: CustomEqualizerAudioProcessor,
-        silenceProcessor: SilenceDetectorAudioProcessor
+        silenceProcessor: SilenceDetectorAudioProcessor,
+        mixProcessor: AutoMixAudioProcessor,
+        autoMixDeck: Boolean,
     ) =
         object : DefaultRenderersFactory(this) {
             override fun buildAudioSink(
@@ -3394,14 +3486,15 @@ class MusicService :
                 enableAudioTrackPlaybackParams: Boolean,
             ) = DefaultAudioSink
                 .Builder(this@MusicService)
-                .setEnableFloatOutput(enableFloatOutput)
-                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                .setEnableFloatOutput(enableFloatOutput && !autoMixDeck)
+                .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams && !autoMixDeck)
                 .setAudioProcessorChain(
                     DefaultAudioSink.DefaultAudioProcessorChain(
                         // 2. Inject processor into audio pipeline
                         arrayOf(
                             eqProcessor,
                             silenceProcessor,
+                            mixProcessor,
                         ),
                         SilenceSkippingAudioProcessor(2_000_000, 20_000, 256),
                         SonicAudioProcessor(),
@@ -3538,6 +3631,20 @@ class MusicService :
 
     override fun onDestroy() {
         isRunning = false
+        autoMixTicker?.cancel()
+        intelligentAutoMix?.close()
+        intelligentAutoMix = null
+        crossfadeTriggerJob?.cancel()
+        crossfadeJob?.cancel()
+        if (fadingPlayer != null) cleanupCrossfade()
+        secondaryPlayer?.let { pending ->
+            pending.removeListener(secondaryPlayerListener)
+            playerEqProcessors.remove(pending)?.let(equalizerService::removeAudioProcessor)
+            playerSilenceProcessors.remove(pending)
+            autoMixProcessors.remove(pending)
+            pending.release()
+        }
+        secondaryPlayer = null
 
         try {
             unregisterReceiver(screenStateReceiver)
@@ -3560,9 +3667,9 @@ class MusicService :
         player.removeListener(this)
         player.removeListener(sleepTimer)
         playerSilenceProcessors.remove(player)
-        // Note: equalizerService audio processors are cleared in equalizerService.release() if needed,
-        // or we can't easily reference the specific processor created in createExoPlayer here without storing it.
-        // But since we are destroying the service, it's fine.
+        playerEqProcessors.remove(player)?.let(equalizerService::removeAudioProcessor)
+        autoMixProcessors.remove(player)
+        autoMixDecks.clear()
         player.release()
         discordUpdateJob?.cancel()
         super.onDestroy()
@@ -3707,8 +3814,155 @@ class MusicService :
         newPosition: Player.PositionInfo,
         reason: Int
     ) {
+        if (reason != Player.DISCONTINUITY_REASON_AUTO_TRANSITION) intelligentAutoMix?.invalidate()
         if (reason == Player.DISCONTINUITY_REASON_SEEK) {
             scheduleCrossfade()
+        }
+    }
+
+    /** AutoMix's decks use the existing Media3 queue/source/equalizer infrastructure. */
+    private inner class AutoMixServiceHost : AutoMixHost {
+        override val allowed: Boolean get() = autoMixRequested && playerInitialized.value &&
+            castConnectionHandler?.isCasting?.value != true && listenTogetherManager.roomState.value == null &&
+            !player.skipSilenceEnabled && !sleepTimer.pauseWhenSongEnd && !player.isCurrentMediaItemLive &&
+            kotlin.math.abs(player.playbackParameters.pitch - 1f) < 0.001f &&
+            autoMixProcessors[player]?.isActive == true
+
+        override fun snapshot(): MixSnapshot? {
+            val current = player.currentMediaItem ?: return null
+            val index = player.nextMediaItemIndex
+            if (index == C.INDEX_UNSET || index == player.currentMediaItemIndex || player.duration == C.TIME_UNSET ||
+                isNextItemGapless() || current.localConfiguration?.drmConfiguration != null) return null
+            val next = player.getMediaItemAt(index)
+            if (next.localConfiguration?.drmConfiguration != null) return null
+            fun track(item: MediaItem, duration: Long): MixTrack {
+                val uri = songUrlCache[item.mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.first
+                    ?: item.localConfiguration?.uri?.toString() ?: item.mediaId
+                val format = currentSong.value?.format?.takeIf { it.id == item.mediaId }
+                val rendition = format?.let { "${it.itag}:${it.contentLength}:${it.codecs}:${it.sampleRate}" } ?: "unknown"
+                // Only reuse completed results when the rendition is known. Mutable local URIs and
+                // upcoming tracks without a resolved format are deduplicated, but not cached.
+                val cacheable = format != null && uri.toUri().scheme !in listOf("file", "content")
+                return MixTrack(item.mediaId, duration,
+                    "${item.mediaId}|$uri|$audioQuality|$duration|$rendition|$autoMixQueueEpoch", uri, cacheable)
+            }
+            return MixSnapshot(track(current, player.duration), track(next, (next.metadata?.duration ?: 0) * 1000L),
+                "$autoMixQueueEpoch:${player.currentMediaItemIndex}:$index:${player.repeatMode}:${player.shuffleModeEnabled}",
+                player.currentPosition, player.isPlaying,
+                kotlin.math.abs(player.playbackParameters.speed - 1f) < 0.001f &&
+                    kotlin.math.abs(player.playbackParameters.pitch - 1f) < 0.001f)
+        }
+
+        override fun analyze(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long): TrackFeatures {
+            checkAnalysisCancellation(deadlineNanos)
+            val format = runBlocking(Dispatchers.IO) { database.song(track.id).first()?.format }
+            val length = format?.contentLength ?: 0L
+            val complete = length > 0 && (downloadCache.isCached(track.id, 0, length) || playerCache.isCached(track.id, 0, length))
+            val uri = track.sourceUri.toUri()
+            if (!complete && uri.scheme !in listOf("http", "https", "file", "content")) {
+                throw java.io.IOException("No resolved permitted audio source")
+            }
+            val source = AnalysisSource(uri, track.id, length, "${track.sourceIdentity}|${format?.itag}|$length",
+                analysisDataSourceFactory, complete)
+            return AndroidWindowDecoder().analyze(source, startMs, lengthMs, deadlineNanos)
+        }
+
+        override fun currentDeck(): MixDeck {
+            player.setPauseAtEndOfMediaItems(true) // the outgoing decoder must never advance into the incoming song
+            return ServiceMixDeck(player)
+        }
+
+        override fun prepareIncoming(snapshot: MixSnapshot, plan: AutoMixPlan): MixDeck? {
+            val current = this.snapshot()
+            if (current?.queueIdentity != snapshot.queueIdentity || current.incoming.id != snapshot.incoming.id) return null
+            val nextIndex = player.nextMediaItemIndex
+            val next = createExoPlayer(publish = false, autoMixDeck = true)
+            val deck = ServiceMixDeck(next, plan.incomingCueMs + (plan.durationMs * plan.incomingRate).toLong() + 500)
+            try {
+                val items = (0 until player.mediaItemCount).map { player.getMediaItemAt(it) }
+                val shuffle = if (player.shuffleModeEnabled) getCurrentShuffleOrderIndices(player) else null
+                next.volume = 0f
+                // Prebuffer real PCM, not zero samples. AudioTrack volume keeps this paused deck silent.
+                autoMixProcessors[next]?.parameters = AutoMixAudioProcessor.Parameters(1.0,
+                    if (plan.technique == MixTechnique.BASS_HANDOFF) 0.85 else 0.0)
+                next.playbackParameters = PlaybackParameters(plan.incomingRate, 1f)
+                next.setMediaItems(items, nextIndex, plan.incomingCueMs)
+                next.repeatMode = player.repeatMode
+                next.shuffleModeEnabled = player.shuffleModeEnabled
+                if (shuffle != null && shuffle.size == items.size) next.setShuffleOrder(DefaultShuffleOrder(shuffle, System.currentTimeMillis()))
+                preferredDeviceId?.let { id ->
+                    audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS).find { it.id == id }?.let(next::setPreferredAudioDevice)
+                }
+                next.prepare() // paused and not published: metadata and UI remain the outgoing song
+                return deck
+            } catch (_: Exception) { deck.release(); return null }
+        }
+
+        override fun promote(incoming: MixDeck) {
+            val next = (incoming as ServiceMixDeck).source
+            releaseLoudnessEnhancer() // deck gains already control overlap levels; no second hardware boost
+            player.removeListener(this@MusicService)
+            player.removeListener(sleepTimer)
+            player = next
+            player.addListener(this@MusicService)
+            player.addListener(sleepTimer)
+            sleepTimer.player = player
+            mediaSession.player = player
+            _playerFlow.value = player
+            currentMediaMetadata.value = player.currentMetadata
+            onMediaItemTransition(player.currentMediaItem, Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+            sleepTimer.notifySongTransition()
+            updateNotification()
+            updateWidgetUI(player.isPlaying)
+        }
+
+        override fun restoreNormalAudio() {
+            player.setPauseAtEndOfMediaItems(false)
+            autoMixDecks[player]?.process(1.0)
+            autoMixDecks.remove(player) // normal/Crossfade volume control no longer belongs to an AutoMix deck
+            if (isRunning && playerInitialized.value) setupLoudnessEnhancer()
+        }
+    }
+
+    private inner class ServiceMixDeck(val source: ExoPlayer, private val minimumDurationMs: Long = 0) : MixDeck {
+        private var released = false
+        private var deckGain = 1.0
+        init { autoMixDecks[source] = this }
+        override val trackId get() = source.currentMediaItem?.mediaId.orEmpty()
+        override val positionMs get() = source.currentPosition
+        override val ready get() = !released && source.playbackState == Player.STATE_READY && source.playerError == null &&
+            !source.isCurrentMediaItemLive && source.duration >= minimumDurationMs && autoMixProcessors[source]?.isActive == true
+        override val playing get() = source.isPlaying
+        override val ended get() = released || source.playbackState == Player.STATE_ENDED ||
+            (source.duration > 0 && source.currentPosition >= source.duration - 30)
+        override var rate: Float
+            get() = source.playbackParameters.speed
+            set(value) {
+                if (!released && kotlin.math.abs(source.playbackParameters.speed - value) > 0.0001f)
+                    source.playbackParameters = PlaybackParameters(value, source.playbackParameters.pitch)
+            }
+        override fun play() { if (!released) source.play() }
+        override fun pause() { if (!released) source.pause() }
+        override fun process(gain: Double, bassCut: Double, trebleCut: Double) {
+            if (released) return
+            deckGain = gain
+            applyUserVolume()
+            // AudioTrack's gain applies to already-buffered PCM too; filtering stays in the PCM chain.
+            autoMixProcessors[source]?.parameters = AutoMixAudioProcessor.Parameters(1.0, bassCut, trebleCut)
+        }
+        fun applyUserVolume() {
+            if (!released) source.volume = if (isMuted.value) 0f else playerVolume.value * deckGain.toFloat() * autoMixFocusGain
+        }
+        override fun release() {
+            if (released) return
+            released = true
+            autoMixDecks.remove(source)
+            source.removeListener(this@MusicService)
+            source.removeListener(sleepTimer)
+            playerEqProcessors.remove(source)?.let(equalizerService::removeAudioProcessor)
+            playerSilenceProcessors.remove(source)
+            autoMixProcessors.remove(source)
+            source.stop(); source.clearMediaItems(); source.release()
         }
     }
 
@@ -3742,6 +3996,7 @@ class MusicService :
     }
 
     private fun startCrossfade(trigger: CrossfadeTrigger = CrossfadeTrigger.AUTO) {
+        if (autoMixRequested) return
         if (isCrossfading) return
 
         // Preserve player state before creating the secondary player
@@ -3898,6 +4153,7 @@ class MusicService :
      * track can start buffering immediately, then swaps and fades.
      */
     private fun startCrossfadeToIndex(targetIndex: Int) {
+        if (autoMixRequested) return
         if (isCrossfading) return
         if (targetIndex < 0 || targetIndex >= player.mediaItemCount) return
 
@@ -3964,6 +4220,7 @@ class MusicService :
         status: Queue.Status,
         persistShuffleAcrossQueues: Boolean,
     ): Boolean {
+        if (autoMixRequested) return false
         if (isCrossfading || secondaryPlayer != null) {
             Timber.tag(TAG).d(
                 "startQueueCrossfade: aborting, isCrossfading=%s secondaryPlayer!=null=%s",
@@ -4039,6 +4296,7 @@ class MusicService :
         queue: Queue,
         persistShuffleAcrossQueues: Boolean,
     ): Boolean {
+        if (autoMixRequested) return false
         val preloadItem = queue.preloadItem ?: return false
         if (isCrossfading || secondaryPlayer != null) {
             Timber.tag(TAG).d(
@@ -4148,6 +4406,12 @@ class MusicService :
     }
 
     private fun cleanupCrossfade() {
+        fadingPlayer?.let { old ->
+            autoMixDecks.remove(old)
+            autoMixProcessors.remove(old)
+            playerSilenceProcessors.remove(old)
+            playerEqProcessors.remove(old)?.let(equalizerService::removeAudioProcessor)
+        }
         fadingPlayer?.stop()
         fadingPlayer?.clearMediaItems()
         fadingPlayer?.release()
