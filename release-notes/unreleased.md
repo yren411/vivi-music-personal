@@ -57,3 +57,20 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Verify cold startup, top-bar spacing, onboarding and About/Wrapped branding on
   a phone in light/dark mode. Device appearance/navigation checks remain manual.
 - These notes do not claim a newly published release or a tested release-signed APK.
+
+## AutoMix quality and external equalizers
+
+- AutoMix can identify sustained instrumental outros beyond the old near-end
+  window, pair them with suitable intro cues, and finish a planned overlap before
+  the outgoing file ends when evidence supports it.
+- Added wider coarse scanning, targeted refinement, spectral rhythm confidence,
+  measured accent/section boundaries and candidate scoring. Vocal/structure
+  estimates remain approximate; unsafe early cuts and intro skipping are refused.
+- Smoothed bass handoffs, transition-region level matching and tempo corrections;
+  missed intelligent boundaries use a later safe fallback when possible.
+- Corrected external effect-session ownership across prepared, promoted and
+  fading players for both Crossfade and AutoMix. Real AudioTrack callbacks prevent
+  stale/incorrect IDs and delayed old releases from closing a replacement session.
+- Improved Crossfade metadata, seek/error cleanup and promotion recovery while
+  preserving its duration/curve. Poweramp Equalizer compatibility and listening
+  quality still require device validation; no third-party settings are reset.
