@@ -1,5 +1,8 @@
 # Tinium intelligent AutoMix
 
+**Current active-mixing policy:** [DJ mixing, recovery tiers and log export](AUTOMIX_DJ_MIXING_AND_LOG_EXPORT.md).
+Earlier investigation documents below describe their respective historical milestones.
+
 AutoMix is opt-in and uses local decoded audio to plan a transition between the
 current and immediate next song. It is separate from the existing Crossfade
 feature and does not change its stored preferences. Device listening and the

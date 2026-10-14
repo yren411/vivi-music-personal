@@ -54,6 +54,6 @@ class AutoMixAnalysisTest {
         try {
             TrackFeaturesAnalyzer().analyze(pulseAudio(120.0), 22050, 0, 60000, System.nanoTime() - 1)
             fail("Expired analysis continued")
-        } catch (_: java.util.concurrent.CancellationException) { }
+        } catch (error: AnalysisUnavailable) { assertEquals("ANALYSIS_TIMEOUT",error.reason) }
     }
 }

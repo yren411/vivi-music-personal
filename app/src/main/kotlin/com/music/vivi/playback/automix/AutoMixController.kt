@@ -44,22 +44,25 @@ interface AutoMixHost {
 class AutoMixController(private val host: AutoMixHost, private val workers: AnalysisWorkers<TrackFeatures>,
                         private val planner: AutoMixPlanner = AutoMixPlanner(),
                         private val nanoTime: () -> Long = System::nanoTime,
-                        private val onStatus: (AutoMixStatus) -> Unit = {}) : AutoCloseable {
+                        private val onStatus: (AutoMixStatus) -> Unit = {},
+                        private val recorder: AutoMixRecorder? = null) : AutoCloseable {
     private data class Decision(val outgoing: TrackFeatures?, val incoming: TrackFeatures?, val selection: AutoMixPlanner.Decision)
     private data class Preparation(var snapshot: MixSnapshot, val outgoing: List<Future<TrackFeatures>>,
                                    val incoming: List<Future<TrackFeatures>>, var plan: AutoMixPlan? = null,
                                    var deck: MixDeck? = null, val deadline: Long,
                                    var coarseOut: TrackFeatures? = null, var coarseIn: TrackFeatures? = null,
                                    var preview: AutoMixPlan? = null,
-                                   var refinement: Pair<Future<TrackFeatures>,Future<TrackFeatures>>? = null,
+                                   var refinement: Pair<List<Future<TrackFeatures>>,List<Future<TrackFeatures>>>? = null,
                                    var announcedPlan: AutoMixPlan? = null, var readyLogged: Boolean = false,
                                    var previewDecision: Future<Decision>? = null, var previewProcessed: Boolean = false,
-                                   var finalDecision: Future<Decision>? = null, var refinementDeadline: Long = Long.MAX_VALUE)
+                                   var finalDecision: Future<Decision>? = null, var deckPreparationNanos: Long = 0, var refinementDeadline: Long = Long.MAX_VALUE)
     private data class Blend(val outgoing: MixDeck, val incoming: MixDeck, val plan: AutoMixPlan,
                              var incomingQueue: String?, val incomingId: String,
                              var startedPosition: Long, var finished: Boolean = false,
                              var recoveryStart: Long = 0, var ownedRate: Float = plan.incomingRate,
-                             var lastRateUpdate: Long = 0, var recoveryRate: Float = plan.incomingRate)
+                             var lastRateUpdate: Long = 0, var recoveryRate: Float = plan.incomingRate, val snapshot: MixSnapshot? = null, var automationStep: Int = -1)
+    private var diagnosticPair: String? = null
+    private var attemptId = 0L
     private var preparation: Preparation? = null
     private var blend: Blend? = null
     private var finishedPair: String? = null
@@ -69,7 +72,19 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
                        plan: AutoMixPlan? = null, reason: String? = null, actualStart: Long? = null) {
         val value = AutoMixStatus(phase, snapshot?.outgoing?.id, snapshot?.incoming?.id,
             snapshot?.outgoing?.durationMs, plan, reason, actualStart)
-        if (_status.value != value) { _status.value = value; onStatus(value) }
+        if (_status.value != value) {
+            _status.value = value; onStatus(value)
+            val event=when(phase) {
+                AutoMixPhase.WAITING_SOURCE -> MixEvent.FAILURE
+                AutoMixPhase.PREPARING -> MixEvent.PREPARING
+                AutoMixPhase.READY -> MixEvent.READY
+                AutoMixPhase.UNAVAILABLE -> MixEvent.SKIPPED
+                AutoMixPhase.FALLBACK_PLANNED -> MixEvent.FAILURE
+                else -> null
+            }
+            if(event!=null) recorder?.record(attemptId,event,failure=if(phase in setOf(AutoMixPhase.WAITING_SOURCE,AutoMixPhase.UNAVAILABLE,AutoMixPhase.FALLBACK_PLANNED)) reason?.let(AutoMixFailure::from) else null,tier=plan?.tier,
+                technique=plan?.technique)
+        }
     }
     var enabled = false
         private set
@@ -95,8 +110,8 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
                 // deck whose copied playlist is stale, so promotion preserves the new queue.
                 if (prep.snapshot.queueIdentity != next.queueIdentity) { prep.deck?.release(); prep.deck = null; prep.readyLogged = false }
                 prep.snapshot = next
-            } else invalidate()
-        } else if (state.incomingId != currentTrackId) invalidate()
+            } else invalidate(AutoMixFailure.QUEUE_CHANGED)
+        } else if (state.incomingId != currentTrackId) invalidate(AutoMixFailure.QUEUE_CHANGED)
         else {
             // Appending/reordering FUTURE songs does not invalidate two already audible decks.
             // Preserve the blend when the active song is unchanged; seeks/skips still cancel it.
@@ -126,7 +141,9 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
     }
 
     /** Explicit seek/skip/queue replacement/settings change cancels every obsolete operation. */
-    fun invalidate() {
+    fun invalidate(reason: AutoMixFailure = AutoMixFailure.ANALYSIS_CANCELED) {
+        if (diagnosticPair != null) recorder?.record(attemptId,MixEvent.CANCELED,failure=reason)
+        diagnosticPair=null
         if (preparation != null || blend != null) host.diagnostic("event=invalidated stage=${_status.value.phase}")
         preparation?.let { cancel(it); it.deck?.release() }
         preparation = null
@@ -156,13 +173,21 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
             return
         }
         if (!snapshot.playing) return // pause must not discard useful work; explicit seeks invalidate
+        val pair = identity(snapshot)
+        if(diagnosticPair!=pair) {
+            if(preparation!=null) invalidate(AutoMixFailure.SOURCE_CHANGED)
+            diagnosticPair=pair
+            attemptId=recorder?.begin(snapshot.outgoing.id,snapshot.incoming.id) ?: 0
+            recorder?.record(attemptId,MixEvent.PAIR,mapOf(MixMetric.OUT_DURATION_MS to snapshot.outgoing.durationMs.toDouble(),
+                MixMetric.IN_DURATION_MS to snapshot.incoming.durationMs.toDouble(),MixMetric.POSITION_MS to snapshot.positionMs.toDouble(),
+                MixMetric.WORKERS to workers.mode.workers.toDouble(),MixMetric.QUEUED to workers.queuedCount.toDouble()))
+        }
         if (!host.sourcesReady(snapshot)) {
             if (preparation != null) invalidate()
             report(AutoMixPhase.WAITING_SOURCE, snapshot, reason="source-unresolved")
             return
         }
         if (snapshot.outgoing.durationMs < 20_000 || snapshot.incoming.durationMs in 1..19_999) { report(AutoMixPhase.UNAVAILABLE,snapshot,reason="short-track"); return }
-        val pair = identity(snapshot)
         if (pair == finishedPair) return
         var prep = preparation
         if (prep != null && identity(prep.snapshot) != pair) { invalidate(); prep = null }
@@ -173,6 +198,7 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         if (prep == null) {
             val deadline = nanoTime() + 90_000_000_000L
             host.diagnostic("event=pair-analysis-start positionMs=${snapshot.positionMs}")
+            recorder?.record(attemptId,MixEvent.SOURCE_READY)
             prep = Preparation(snapshot,
                 requestWindows(snapshot.outgoing, true, deadline), requestWindows(snapshot.incoming, false, deadline), deadline=deadline)
             preparation = prep
@@ -184,10 +210,16 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
             (prep.outgoing + prep.incoming).filter { !it.isDone }.forEach { it.cancel(true) }
             val preparationSnapshot=prep.snapshot
             val outJobs=prep.outgoing; val inJobs=prep.incoming
+            val diagnosticAttempt=attemptId
             prep.previewDecision=workers.submitTransient {
                 val out=completed(outJobs,true); val incoming=completed(inJobs,false)
-                Decision(out,incoming,planner.decide(out,incoming,preparationSnapshot.outgoing.durationMs,
-                    incoming?.durationMs ?: preparationSnapshot.incoming.durationMs,snapshot.positionMs+5000))
+                val selected=planner.decide(out,incoming,preparationSnapshot.outgoing.durationMs,
+                    incoming?.durationMs ?: preparationSnapshot.incoming.durationMs,snapshot.positionMs+5000)
+                recordDecision(diagnosticAttempt,selected)
+                val keyKnown=out?.key?.confidence?.let { it>=0.2 }==true && incoming?.key?.confidence?.let { it>=0.2 }==true
+                recorder?.record(diagnosticAttempt,MixEvent.COARSE_READY,if(keyKnown) mapOf(MixMetric.HARMONIC_COMPATIBLE to
+                    if(planner.compatibleKeys(out?.key,incoming?.key))1.0 else 0.0) else emptyMap())
+                Decision(out,incoming,selected)
             }
         }
         prep.previewDecision?.takeIf { it.isDone && !prep.previewProcessed }?.let { future ->
@@ -204,32 +236,49 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
                 prep.refinementDeadline = nanoTime() + minOf(40_000L, (preview.outgoingStartMs-snapshot.positionMs-1500).coerceAtLeast(1000))*1_000_000L
                 report(AutoMixPhase.REFINING,snapshot)
                 host.diagnostic("event=refine-start candidateMs=${preview.outgoingStartMs}")
-                fun refine(track: MixTrack,cue: Long): Future<TrackFeatures> {
-                    val start=(cue-3000).coerceAtLeast(0)
-                    val duration=if(track.durationMs>0) track.durationMs else prep.coarseIn!!.durationMs
-                    val length=minOf(32_000L,duration-start)
-                    return workers.submit("v4-detail:${track.sourceIdentity}|$start:$length",track.cacheable) {
-                        host.analyze(track,start,length,minOf(prep.refinementDeadline,nanoTime()+25_000_000_000L))
+                fun refine(track: MixTrack,cue: Long,tail: Boolean): List<Future<TrackFeatures>> {
+                    val active=preview.reason=="active-rhythmic-section"
+                    val target=if(active && tail) minOf(cue,(track.durationMs-48000).coerceAtLeast(0)) else cue
+                    val start=(target-3000).coerceAtLeast(0)
+                    val actualDuration=if(track.durationMs>0) track.durationMs else prep.coarseIn!!.durationMs
+                    val span=if(active) minOf(actualDuration-start,52000) else minOf(actualDuration-start,preview.durationMs.coerceAtLeast(24000)+4000)
+                    return splitWindows(start,span,32000).map { (position,length) ->
+                        requestWindow(track,position,length,tail,true,prep.refinementDeadline)
                     }
                 }
-                prep.refinement=refine(snapshot.outgoing,preview.outgoingStartMs) to refine(snapshot.incoming,preview.incomingCueMs)
+                prep.refinement=refine(snapshot.outgoing,preview.outgoingStartMs,true) to refine(snapshot.incoming,preview.incomingCueMs,false)
             } else prep.plan=preview.copy(reason=if(prep.coarseOut==null || prep.coarseIn==null) analysisFailure(prep.outgoing+prep.incoming) else preview.reason)
         }
         prep.refinement?.let { refinement ->
-            if(prep.plan==null && prep.finalDecision==null && ((refinement.first.isDone && refinement.second.isDone) ||
+            if(prep.plan==null && prep.finalDecision==null && ((refinement.first.all { it.isDone } && refinement.second.all { it.isDone }) ||
                     nanoTime() >= prep.refinementDeadline || snapshot.positionMs >= (prep.preview?.outgoingStartMs ?: Long.MAX_VALUE)-1500)) {
+                if(!refinement.first.all { it.isDone } || !refinement.second.all { it.isDone })
+                    recorder?.record(attemptId,MixEvent.FAILURE,failure=AutoMixFailure.ANALYSIS_TIMEOUT,stage=MixStage.REFINEMENT)
                 val coarseOut=prep.coarseOut; val coarseIn=prep.coarseIn
                 val earliest=snapshot.positionMs+1500
                 val outDuration=snapshot.outgoing.durationMs; val inDuration=snapshot.incoming.durationMs
-                listOf(refinement.first,refinement.second).filter { !it.isDone }.forEach { it.cancel(true) }
+                (refinement.first+refinement.second).filter { !it.isDone }.forEach { it.cancel(true) }
+                val diagnosticAttempt=attemptId
                 prep.finalDecision=workers.submitTransient {
-                    val out=completed(listOf(refinement.first),true)
-                    val incoming=completed(listOf(refinement.second),false)
+                    val out=completed(refinement.first,true)
+                    val incoming=completed(refinement.second,false)
                     val mergedOut=mergeTrackFeatures(listOfNotNull(coarseOut,out),true)
                     val mergedIn=mergeTrackFeatures(listOfNotNull(coarseIn,incoming),false)
-                    val decision=if(out!=null && incoming!=null) planner.decide(mergedOut,mergedIn,outDuration,incoming.durationMs,
-                        earliest,requireDetailed=true) else AutoMixPlanner.Decision(
-                            planner.fallback(outDuration,coarseIn?.durationMs ?: inDuration)?.copy(reason="refinement-${analysisFailure(listOf(refinement.first,refinement.second))}"),emptyMap())
+                    val refined=planner.decide(mergedOut,mergedIn,outDuration,mergedIn?.durationMs ?: inDuration,
+                        earliest,requireDetailed=true)
+                    val decision=if(refined.plan!=null && refined.plan.technique!=MixTechnique.SAFE_FADE) refined else {
+                        val recovery=planner.decide(mergedOut,mergedIn,outDuration,mergedIn?.durationMs ?: inDuration,
+                            earliest,requireDetailed=false,allowFull=false)
+                        val usable=recovery.plan?.takeIf { it.technique in setOf(MixTechnique.BEAT_BLEND,MixTechnique.BASS_HANDOFF) &&
+                            it.phaseConfidence>=0.5 && it.durationMs<=16000 }
+                        if(usable!=null) {
+                            recorder?.record(diagnosticAttempt,MixEvent.RECOVERED,failure=AutoMixFailure.REFINEMENT_FAILED,tier=AutoMixTier.B)
+                            recovery.copy(plan=usable.copy(tier=AutoMixTier.B,reason="coarse-analysis-recovery"))
+                        } else AutoMixPlanner.Decision(
+                            planner.fallback(outDuration,mergedIn?.durationMs ?: inDuration)?.copy(
+                                reason="refinement-${analysisFailure(refinement.first+refinement.second)}"),refined.rejections)
+                    }
+                    recordDecision(diagnosticAttempt,decision)
                     Decision(out,incoming,decision)
                 }
             }
@@ -243,10 +292,11 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         val plan = prep.plan ?: return
         if (prep.announcedPlan != plan) {
             prep.announcedPlan=plan
+            recordPlan(attemptId,MixEvent.PLAN,plan)
             host.diagnostic("event=plan technique=${plan.technique} startMs=${plan.outgoingStartMs} cueMs=${plan.incomingCueMs} durationMs=${plan.durationMs} score=${plan.score} phase=${plan.phaseConfidence} reason=${plan.reason}")
         }
         if (_status.value.plan != plan || _status.value.phase !in setOf(AutoMixPhase.PREPARING,AutoMixPhase.READY))
-            report(if(plan.technique==MixTechnique.SAFE_FADE) AutoMixPhase.FALLBACK_PLANNED else AutoMixPhase.PLANNED,snapshot,plan,plan.reason)
+            report(if(plan.tier==AutoMixTier.C) AutoMixPhase.FALLBACK_PLANNED else AutoMixPhase.PLANNED,snapshot,plan,plan.reason)
         if (snapshot.positionMs > plan.outgoingStartMs + 250) {
             val wasReady=prep.readyLogged
             prep.deck?.release(); cancel(prep)
@@ -259,6 +309,7 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
             return
         }
         if (prep.deck == null && snapshot.positionMs >= plan.outgoingStartMs - 30_000) {
+            prep.deckPreparationNanos=nanoTime()
             prep.deck = host.prepareIncoming(snapshot, plan)
             host.diagnostic("event=prepare success=${prep.deck!=null} leadMs=${plan.outgoingStartMs-snapshot.positionMs}")
             if (prep.deck == null) {
@@ -286,21 +337,24 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         report(AutoMixPhase.READY,snapshot,plan,plan.reason)
         if(!prep.readyLogged) {
             prep.readyLogged=true
+            recorder?.record(attemptId,MixEvent.READY,mapOf(MixMetric.PREPARATION_OBSERVED_MS to (nanoTime()-prep.deckPreparationNanos)/1_000_000.0))
             host.diagnostic("event=ready actualCueMs=${incoming.positionMs} requestedCueMs=${plan.incomingCueMs} leadMs=${plan.outgoingStartMs-snapshot.positionMs}")
         }
         if (snapshot.positionMs < plan.outgoingStartMs) return
         val outgoing = host.currentDeck()
         incoming.rate = plan.incomingRate
-        incoming.process(0.0, if (plan.technique == MixTechnique.BASS_HANDOFF) 0.85 else 0.0)
+        val intro=djAutomation(plan,0.0).incoming
+        incoming.process(0.0,intro.bassCut,intro.trebleCut)
         outgoing.process(0.94) // match outgoing level gradually, never a large instantaneous attenuation
         incoming.play()
-        val state = Blend(outgoing, incoming, plan, null, snapshot.incoming.id, outgoing.positionMs)
+        val state = Blend(outgoing, incoming, plan, null, snapshot.incoming.id, outgoing.positionMs, snapshot=snapshot)
         blend = state // publish state first: session callbacks cannot arm a second transition
         preparation = null
         cancel(prep)
         try {
             host.promote(incoming)
-            report(if(plan.technique==MixTechnique.SAFE_FADE) AutoMixPhase.FALLBACK_PLAYING else AutoMixPhase.MIXING,snapshot,plan,plan.reason,outgoing.positionMs)
+            report(if(plan.tier==AutoMixTier.C) AutoMixPhase.FALLBACK_PLAYING else AutoMixPhase.MIXING,snapshot,plan,plan.reason,outgoing.positionMs)
+            recordPlan(attemptId,MixEvent.START,plan,mapOf(MixMetric.ACTUAL_START_MS to outgoing.positionMs.toDouble()))
             host.diagnostic("event=start technique=${plan.technique} startMs=${outgoing.positionMs} cueMs=${incoming.positionMs} durationMs=${plan.durationMs} reason=${plan.reason}")
             state.incomingQueue = host.snapshot()?.queueIdentity
         } catch (_: Exception) {
@@ -335,21 +389,24 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
                 state.lastRateUpdate=elapsed
             } else state.ownedRate=state.incoming.rate
             state.incoming.process(0.94 * state.plan.incomingLevel + (1 - 0.94 * state.plan.incomingLevel) * fraction)
-            if (fraction >= 1) { blend = null; host.restoreNormalAudio(); report(AutoMixPhase.WAITING_NEXT) }
+            if (fraction >= 1) { blend = null; host.restoreNormalAudio(); report(AutoMixPhase.COMPLETED,state.snapshot,state.plan,actualStart=state.startedPosition) }
             return
         }
         val elapsed = (state.outgoing.positionMs - state.startedPosition).coerceAtLeast(0)
         val progress = (elapsed / state.plan.durationMs.toDouble()).coerceIn(0.0, 1.0)
         val levelRamp=(elapsed/2000.0).coerceIn(0.0,1.0)
-        val gains = mixGains(progress, 1+(state.plan.outgoingLevel-1)*levelRamp, state.plan.incomingLevel)
-        val bass = state.plan.technique == MixTechnique.BASS_HANDOFF
-        val filter = state.plan.technique == MixTechnique.GENTLE_FILTER
-        fun smooth(value: Double): Double { val x=value.coerceIn(0.0,1.0); return x*x*(3-2*x) }
-        // Open incoming bass before removing outgoing bass: avoid the former simultaneous
-        // mid-blend bass cuts. Correlation headroom still bounds their combined peak gain.
-        state.outgoing.process(gains.outgoing, if (bass) smooth((progress-0.55)/0.30)*0.85 else 0.0,
-            if (filter) smooth(progress)*0.65 else 0.0)
-        state.incoming.process(gains.incoming, if (bass) (1-smooth((progress-0.30)/0.25))*0.85 else 0.0)
+        val automation=djAutomation(state.plan,progress,levelRamp)
+        state.outgoing.process(automation.outgoing.gain,automation.outgoing.bassCut,automation.outgoing.trebleCut)
+        state.incoming.process(automation.incoming.gain,automation.incoming.bassCut,automation.incoming.trebleCut)
+        val milestone=(progress*4).toInt()
+        if(milestone!=state.automationStep) {
+            state.automationStep=milestone
+            recorder?.record(attemptId,MixEvent.AUTOMATION,mapOf(MixMetric.ELAPSED_MS to elapsed.toDouble(),
+                MixMetric.OUT_GAIN to automation.outgoing.gain,MixMetric.IN_GAIN to automation.incoming.gain,
+                MixMetric.OUT_BASS_CUT to automation.outgoing.bassCut,MixMetric.IN_BASS_CUT to automation.incoming.bassCut,
+                MixMetric.OUT_TREBLE_CUT to automation.outgoing.trebleCut,MixMetric.IN_TREBLE_CUT to automation.incoming.trebleCut,
+                MixMetric.IN_RATE to state.incoming.rate.toDouble()),tier=state.plan.tier,stage=MixStage.MIX)
+        }
         if (state.plan.technique in setOf(MixTechnique.BEAT_BLEND, MixTechnique.BASS_HANDOFF) && elapsed-state.lastRateUpdate>=500) {
             val expected = state.plan.incomingCueMs.toDouble() + elapsed.toDouble() * state.plan.incomingRate
             val phaseErrorMs = expected - state.incoming.positionMs
@@ -362,33 +419,91 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         if (progress >= 1 || state.outgoing.ended) {
             state.outgoing.release()
             host.diagnostic("event=handoff-complete durationMs=$elapsed")
+            recorder?.record(attemptId,MixEvent.COMPLETE,mapOf(MixMetric.ELAPSED_MS to elapsed.toDouble()),tier=state.plan.tier,technique=state.plan.technique)
             state.recoveryRate=state.ownedRate
             state.lastRateUpdate=0
             state.finished = true
-            report(AutoMixPhase.RECOVERING,plan=state.plan,reason=state.plan.reason)
+            report(AutoMixPhase.RECOVERING,state.snapshot,state.plan,reason=state.plan.reason,actualStart=state.startedPosition)
             state.recoveryStart = state.incoming.positionMs
             state.incoming.process(0.94 * state.plan.incomingLevel)
         }
     }
 
     private fun requestWindows(track: MixTrack, tail: Boolean, deadline: Long): List<Future<TrackFeatures>> {
-        val length = if(tail) when {
-            track.durationMs>=180_000 -> 90_000L
-            track.durationMs>=90_000 -> 60_000L
-            else -> minOf(32_000L,track.durationMs)
-        } else if(track.durationMs>0) minOf(32_000L,track.durationMs) else 32_000L
-        val start = if(tail) (track.durationMs-length).coerceAtLeast(0) else 0L
-        val chunk = if(tail && length>32_000) 30_000L else 16_000L
-        val windows=generateSequence(start) { it+chunk }.takeWhile { it<start+length }
-            .map { it to minOf(chunk,start+length-it) }.toList()
-        return windows.map { (position,size) -> workers.submit("v4-scan:${track.sourceIdentity}|$position:$size",track.cacheable) {
-            host.diagnostic("event=window-start role=${if(tail) "outgoing" else "incoming"} startMs=$position lengthMs=$size",true)
-            host.scan(track,position,size,minOf(deadline,nanoTime()+25_000_000_000L)).also {
-                host.diagnostic("event=window-complete role=${if(tail) "outgoing" else "incoming"} startMs=$position bpm=${it.bpm} grid=${it.beatConfidence} phase=${it.phaseConfidence}",true)
-            }
-        } }
+        val length=if(tail) when {
+            track.durationMs>=180000 -> 90000L
+            track.durationMs>=90000 -> 60000L
+            else -> minOf(32000L,track.durationMs)
+        } else if(track.durationMs==0L || track.durationMs>=90000) minOf(64000L,track.durationMs.takeIf { it>0 } ?: 64000) else minOf(32000L,track.durationMs)
+        val start=if(tail)(track.durationMs-length).coerceAtLeast(0) else 0
+        val windows=if(!tail && length>32000) listOf(0L to 16000L,16000L to 24000L,40000L to (length-40000))
+            else splitWindows(start,length,if(tail && length>32000)30000 else 16000)
+        return windows.filter { it.second>=4000 }.map { (position,size) -> requestWindow(track,position,size,tail,false,deadline) }
     }
-    private fun cancel(prep: Preparation) { (prep.outgoing+prep.incoming+listOfNotNull(prep.refinement?.first,prep.refinement?.second,prep.previewDecision,prep.finalDecision)).forEach { it.cancel(true) } }
+    private fun splitWindows(start: Long,length: Long,chunk: Long): List<Pair<Long,Long>> {
+        val parts=mutableListOf<Pair<Long,Long>>()
+        var cursor=start
+        while(cursor<start+length) {
+            val left=start+length-cursor
+            if(left<4000 && parts.isNotEmpty()) {
+                val prior=parts.removeLast()
+                // Keep each window <=32s: shift a 4s overlapping final window instead.
+                parts+=prior;parts+=(start+length-4000) to 4000L;break
+            }
+            val size=minOf(chunk,left);parts+=cursor to size;cursor+=size
+        }
+        return parts
+    }
+    private fun requestWindow(track: MixTrack,start: Long,length: Long,tail: Boolean,detail: Boolean,deadline: Long): Future<TrackFeatures> {
+        val role=if(tail) MixRole.OUTGOING else MixRole.INCOMING
+        val attempt=attemptId
+        val stage=if(detail)MixStage.REFINEMENT else MixStage.SCAN
+        val key="v5-${if(detail) "detail" else "scan"}:${track.sourceIdentity}|$start:$length"
+        if(workers.hasCached(key)) recorder?.record(attempt,MixEvent.CACHE_HIT,role=role,stage=stage)
+        val job=workers.submit(key,track.cacheable) {
+            val began=nanoTime()
+            recorder?.record(attempt,MixEvent.WINDOW_START,mapOf(MixMetric.REGION_START_MS to start.toDouble(),MixMetric.REGION_LENGTH_MS to length.toDouble()),role,stage=stage)
+            fun decode(position: Long,size: Long): TrackFeatures = if(detail) host.analyze(track,position,size,minOf(deadline,nanoTime()+25_000_000_000L))
+                else host.scan(track,position,size,minOf(deadline,nanoTime()+25_000_000_000L))
+            val result=try { decode(start,length) } catch(error: Exception) {
+                val failure=AutoMixFailure.of(error)
+                recorder?.record(attempt,MixEvent.FAILURE,role=role,failure=failure,stage=stage,errorType=MixErrorType.of(error))
+                if(failure in setOf(AutoMixFailure.INSUFFICIENT_AUDIO_DATA,AutoMixFailure.ANALYSIS_BYTE_BUDGET,AutoMixFailure.DECODER_FAILED,AutoMixFailure.SOURCE_IO_FAILURE) &&
+                    length>16000 && nanoTime()<deadline-5_000_000_000L && !Thread.currentThread().isInterrupted) {
+                    val smaller=16000L;val position=if(tail)start+length-smaller else start
+                    recorder?.record(attempt,MixEvent.RETRY,mapOf(MixMetric.REGION_START_MS to position.toDouble(),MixMetric.REGION_LENGTH_MS to smaller.toDouble()),role,failure,stage=stage)
+                    try { decode(position,smaller).also { recorder?.record(attempt,MixEvent.RECOVERED,role=role,failure=failure,stage=stage) } }
+                    catch(second: Exception) { recorder?.record(attempt,MixEvent.FAILURE,role=role,failure=AutoMixFailure.of(second),stage=stage,errorType=MixErrorType.of(second));throw second }
+                } else throw error
+            }
+            val values=mutableMapOf(MixMetric.REGION_START_MS to result.startMs.toDouble(),MixMetric.REGION_LENGTH_MS to result.lengthMs.toDouble(),
+                MixMetric.BPM to result.bpm,MixMetric.GRID_CONFIDENCE to result.beatConfidence,MixMetric.PHASE_CONFIDENCE to result.phaseConfidence,
+                MixMetric.RMS to result.rms,MixMetric.PEAK to result.peak,MixMetric.ELAPSED_MS to (nanoTime()-began)/1_000_000.0)
+            result.key?.let { values[MixMetric.KEY_TONIC]=it.tonic.toDouble();values[MixMetric.KEY_MINOR]=if(it.minor)1.0 else 0.0;values[MixMetric.KEY_CONFIDENCE]=it.confidence }
+            result.energy.mapNotNull { it.bassFraction }.average().takeIf { it.isFinite() }?.let { values[MixMetric.BASS_FRACTION]=it }
+            result.energy.mapNotNull { it.spectralDensity }.average().takeIf { it.isFinite() }?.let { values[MixMetric.SPECTRAL_DENSITY]=it }
+            result.energy.map { it.vocalRisk }.average().takeIf { it.isFinite() }?.let { values[MixMetric.VOCAL_RISK]=it }
+            values[if(tail)MixMetric.OUT_DURATION_MS else MixMetric.IN_DURATION_MS]=result.durationMs.toDouble()
+            recorder?.record(attempt,MixEvent.WINDOW_DONE,values,role,stage=stage)
+            result
+        }
+        if(job.isDone && !job.isCancelled) runCatching { job.get() }.exceptionOrNull()?.let { error ->
+            if(AutoMixFailure.of(error)==AutoMixFailure.WORKER_QUEUE_FULL)
+                recorder?.record(attempt,MixEvent.FAILURE,role=role,failure=AutoMixFailure.WORKER_QUEUE_FULL,stage=stage)
+        }
+        return job
+    }
+    private fun recordPlan(attempt: Long,event: MixEvent,plan: AutoMixPlan,extras: Map<MixMetric,Double> = emptyMap()) {
+        recorder?.record(attempt,event,mapOf(MixMetric.START_MS to plan.outgoingStartMs.toDouble(),MixMetric.CUE_MS to plan.incomingCueMs.toDouble(),
+            MixMetric.OVERLAP_MS to plan.durationMs.toDouble(),MixMetric.SCORE to plan.score,MixMetric.PHASE_CONFIDENCE to plan.phaseConfidence)+extras,
+            tier=plan.tier,technique=plan.technique,cueReason=plan.cueReason,stage=if(event==MixEvent.START)MixStage.MIX else MixStage.PLANNING)
+    }
+    private fun recordDecision(attempt: Long,decision: AutoMixPlanner.Decision) {
+        decision.candidates.take(12).forEach { recordPlan(attempt,MixEvent.CANDIDATE,it) }
+        decision.rejections.forEach { (reason,count) -> recorder?.record(attempt,MixEvent.REJECTION,mapOf(MixMetric.COUNT to count.toDouble()),failure=AutoMixFailure.from(reason)) }
+    }
+    private fun cancel(prep: Preparation) { (prep.outgoing+prep.incoming+(prep.refinement?.first ?: emptyList())+
+        (prep.refinement?.second ?: emptyList())+listOfNotNull(prep.previewDecision,prep.finalDecision)).forEach { it.cancel(true) } }
     private fun completed(futures: List<Future<TrackFeatures>>, preferTail: Boolean): TrackFeatures? =
         mergeTrackFeatures(futures.mapNotNull { if(it.isDone && !it.isCancelled) runCatching { it.get() }.getOrNull() else null },preferTail)
 
@@ -396,7 +511,7 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         val errors=jobs.mapNotNull { if(it.isDone) try { it.get(); null } catch(e: Exception) { e.cause ?: e } else null }
         return errors.filterIsInstance<AnalysisUnavailable>().firstOrNull()?.reason
             ?: if(errors.any { it is java.util.concurrent.CancellationException }) "analysis-timeout-or-canceled"
-            else "analysis-unavailable"
+            else errors.firstOrNull()?.let { AutoMixFailure.of(it).name } ?: "analysis-unavailable"
     }
 
     private fun identity(s: MixSnapshot) = "${s.outgoing.id}|${s.incoming.id}|${s.outgoing.sourceIdentity}|${s.incoming.sourceIdentity}"

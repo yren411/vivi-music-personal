@@ -10,12 +10,17 @@ class AutoMixPlanner {
         if (outgoingDurationMs < 15_000 || incomingDurationMs < 15_000) return null
         return AutoMixPlan(outgoingDurationMs - 2500, 0, 2500)
     }
-    data class Decision(val plan: AutoMixPlan?, val rejections: Map<String,Int>)
+    data class Decision(val plan: AutoMixPlan?, val rejections: Map<String,Int>, val candidates: List<AutoMixPlan> = emptyList())
     fun decide(outgoing: TrackFeatures?, incoming: TrackFeatures?, outgoingDurationMs: Long,
-               incomingDurationMs: Long, earliestStartMs: Long = 0, requireDetailed: Boolean = false): Decision {
+               incomingDurationMs: Long, earliestStartMs: Long = 0, requireDetailed: Boolean = false, allowFull: Boolean = true): Decision {
         val rejected=mutableMapOf<String,Int>()
         val result=compute(outgoing,incoming,outgoingDurationMs,incomingDurationMs,earliestStartMs,requireDetailed,rejected)
-        return Decision(result,rejected.toMap())
+        val active=if(outgoing!=null && incoming!=null && abs(outgoing.durationMs-outgoingDurationMs)<=1000)
+            DjCandidateSelector.select(outgoing,incoming,outgoingDurationMs,incomingDurationMs,earliestStartMs,
+                requireDetailed,compatibleKeys(outgoing.key,incoming.key),allowFull)
+            else DjCandidateSelector.Result(emptyList(),emptyMap())
+        active.rejections.forEach { (key,value) -> rejected[key]=(rejected[key] ?: 0)+value }
+        return Decision((active.plans+listOfNotNull(result)).maxByOrNull { it.score },rejected.toMap(),active.plans)
     }
     fun plan(outgoing: TrackFeatures?, incoming: TrackFeatures?, outgoingDurationMs: Long,
              incomingDurationMs: Long, earliestStartMs: Long = 0, requireDetailed: Boolean = false): AutoMixPlan? {
@@ -73,7 +78,7 @@ class AutoMixPlanner {
             exits+=Exit(time,boundary.confidence,true)
         }
         val firstSound=incoming.energy.firstOrNull { it.rms>=max(0.005,incoming.rms*0.15) }?.positionMs ?: 0
-        val cueLimit=min(12_000L,max(incomingDurationMs/10,firstSound))
+        val cueLimit=min(32_000L,incomingDurationMs/5)
         val cues=(listOf(0L,snap(incoming,firstSound)) + incoming.boundaries.map { snap(incoming,it.positionMs) } +
             incoming.sections.filter { it.confidence>=0.6 }.map { snap(incoming,max(it.startMs,firstSound)) })
             .filter { it in 0..cueLimit }.distinct()
@@ -112,7 +117,15 @@ class AutoMixPlanner {
                 reject("insufficient-safe-overlap"); continue
             }
             fun covers(track: TrackFeatures, position: Long, length: Long) = track.sections.isEmpty() ||
-                track.sections.any { it.detailed && it.startMs<=position && it.endMs>=position+length-250 }
+                run {
+                    var edge=position
+                    for(section in track.sections.filter { it.detailed }.sortedBy { it.startMs }) {
+                        if(section.endMs<=edge) continue
+                        if(section.startMs>edge+250) break
+                        edge=max(edge,section.endMs)
+                    }
+                    edge>=position+length-250
+                }
             if(requireDetailed && (!covers(outgoing,start,length) || !covers(incoming,cue,(length*ratio).toLong()))) {
                 reject("selected-region-not-refined"); continue
             }
@@ -135,7 +148,7 @@ class AutoMixPlanner {
             val quiet=min(localOut,localIn)
             plans+=AutoMixPlan(start,cue,length,if(rhythmic) ratio.toFloat() else 1f,technique,
                 quiet/localOut,quiet/localIn,score,
-                if(exit.early) "measured-sustained-outro" else if(!confident) "end-window-low-grid-confidence" else "end-window",
+                if(exit.early) "measured-sustained-outro" else if(!confident) "LOW_BEAT_CONFIDENCE" else if(!compatible) "INCOMPATIBLE_TEMPO" else if(!harmonic) "INCOMPATIBLE_KEY" else if(clash) "VOCAL_COLLISION" else "end-window",
                 min(a.phase,b.phase))
         }
         return plans.maxByOrNull { it.score } ?: fallback(outgoingDurationMs,incomingDurationMs)?.copy(reason=rejects.maxByOrNull { it.value }?.key ?: "no-compatible-candidate")

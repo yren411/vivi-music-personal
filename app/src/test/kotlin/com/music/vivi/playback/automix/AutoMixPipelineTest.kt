@@ -162,9 +162,9 @@ class AutoMixPipelineTest {
         val failed=Host(refinementFailure=true)
         AutoMixController(failed,AnalysisWorkers(),nanoTime=failed.clock::get).use { c ->
             c.configure(true,AutoMixPerformance.BALANCED);await(c) { c.plannedTransition!=null }
-            assertEquals(MixTechnique.SAFE_FADE,c.plannedTransition!!.technique)
-            assertTrue(c.status.value.reason!!.startsWith("refinement-"))
-            assertNull(c.status.value.markerFraction("out","in",216000))
+            assertEquals(AutoMixTier.B,c.plannedTransition!!.tier)
+            assertEquals("coarse-analysis-recovery",c.status.value.reason)
+            assertTrue(c.plannedTransition!!.durationMs<=16000)
         }
         val h=Host()
         AutoMixController(h,AnalysisWorkers(),nanoTime=h.clock::get).use { c ->

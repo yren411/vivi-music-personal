@@ -236,3 +236,7 @@ development/beta/stable/publish workflow syntax and `git diff --check` pass.
 Post-PR #12 analysis lifecycle and player diagnostics are documented in
 [AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md](AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md).
 The audio-effect session registry/output lifecycle from this change is preserved.
+
+The subsequent [active DJ mixing and log export](AUTOMIX_DJ_MIXING_AND_LOG_EXPORT.md)
+change adds paired active-material scoring, longer bounded refinement, recovery tiers
+and Downloads export. Its bounds/tier rules supersede the earlier quiet-only policy.

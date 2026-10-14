@@ -87,3 +87,21 @@ This is an unversioned draft for review. No release version or tag is assigned.
   the marker represents a confirmed rhythmic plan, never a fallback estimate.
 - Preserved existing Crossfade settings and external audio-effect session ownership.
   Audible quality and external equalizer behavior still require device testing.
+
+## Active AutoMix and exportable diagnostics
+
+- Added analysis-driven active groove mixing without waiting for an RMS drop, with
+  joint rhythm/bass/spectrum scoring and adaptive later intro cues that protect
+  important content. Supported mixes can use 16/32/64 beats, with a 48-second cap.
+- Added full DJ, moderate and safe tiers, extended refinement coverage, nonlinear
+  automation, bass transfer and controlled high-frequency handoffs. Existing tempo
+  matching and external audio-effect session ownership are preserved.
+- Added one bounded smaller-window retry for eligible failures and moderate recovery
+  from failed refinement; corrected a worker cancellation race and labeled queue
+  saturation distinctly.
+- Stats for Nerds now shows tier/actual-start information. Hold the existing overlay
+  to export sanitized recent AutoMix history to Downloads on Android 10+, or a
+  selected document on Android 8/9. Normal taps do not export.
+- Real-device musical quality, storage-provider/gesture behavior and external EQ
+  still need verification; generated-PCM and storage-contract tests do not certify
+  listening quality. No new dependency, model, signing or release-version change.
