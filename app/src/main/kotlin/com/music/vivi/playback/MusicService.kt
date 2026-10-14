@@ -286,6 +286,15 @@ class MusicService :
     private var crossfadeTriggerJob: Job? = null
     private var autoMixRequested = false
     private var autoMixFocusGain = 1f
+    private val _autoMixStatus = MutableStateFlow(com.music.vivi.playback.automix.AutoMixStatus())
+    val autoMixStatus: kotlinx.coroutines.flow.StateFlow<com.music.vivi.playback.automix.AutoMixStatus> = _autoMixStatus.asStateFlow()
+    private val _audioDiagnostics = MutableStateFlow(AudioDiagnostics())
+    val audioDiagnostics: kotlinx.coroutines.flow.StateFlow<AudioDiagnostics> = _audioDiagnostics.asStateFlow()
+    private val outputFormats = mutableMapOf<ExoPlayer, AudioDiagnostics>()
+    private val formatTrackIds = mutableMapOf<ExoPlayer, String?>()
+    private val diagnosticTrackCounts = mutableMapOf<ExoPlayer, Int>()
+    private var autoMixResolveNextId: String? = null
+    private var autoMixResolveRetryAt = 0L
     private var intelligentAutoMix: AutoMixController? = null
     private var autoMixTicker: Job? = null
     private var autoMixQueueEpoch = 0L
@@ -1077,7 +1086,7 @@ class MusicService :
                         cleanupCrossfade()
                         player.volume = if (isMuted.value) 0f else playerVolume.value
                     }
-                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers())
+                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers(), onStatus = { _autoMixStatus.value = it })
                 }
                 intelligentAutoMix?.configure(autoMixRequested, settings.performance)
                 if (playerInitialized.value) setupLoudnessEnhancer()
@@ -2336,17 +2345,39 @@ class MusicService :
         val lifecycle=com.music.vivi.playback.effects.AudioOutputLifecycle(effectSessions,identity)
         outputLifecycles[source]=lifecycle
         val listener = object : Player.Listener, androidx.media3.exoplayer.analytics.AnalyticsListener {
+            override fun onAudioInputFormatChanged(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+                format: androidx.media3.common.Format, decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?) {
+                val previous=outputFormats[source]
+                val info=AudioDiagnostics.from(format).let { fresh ->
+                    if((diagnosticTrackCounts[source] ?: 0)>0) fresh.copy(outputSampleRate=previous?.outputSampleRate,
+                        outputEncoding=previous?.outputEncoding) else fresh
+                }
+                outputFormats[source]=info
+                formatTrackIds[source]=source.currentMediaItem?.mediaId
+                if (playerInitialized.value && source === player) _audioDiagnostics.value=info
+            }
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 lifecycle.sessionChanged(audioSessionId)
                 if (playerInitialized.value && source === player) setupLoudnessEnhancer()
             }
             override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
                 audioTrackConfig: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
+                diagnosticTrackCounts[source]=(diagnosticTrackCounts[source] ?: 0)+1
+                val info=(outputFormats[source] ?: AudioDiagnostics()).copy(
+                    outputSampleRate=audioTrackConfig.sampleRate, outputEncoding=audioTrackConfig.encoding)
+                outputFormats[source]=info
+                if(playerInitialized.value && source === player) _audioDiagnostics.value=info
                 lifecycle.trackInitialized(source.audioSessionId)
                 if(playerInitialized.value && source === player) setupLoudnessEnhancer()
             }
             override fun onAudioTrackReleased(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
                 audioTrackConfig: androidx.media3.exoplayer.audio.AudioSink.AudioTrackConfig) {
+                diagnosticTrackCounts[source]=((diagnosticTrackCounts[source] ?: 0)-1).coerceAtLeast(0)
+                if(diagnosticTrackCounts[source]==0) {
+                    val info=(outputFormats[source] ?: AudioDiagnostics()).copy(outputSampleRate=null,outputEncoding=null)
+                    outputFormats[source]=info
+                    if(playerInitialized.value && source === player) _audioDiagnostics.value=info
+                }
                 lifecycle.trackReleased()
             }
         }
@@ -2356,11 +2387,15 @@ class MusicService :
     }
 
     private fun promoteAudioOutput(source: ExoPlayer) {
+        _audioDiagnostics.value=outputFormats[source] ?: AudioDiagnostics.from(source.audioFormat)
         outputIdentities[source]?.let(effectSessions::promote)
         setupLoudnessEnhancer()
     }
 
     private fun releaseAudioOutput(source: ExoPlayer) {
+        outputFormats.remove(source)
+        formatTrackIds.remove(source)
+        diagnosticTrackCounts.remove(source)
         outputListeners.remove(source)?.let { listener ->
             source.removeListener(listener)
             if(listener is androidx.media3.exoplayer.analytics.AnalyticsListener) source.removeAnalyticsListener(listener)
@@ -2392,6 +2427,7 @@ class MusicService :
             player.volume=if(isMuted.value) 0f else playerVolume.value
         }
         intelligentAutoMix?.trackChanged(mediaItem?.mediaId)
+        _audioDiagnostics.value=outputFormats[player]?.takeIf { formatTrackIds[player]==mediaItem?.mediaId } ?: AudioDiagnostics()
         // Force Repeat One if the player ignored it and auto-advanced
         if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
             if (previousMediaItemIndex != C.INDEX_UNSET && previousMediaItemIndex < player.mediaItemCount) {
@@ -3919,6 +3955,22 @@ class MusicService :
                     kotlin.math.abs(player.playbackParameters.pitch - 1f) < 0.001f)
         }
 
+        override fun sourcesReady(snapshot: MixSnapshot): Boolean {
+            fun completeCache(cache: androidx.media3.datasource.cache.Cache, id: String): Boolean {
+                val size=androidx.media3.datasource.cache.ContentMetadata.getContentLength(cache.getContentMetadata(id))
+                return size>0 && cache.isCached(id,0,size)
+            }
+            fun ready(track: MixTrack) = track.sourceUri.toUri().scheme in listOf("http","https","file","content") ||
+                completeCache(downloadCache,track.id) || completeCache(playerCache,track.id)
+            if (!ready(snapshot.incoming) && prefetchJob?.isActive != true &&
+                (autoMixResolveNextId!=snapshot.incoming.id || System.currentTimeMillis()>=autoMixResolveRetryAt)) {
+                autoMixResolveNextId=snapshot.incoming.id
+                autoMixResolveRetryAt=System.currentTimeMillis()+30_000
+                prefetchNextTrack()
+            }
+            return ready(snapshot.outgoing) && ready(snapshot.incoming)
+        }
+
         override fun scan(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long) =
             analyzeWindow(track,startMs,lengthMs,deadlineNanos,AnalysisDetail.SCAN)
         override fun analyze(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long) =
@@ -3929,22 +3981,25 @@ class MusicService :
         private fun analyzeWindow(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long, detail: AnalysisDetail): TrackFeatures {
             checkAnalysisCancellation(deadlineNanos)
             val format = runBlocking(Dispatchers.IO) { database.format(track.id).first() }
-            val length = format?.contentLength ?: 0L
+            val length = format?.contentLength?.takeIf { it>0 }
+                ?: maxOf(androidx.media3.datasource.cache.ContentMetadata.getContentLength(downloadCache.getContentMetadata(track.id)),
+                    androidx.media3.datasource.cache.ContentMetadata.getContentLength(playerCache.getContentMetadata(track.id))).coerceAtLeast(0)
             val complete = length > 0 && (downloadCache.isCached(track.id, 0, length) || playerCache.isCached(track.id, 0, length))
             val uri = track.sourceUri.toUri()
             if (!complete && uri.scheme !in listOf("http", "https", "file", "content")) {
-                throw java.io.IOException("No resolved permitted audio source")
+                throw com.music.vivi.playback.automix.AnalysisUnavailable("source-unresolved")
             }
             val source = AnalysisSource(uri, track.id, length, "${track.sourceIdentity}|${format?.itag}|$length",
                 analysisDataSourceFactory, complete)
             val rendition=format?.let { "${it.itag}:${it.contentLength}:${it.codecs}:${it.sampleRate}" }
             if(track.cacheable && (rendition==null || !track.sourceIdentity.contains("|$rendition")))
-                throw java.io.IOException("Analysis rendition changed")
+                throw com.music.vivi.playback.automix.AnalysisUnavailable("source-rendition-changed")
             try {
                 return AndroidWindowDecoder().analyze(source, startMs, lengthMs, deadlineNanos, detail)
             } catch(error: Exception) {
                 val reason=when(error) {
                     is java.util.concurrent.CancellationException -> "canceled-or-deadline"
+                    is com.music.vivi.playback.automix.AnalysisUnavailable -> error.reason
                     is java.io.IOException -> "source-or-decoder-unavailable"
                     else -> "invalid-analysis-or-decoder-state"
                 }
@@ -4017,6 +4072,7 @@ class MusicService :
         init { autoMixDecks[source] = this }
         override val trackId get() = source.currentMediaItem?.mediaId.orEmpty()
         override val positionMs get() = source.currentPosition
+        override val failed get() = released || source.playerError != null
         override val ready get() = !released && source.playbackState == Player.STATE_READY && source.playerError == null &&
             !source.isCurrentMediaItemLive && source.duration >= minimumDurationMs && autoMixProcessors[source]?.isActive == true
         override val playing get() = source.isPlaying
@@ -4044,6 +4100,9 @@ class MusicService :
             if (released) return
             released = true
             autoMixDecks.remove(source)
+            outputFormats.remove(source)
+            formatTrackIds.remove(source)
+            diagnosticTrackCounts.remove(source)
             source.removeListener(this@MusicService)
             source.removeListener(sleepTimer)
             playerEqProcessors.remove(source)?.let(equalizerService::removeAudioProcessor)

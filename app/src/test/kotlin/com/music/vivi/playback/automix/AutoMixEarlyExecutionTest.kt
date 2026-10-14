@@ -26,7 +26,7 @@ class AutoMixEarlyExecutionTest {
         var active=a
         var plan: AutoMixPlan?=null
         var promotions=0
-        val diagnostics=mutableListOf<String>()
+        val diagnostics=java.util.Collections.synchronizedList(mutableListOf<String>())
         override fun diagnostic(message: String, verbose: Boolean) { diagnostics+=message }
         override fun snapshot()=MixSnapshot(MixTrack(active.trackId,180000,active.trackId),MixTrack("b",180000,"b"),
             active.trackId,active.positionMs,active.playing,true)

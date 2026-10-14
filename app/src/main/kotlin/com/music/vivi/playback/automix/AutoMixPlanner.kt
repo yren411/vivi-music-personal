@@ -45,6 +45,10 @@ class AutoMixPlanner {
              incomingDurationMs: Long, earliestStartMs: Long, requireDetailed: Boolean, rejects: MutableMap<String,Int>): AutoMixPlan? {
         fun reject(reason: String) { rejects[reason]=(rejects[reason] ?: 0)+1 }
         if (outgoing==null || incoming==null) return fallback(outgoingDurationMs,incomingDurationMs)
+        if (abs(outgoing.durationMs-outgoingDurationMs)>1000) {
+            reject("source-duration-mismatch")
+            return null // never schedule a timestamp from a different audio timeline
+        }
         if(outgoingDurationMs<20_000 || incomingDurationMs<20_000 || outgoing.peak<0.001 || incoming.peak<0.001) return null
         val outRhythm=rhythm(outgoing,outgoingDurationMs-5000)
         val nominal=if(outRhythm.confidence>=0.6 && outRhythm.bpm in 60.0..182.0)
@@ -134,7 +138,7 @@ class AutoMixPlanner {
                 if(exit.early) "measured-sustained-outro" else if(!confident) "end-window-low-grid-confidence" else "end-window",
                 min(a.phase,b.phase))
         }
-        return plans.maxByOrNull { it.score } ?: fallback(outgoingDurationMs,incomingDurationMs)
+        return plans.maxByOrNull { it.score } ?: fallback(outgoingDurationMs,incomingDurationMs)?.copy(reason=rejects.maxByOrNull { it.value }?.key ?: "no-compatible-candidate")
     }
     fun compatibleKeys(a: MusicalKey?, b: MusicalKey?): Boolean {
         if(a==null || b==null || min(a.confidence,b.confidence)<0.2) return true
