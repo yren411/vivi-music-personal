@@ -16,7 +16,8 @@ source_path = ROOT / 'branding/Tinium Logo.png'
 assert hashlib.sha256(source_path.read_bytes()).hexdigest() == '83d5f10d7fcf41a3e59e52d330507c0e42ef2b08a5f51ba23505e0ea44d9bf43'
 source = np.asarray(Image.open(source_path).convert('RGBA'))
 assert np.array_equal(source, np.asarray(Image.open(RES / 'drawable-nodpi/tinium_logo.png').convert('RGBA')))
-source_opaque = source[source[:, :, 3] == 255][:, :3]
+full_color = np.asarray(Image.open(ROOT / 'branding/Tinium Logo with Background.png').convert('RGBA'))
+source_opaque = full_color[full_color[:, :, 3] == 255][:, :3]
 colors, counts = np.unique(source_opaque, axis=0, return_counts=True)
 brand_colors = colors[np.argsort(counts)[-3:]]
 
@@ -33,7 +34,11 @@ for density, scale in (('mdpi', 1), ('hdpi', 1.5), ('xhdpi', 2), ('xxhdpi', 3), 
     opaque_colors = pixels[pixels[:, :, 3] >= 200][:, :3].astype(int)
     assert all(np.abs(opaque_colors - color.astype(int)).max(axis=1).min() <= 6 for color in brand_colors)
     monochrome = np.asarray(Image.open(RES / f'mipmap-{density}/ic_launcher_monochrome.png').convert('RGBA'))
-    assert np.array_equal(pixels[:, :, 3], monochrome[:, :, 3])
+    # The gradient disk is the full-color icon, not the themed/status silhouette.
+    # A disk alpha mask alone would produce an unrecognizable solid white circle.
+    assert not np.array_equal(pixels[:, :, 3], monochrome[:, :, 3])
+    assert 0 < np.count_nonzero(monochrome[:, :, 3]) < np.count_nonzero(pixels[:, :, 3])
+    assert not np.array_equal(pixels[:, :, :3], monochrome[:, :, :3])
     assert np.all(monochrome[monochrome[:, :, 3] > 0][:, :3] == 255)
     background = Image.open(RES / f'mipmap-{density}/ic_launcher_background.png').convert('RGBA')
     assert background.getchannel('A').getextrema() == (0, 0)
@@ -102,3 +107,21 @@ for name in ('.MainActivity', '.WelcomeActivity'):
 assert ET.parse(RES / 'values-night/tinium_splash.xml').getroot().find('color').text == '#121212'
 assert ET.parse(RES / 'mipmap-anydpi-v26/ic_launcher.xml').getroot().find('monochrome') is not None
 print('PASS: unchanged background PNG bytes; tint-free Fit UI; retained compact mark; both startup activities; splash artwork radius', round(radius, 2), 'dp < 96dp safe radius; existing adaptive/themed icons.')
+
+for density, scale in (('mdpi', 1), ('hdpi', 1.5), ('xhdpi', 2), ('xxhdpi', 3), ('xxxhdpi', 4)):
+    legacy = np.asarray(Image.open(RES / f'mipmap-{density}/ic_launcher.png').convert('RGBA'))
+    assert np.array_equal(legacy, np.asarray(Image.open(RES / f'mipmap-{density}/ic_launcher_round.png').convert('RGBA')))
+    assert legacy[int(legacy.shape[0]*0.1), legacy.shape[1]//2, 3] > 200
+    assert legacy[0, 0, 3] == 0
+for relative in ('app/src/main/ic_launcher-playstore.png', 'assets/ic_launcher-playstore.png', 'fastlane/metadata/android/en-US/images/icon.png'):
+    icon = Image.open(ROOT / relative).convert('RGBA')
+    assert icon.size == (512, 512)
+    expected = np.asarray(Image.open(ROOT / 'branding/Tinium Logo with Background.png').convert('RGBA').resize((512,512), Image.Resampling.LANCZOS))
+    actual = np.asarray(icon)
+    assert np.array_equal(actual[:,:,3], expected[:,:,3])
+    assert np.array_equal(actual[expected[:,:,3] > 0], expected[expected[:,:,3] > 0])
+update_notification = (ROOT / 'app/src/main/kotlin/com/music/vivi/vivimusic/UpdateNotificationHelper.kt').read_text()
+media_notification = (ROOT / 'app/src/main/kotlin/com/music/vivi/playback/BrandedMediaNotificationProvider.kt').read_text()
+assert '.setLargeIcon(Icon.createWithResource(context, R.drawable.tinium_logo_background))' in update_notification
+assert 'getLargeIcon() != null' in media_notification and 'R.drawable.tinium_logo_background' in media_notification
+print('PASS: background launcher/store icons; alpha-only themed/status silhouettes; full-color notification branding with album artwork preserved.')

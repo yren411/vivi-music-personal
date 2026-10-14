@@ -11,16 +11,20 @@ SOURCE = ROOT / 'branding/Tinium Logo.png'
 original_bytes = SOURCE.read_bytes()
 logo = Image.open(SOURCE).convert('RGBA')
 assert logo.getextrema()[3][0] == 0, 'Official logo must retain transparency'
+BACKGROUND_SOURCE = ROOT / 'branding/Tinium Logo with Background.png'
+background_bytes = BACKGROUND_SOURCE.read_bytes()
+background_logo = Image.open(BACKGROUND_SOURCE).convert('RGBA')
 
-def fit(size, content_size=None, radius=None, monochrome=False):
+def fit(size, content_size=None, radius=None, monochrome=False, artwork=None):
+    image = logo if artwork is None else artwork
     if radius is not None:
-        ys, xs = np.nonzero(np.asarray(logo.getchannel('A')))
-        max_radius = np.sqrt((xs - (logo.width-1)/2)**2 + (ys - (logo.height-1)/2)**2).max()
+        ys, xs = np.nonzero(np.asarray(image.getchannel('A')))
+        max_radius = np.sqrt((xs - (image.width-1)/2)**2 + (ys - (image.height-1)/2)**2).max()
         scale = radius / max_radius
     else:
         content_size = content_size or min(size)
-        scale = min(content_size / logo.width, content_size / logo.height)
-    resized = logo.resize((round(logo.width * scale), round(logo.height * scale)), Image.Resampling.LANCZOS)
+        scale = min(content_size / image.width, content_size / image.height)
+    resized = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
     if monochrome:
         mask = resized.getchannel('A')
         resized = Image.new('RGBA', resized.size, 'white')
@@ -41,21 +45,22 @@ ui_logo.write_bytes(original_bytes)
 # The owner-supplied full-color background artwork is copied verbatim, not derived
 # from the transparent mark or recompressed. Compose and the splash wrapper share it.
 (RES / 'drawable-nodpi/tinium_logo_background.png').write_bytes(
-    (ROOT / 'branding/Tinium Logo with Background.png').read_bytes())
+    background_bytes)
 for name in ('icon', 'vivi_music_small_icon'):
     save(fit((512, 512)), f'app/src/main/res/drawable/{name}.png')
 
 for density, scale in (('mdpi', 1), ('hdpi', 1.5), ('xhdpi', 2), ('xxhdpi', 3), ('xxxhdpi', 4)):
     size = round(108 * scale)
     # Fit every non-transparent pixel inside the 66 dp adaptive safe circle,
-    # with a 3 dp margin for resampling. No mask, shadow or decoration is added.
-    foreground = fit((size, size), radius=30 * scale)
+    # with a 3 dp margin for resampling. The full designed background is retained.
+    # Themed/status icons must retain the recognizable alpha-only headphone mark.
+    foreground = fit((size, size), radius=30 * scale, artwork=background_logo)
     mask = fit((size, size), radius=30 * scale, monochrome=True)
     save(foreground, f'app/src/main/res/mipmap-{density}/ic_launcher_foreground.png')
     save(mask, f'app/src/main/res/mipmap-{density}/ic_launcher_monochrome.png')
     save(Image.new('RGBA', (size, size)), f'app/src/main/res/mipmap-{density}/ic_launcher_background.png')
     legacy_size = round(48 * scale)
-    legacy = fit((legacy_size, legacy_size), radius=22 * scale)
+    legacy = fit((legacy_size, legacy_size), artwork=background_logo)
     save(legacy, f'app/src/main/res/mipmap-{density}/ic_launcher.png')
     save(legacy, f'app/src/main/res/mipmap-{density}/ic_launcher_round.png')
     save(foreground, f'app/src/main/res/drawable-{density}/ic_launcher_foreground.png')
@@ -88,11 +93,13 @@ for name in ('viviwrapped_v1', 'viviwrapped_v2'):
 banner_path = RES / 'mipmap-xhdpi/tv_banner.png'
 banner_size = Image.open(banner_path).size
 save(fit(banner_size, content_size=round(banner_size[1] * 0.84)), 'app/src/main/res/mipmap-xhdpi/tv_banner.png')
-save(fit((512, 512), radius=234), 'fastlane/metadata/android/en-US/images/icon.png')
-save(fit((512, 512), radius=234), 'assets/ic_launcher-playstore.png')
+save(fit((512, 512), artwork=background_logo), 'fastlane/metadata/android/en-US/images/icon.png')
+save(fit((512, 512), artwork=background_logo), 'assets/ic_launcher-playstore.png')
+save(fit((512, 512), artwork=background_logo), 'app/src/main/ic_launcher-playstore.png')
 official_banner = ROOT / 'assets/bannerofficial.png'
 size = Image.open(official_banner).size
 save(fit(size, content_size=round(size[1] * 0.84)), 'assets/bannerofficial.png')
 
 assert SOURCE.read_bytes() == original_bytes, 'Source logo was modified'
+assert BACKGROUND_SOURCE.read_bytes() == background_bytes, 'Background source was modified'
 print('Generated Tinium assets from', hashlib.sha256(original_bytes).hexdigest())

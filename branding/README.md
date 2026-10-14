@@ -27,18 +27,31 @@ uses the same drawable on pre-Android-12 devices. Light/dark splash surfaces rem
 white/#121212 respectively; no splash-specific icon background is added.
 
 Keep the original transparent assets in the 16dp lyrics/share watermark, compact
-About menu item, player placeholders, share-image branding, monochrome/themed and
-notification icons. Launcher/adaptive/static icons, TV banner, existing Wrapped
-cover art and store artwork remain unchanged. The current launcher foreground
-keeps the headphone mark larger within its adaptive safe area; fitting the new
-full background circle into that area would shrink the mark and add a nested
-circle inside launcher masks. The current monochrome alpha silhouettes retain
-Android themed-icon support. Full-color background logos are not toolbar actions.
+About menu item, player placeholders and share-image branding. The regular,
+round, adaptive/static launcher and store-preview icons now use the full
+background logo. Adaptive foregrounds fit the entire circular design inside the
+66dp safe circle; the adaptive background layer stays transparent, adding no
+second rounded-square backdrop. Legacy/store icons use the complete circle at
+their required resolutions. Source artwork is unchanged; only technically
+required launcher sizes/padding are derived.
 
-`python scripts/generate_tinium_assets.py` reproduces the existing transparent
-asset family and copies the background PNG verbatim. It requires Pillow/numpy.
+Android status-bar small icons and themed launcher icons are alpha-only
+silhouettes: a gradient cannot appear there, and using the opaque background's
+alpha would produce a solid white disk. Keep the recognizable transparent
+headphone/star silhouette for those platform-required slots. App-update
+notifications use the full-color background logo as their large icon. Playback
+bootstrap notifications and Media3 notifications without album artwork use the
+same large-icon fallback. Actual album artwork, controls, notification IDs,
+channels, permissions and preferences stay intact; asynchronous artwork updates
+also preserve that policy. Android/OEM notification layouts decide whether the
+large icon is visible. Existing TV banner, Wrapped cover art and official banner
+remain unchanged.
+
+`python scripts/generate_tinium_assets.py` derives launcher/store icons from the
+background PNG, retains transparent specialized assets, and copies the UI PNG
+verbatim. It requires Pillow/numpy.
 `python scripts/validate_tinium_branding.py` checks source identity, splash safe
-geometry, UI binding and retained compact/launcher/notification assets. Run an
+geometry, UI binding launcher gradient, retained compact/monochrome assets and notification bindings. Run an
 Android debug build as well; static checks cannot establish actual OS/OEM rendering.
 
 On a phone (including Galaxy S25 Ultra), cold-launch with light/dark mode, then

@@ -522,7 +522,11 @@ class MusicService :
                 .setSmallIcon(R.drawable.vivimusicnotification)  //vivimusicnotification
                 .setContentIntent(pending)
                 .setOngoing(true)
-                .build()
+                .build().let { notification ->
+                    Notification.Builder.recoverBuilder(this, notification)
+                        .setLargeIcon(android.graphics.drawable.Icon.createWithResource(this, R.drawable.tinium_logo_background))
+                        .build()
+                }
             startForeground(NOTIFICATION_ID, notification)
         } catch (e: Exception) {
             Timber.tag(TAG).e(e, "Failed to create foreground notification")
@@ -530,7 +534,7 @@ class MusicService :
         }
 
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider(
+            BrandedMediaNotificationProvider(this, DefaultMediaNotificationProvider(
                 this,
                 { NOTIFICATION_ID },
                 CHANNEL_ID,
@@ -538,7 +542,7 @@ class MusicService :
             )
                 .apply {
                     setSmallIcon(R.drawable.vivimusicnotification)
-                },
+                }),
         )
         player = createExoPlayer()
         player.addListener(this@MusicService)
