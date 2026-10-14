@@ -39,6 +39,12 @@ class AudioEffectSessionsTest {
         assertEquals(listOf(Kind.OPEN to 31,Kind.OPEN to 32,Kind.CLOSE to 31),f.actions())
         f.registry.release("deck"); assertEquals(Kind.CLOSE to 32,f.actions().last())
     }
+    @Test fun failedPromotionCanRestoreOutgoingWithoutClosingItsLiveSession() {
+        val f=Fixture(); f.add("old",91,Role.PRIMARY); f.add("candidate",92)
+        f.registry.promote("candidate"); f.registry.promote("old"); f.registry.release("candidate")
+        assertEquals(91,f.registry.session("old"))
+        assertEquals(listOf(Kind.OPEN to 91,Kind.OPEN to 92,Kind.CLOSE to 92),f.actions())
+    }
     @Test fun invalidIdAndStoppedOrFailedOutputsNeverOpenAControlSession() {
         val f=Fixture(); f.add("deck",0)
         f.registry.update("deck",-1,true); f.registry.update("deck",42,false)

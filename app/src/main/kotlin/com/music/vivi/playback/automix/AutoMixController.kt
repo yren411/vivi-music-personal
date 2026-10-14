@@ -25,6 +25,9 @@ interface MixDeck {
 interface AutoMixHost {
     val allowed: Boolean
     fun snapshot(): MixSnapshot?
+    fun scan(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long): TrackFeatures =
+        analyze(track, startMs, lengthMs, deadlineNanos)
+    fun diagnostic(message: String, verbose: Boolean = false) {}
     fun analyze(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long): TrackFeatures
     fun currentDeck(): MixDeck
     fun prepareIncoming(snapshot: MixSnapshot, plan: AutoMixPlan): MixDeck?
@@ -36,19 +39,28 @@ interface AutoMixHost {
 /** All deck/queue operations run on the service's main looper; only analysis runs in the pool. */
 class AutoMixController(private val host: AutoMixHost, private val workers: AnalysisWorkers<TrackFeatures>,
                         private val planner: AutoMixPlanner = AutoMixPlanner()) : AutoCloseable {
+    private data class Decision(val outgoing: TrackFeatures?, val incoming: TrackFeatures?, val selection: AutoMixPlanner.Decision)
     private data class Preparation(val snapshot: MixSnapshot, val outgoing: List<Future<TrackFeatures>>,
                                    val incoming: List<Future<TrackFeatures>>, var plan: AutoMixPlan? = null,
-                                   var deck: MixDeck? = null)
+                                   var deck: MixDeck? = null, val deadline: Long,
+                                   var coarseOut: TrackFeatures? = null, var coarseIn: TrackFeatures? = null,
+                                   var preview: AutoMixPlan? = null,
+                                   var refinement: Pair<Future<TrackFeatures>,Future<TrackFeatures>>? = null,
+                                   var announcedPlan: AutoMixPlan? = null, var readyLogged: Boolean = false,
+                                   var previewDecision: Future<Decision>? = null, var previewProcessed: Boolean = false,
+                                   var finalDecision: Future<Decision>? = null)
     private data class Blend(val outgoing: MixDeck, val incoming: MixDeck, val plan: AutoMixPlan,
                              var incomingQueue: String?, val incomingId: String,
                              var startedPosition: Long, var finished: Boolean = false,
-                             var recoveryStart: Long = 0, var ownedRate: Float = plan.incomingRate)
+                             var recoveryStart: Long = 0, var ownedRate: Float = plan.incomingRate,
+                             var lastRateUpdate: Long = 0, var recoveryRate: Float = plan.incomingRate)
     private var preparation: Preparation? = null
     private var blend: Blend? = null
     private var finishedPair: String? = null
     var enabled = false
         private set
     val mixing get() = blend != null
+    internal val plannedTransition get() = preparation?.plan
 
     fun syncPlaybackState() {
         blend?.takeIf { !it.finished }?.let { if (it.incoming.playing) it.outgoing.play() else it.outgoing.pause() }
@@ -120,40 +132,97 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         var prep = preparation
         if (prep != null && identity(prep.snapshot) != pair) { invalidate(); prep = null }
         if (prep == null) {
-            val deadline = System.nanoTime() + 25_000_000_000L
+            val deadline = System.nanoTime() + 40_000_000_000L
             prep = Preparation(snapshot,
-                requestWindows(snapshot.outgoing, true, deadline), requestWindows(snapshot.incoming, false, deadline))
+                requestWindows(snapshot.outgoing, true, deadline), requestWindows(snapshot.incoming, false, deadline), deadline=deadline)
             preparation = prep
         }
-        if (prep.plan == null && ((prep.outgoing.all { it.isDone } && prep.incoming.all { it.isDone }) ||
+        if (!prep.previewProcessed && prep.previewDecision == null && ((prep.outgoing.all { it.isDone } && prep.incoming.all { it.isDone }) ||
                     snapshot.positionMs >= snapshot.outgoing.durationMs - 14_000)) {
-            val out = completed(prep.outgoing, true)
-            val incoming = completed(prep.incoming, false)
-            prep.plan = planner.plan(out, incoming, snapshot.outgoing.durationMs,
-                incoming?.durationMs ?: snapshot.incoming.durationMs)
-            if (prep.plan != null) cancel(prep)
-            if (prep.plan == null) {
-                cancel(prep)
-                preparation = null; finishedPair = pair
-                return
+            workers.cancelAll()
+            val preparationSnapshot=prep.snapshot
+            val outJobs=prep.outgoing; val inJobs=prep.incoming
+            prep.previewDecision=workers.submitTransient {
+                val out=completed(outJobs,true); val incoming=completed(inJobs,false)
+                Decision(out,incoming,planner.decide(out,incoming,preparationSnapshot.outgoing.durationMs,
+                    incoming?.durationMs ?: preparationSnapshot.incoming.durationMs,preparationSnapshot.positionMs+20_000))
             }
         }
+        prep.previewDecision?.takeIf { it.isDone && !prep.previewProcessed }?.let { future ->
+            prep.previewProcessed=true
+            val result=runCatching { future.get() }.getOrNull()
+            prep.coarseOut=result?.outgoing; prep.coarseIn=result?.incoming
+            val preview=result?.selection?.plan
+            prep.preview=preview
+            host.diagnostic("event=scan-complete outgoing=${prep.coarseOut!=null} incoming=${prep.coarseIn!=null} rejected=${result?.selection?.rejections}",true)
+            if(preview==null) { cancel(prep); preparation=null; finishedPair=pair; return }
+            if(preview.technique!=MixTechnique.SAFE_FADE && prep.coarseOut!=null && prep.coarseIn!=null && snapshot.positionMs<preview.outgoingStartMs-1500) {
+                fun refine(track: MixTrack,cue: Long): Future<TrackFeatures> {
+                    val start=(cue-3000).coerceAtLeast(0)
+                    val duration=if(track.durationMs>0) track.durationMs else prep.coarseIn!!.durationMs
+                    val length=minOf(32_000L,duration-start)
+                    return workers.submit("v3-detail:${track.sourceIdentity}|$start:$length",track.cacheable) {
+                        host.analyze(track,start,length,prep.deadline)
+                    }
+                }
+                prep.refinement=refine(snapshot.outgoing,preview.outgoingStartMs) to refine(snapshot.incoming,preview.incomingCueMs)
+            } else prep.plan=preview
+        }
+        prep.refinement?.let { refinement ->
+            if(prep.plan==null && prep.finalDecision==null && ((refinement.first.isDone && refinement.second.isDone) ||
+                    snapshot.positionMs >= (prep.preview?.outgoingStartMs ?: Long.MAX_VALUE)-5000)) {
+                val coarseOut=prep.coarseOut; val coarseIn=prep.coarseIn
+                val earliest=snapshot.positionMs+1500
+                val outDuration=snapshot.outgoing.durationMs; val inDuration=snapshot.incoming.durationMs
+                workers.cancelAll()
+                prep.finalDecision=workers.submitTransient {
+                    val out=completed(listOf(refinement.first),true)
+                    val incoming=completed(listOf(refinement.second),false)
+                    val mergedOut=mergeTrackFeatures(listOfNotNull(coarseOut,out),true)
+                    val mergedIn=mergeTrackFeatures(listOfNotNull(coarseIn,incoming),false)
+                    val decision=if(out!=null && incoming!=null) planner.decide(mergedOut,mergedIn,outDuration,incoming.durationMs,
+                        earliest,requireDetailed=true) else AutoMixPlanner.Decision(
+                            planner.fallback(outDuration,coarseIn?.durationMs ?: inDuration)?.copy(reason="refinement-incomplete-or-deadline"),emptyMap())
+                    Decision(out,incoming,decision)
+                }
+            }
+        }
+        prep.finalDecision?.takeIf { it.isDone && prep.plan==null }?.let { future ->
+            val result=runCatching { future.get() }.getOrNull()
+            prep.plan=result?.selection?.plan
+            host.diagnostic("event=refine-complete outgoing=${result?.outgoing!=null} incoming=${result?.incoming!=null} rejected=${result?.selection?.rejections}",true)
+            if(prep.plan==null) { cancel(prep); preparation=null; finishedPair=pair; return }
+        }
         val plan = prep.plan ?: return
+        if (prep.announcedPlan != plan) {
+            prep.announcedPlan=plan
+            host.diagnostic("event=plan technique=${plan.technique} startMs=${plan.outgoingStartMs} cueMs=${plan.incomingCueMs} durationMs=${plan.durationMs} score=${plan.score} phase=${plan.phaseConfidence} reason=${plan.reason}")
+        }
         if (snapshot.positionMs > plan.outgoingStartMs + 150) {
             prep.deck?.release(); cancel(prep)
-            preparation = null; finishedPair = pair // missed deadline: ordinary playback, not a late surprise mix
+            host.diagnostic("event=start-missed technique=${plan.technique} latenessMs=${snapshot.positionMs-plan.outgoingStartMs}")
+            val fallback = planner.fallback(snapshot.outgoing.durationMs,prep.coarseIn?.durationMs ?: snapshot.incoming.durationMs)
+            if(plan.technique != MixTechnique.SAFE_FADE && fallback != null && fallback.outgoingStartMs>snapshot.positionMs+1000) {
+                prep.deck=null; prep.readyLogged=false; prep.plan=fallback.copy(reason="missed-intelligent-boundary")
+            } else { preparation=null; finishedPair=pair }
             return
         }
-        if (prep.deck == null && snapshot.positionMs >= plan.outgoingStartMs - 10_000) {
+        if (prep.deck == null && snapshot.positionMs >= plan.outgoingStartMs - 20_000) {
             prep.deck = host.prepareIncoming(snapshot, plan)
+            host.diagnostic("event=prepare success=${prep.deck!=null} leadMs=${plan.outgoingStartMs-snapshot.positionMs}")
             if (prep.deck == null) { preparation = null; finishedPair = pair; workers.cancelAll(); return }
         }
         val incoming = prep.deck ?: return
-        if (!incoming.ready || snapshot.positionMs < plan.outgoingStartMs) return
+        if (!incoming.ready || abs(incoming.positionMs-plan.incomingCueMs)>100) return
+        if(!prep.readyLogged) {
+            prep.readyLogged=true
+            host.diagnostic("event=ready actualCueMs=${incoming.positionMs} requestedCueMs=${plan.incomingCueMs} leadMs=${plan.outgoingStartMs-snapshot.positionMs}")
+        }
+        if (snapshot.positionMs < plan.outgoingStartMs) return
         val outgoing = host.currentDeck()
         incoming.rate = plan.incomingRate
         incoming.process(0.0, if (plan.technique == MixTechnique.BASS_HANDOFF) 0.85 else 0.0)
-        outgoing.process(0.94 * plan.outgoingLevel)
+        outgoing.process(0.94) // match outgoing level gradually, never a large instantaneous attenuation
         incoming.play()
         val state = Blend(outgoing, incoming, plan, null, snapshot.incoming.id, outgoing.positionMs)
         blend = state // publish state first: session callbacks cannot arm a second transition
@@ -161,6 +230,7 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         cancel(prep)
         try {
             host.promote(incoming)
+            host.diagnostic("event=start technique=${plan.technique} startMs=${outgoing.positionMs} cueMs=${incoming.positionMs} durationMs=${plan.durationMs} reason=${plan.reason}")
             state.incomingQueue = host.snapshot()?.queueIdentity
         } catch (_: Exception) {
             if (host.snapshot()?.outgoing?.id == snapshot.outgoing.id) {
@@ -187,28 +257,41 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         if (state.finished) {
             val elapsed = (state.incoming.positionMs - state.recoveryStart).coerceAtLeast(0)
             val fraction = (elapsed / 3000.0).coerceIn(0.0, 1.0)
-            state.ownedRate = (state.plan.incomingRate + (1 - state.plan.incomingRate) * fraction).toFloat()
-            state.incoming.rate = state.ownedRate
+            state.ownedRate = (state.recoveryRate + (1 - state.recoveryRate) * fraction).toFloat()
+            if (elapsed-state.lastRateUpdate>=150 || fraction>=1) {
+                state.incoming.rate = state.ownedRate
+                state.lastRateUpdate=elapsed
+            } else state.ownedRate=state.incoming.rate
             state.incoming.process(0.94 * state.plan.incomingLevel + (1 - 0.94 * state.plan.incomingLevel) * fraction)
             if (fraction >= 1) { blend = null; host.restoreNormalAudio() }
             return
         }
         val elapsed = (state.outgoing.positionMs - state.startedPosition).coerceAtLeast(0)
         val progress = (elapsed / state.plan.durationMs.toDouble()).coerceIn(0.0, 1.0)
-        val gains = mixGains(progress, state.plan.outgoingLevel, state.plan.incomingLevel)
+        val levelRamp=(elapsed/2000.0).coerceIn(0.0,1.0)
+        val gains = mixGains(progress, 1+(state.plan.outgoingLevel-1)*levelRamp, state.plan.incomingLevel)
         val bass = state.plan.technique == MixTechnique.BASS_HANDOFF
         val filter = state.plan.technique == MixTechnique.GENTLE_FILTER
-        state.outgoing.process(gains.outgoing, if (bass) progress * 0.85 else 0.0, if (filter) progress * 0.65 else 0.0)
-        state.incoming.process(gains.incoming, if (bass) (1 - progress) * 0.85 else 0.0)
-        if (state.plan.technique in setOf(MixTechnique.BEAT_BLEND, MixTechnique.BASS_HANDOFF) && elapsed > 300) {
+        fun smooth(value: Double): Double { val x=value.coerceIn(0.0,1.0); return x*x*(3-2*x) }
+        // Open incoming bass before removing outgoing bass: avoid the former simultaneous
+        // mid-blend bass cuts. Correlation headroom still bounds their combined peak gain.
+        state.outgoing.process(gains.outgoing, if (bass) smooth((progress-0.55)/0.30)*0.85 else 0.0,
+            if (filter) smooth(progress)*0.65 else 0.0)
+        state.incoming.process(gains.incoming, if (bass) (1-smooth((progress-0.30)/0.25))*0.85 else 0.0)
+        if (state.plan.technique in setOf(MixTechnique.BEAT_BLEND, MixTechnique.BASS_HANDOFF) && elapsed-state.lastRateUpdate>=500) {
             val expected = state.plan.incomingCueMs.toDouble() + elapsed.toDouble() * state.plan.incomingRate
             val phaseErrorMs = expected - state.incoming.positionMs
-            val correction = (phaseErrorMs / 5000).coerceIn(-0.01, 0.01)
-            state.ownedRate = (state.plan.incomingRate + correction).toFloat().coerceIn(0.95f, 1.05f)
+            val correction = if(kotlin.math.abs(phaseErrorMs)<35) 0.0 else (phaseErrorMs / 8000).coerceIn(-0.01, 0.01)
+            val target=(state.plan.incomingRate+correction).toFloat()
+            state.ownedRate = target.coerceIn(state.ownedRate-0.002f,state.ownedRate+0.002f).coerceIn(0.95f,1.05f)
             state.incoming.rate = state.ownedRate
+            state.lastRateUpdate=elapsed
         }
         if (progress >= 1 || state.outgoing.ended) {
             state.outgoing.release()
+            host.diagnostic("event=handoff-complete durationMs=$elapsed")
+            state.recoveryRate=state.ownedRate
+            state.lastRateUpdate=0
             state.finished = true
             state.recoveryStart = state.incoming.positionMs
             state.incoming.process(0.94 * state.plan.incomingLevel)
@@ -216,33 +299,23 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
     }
 
     private fun requestWindows(track: MixTrack, tail: Boolean, deadline: Long): List<Future<TrackFeatures>> {
-        val length = if (track.durationMs > 0) minOf(32_000L, track.durationMs) else 32_000L
-        val start = if (tail) (track.durationMs - length).coerceAtLeast(0) else 0L
-        // Four disjoint 16s jobs for an ordinary pair: Performance genuinely permits four
-        // simultaneous decoder/DSP tasks; all modes analyze the identical combined windows.
-        val windows = if (length == 32_000L) listOf(start to 16_000L, start + 16_000 to 16_000L)
-            else listOf(start to length)
-        return windows.map { (position, size) -> workers.submit("${track.sourceIdentity}|$position:$size", track.cacheable) {
-            host.analyze(track, position, size, deadline)
+        val length = if(tail) when {
+            track.durationMs>=180_000 -> 90_000L
+            track.durationMs>=90_000 -> 60_000L
+            else -> minOf(32_000L,track.durationMs)
+        } else if(track.durationMs>0) minOf(32_000L,track.durationMs) else 32_000L
+        val start = if(tail) (track.durationMs-length).coerceAtLeast(0) else 0L
+        val chunk = if(tail && length>32_000) 30_000L else 16_000L
+        val windows=generateSequence(start) { it+chunk }.takeWhile { it<start+length }
+            .map { it to minOf(chunk,start+length-it) }.toList()
+        return windows.map { (position,size) -> workers.submit("v3-scan:${track.sourceIdentity}|$position:$size",track.cacheable) {
+            host.scan(track,position,size,deadline)
         } }
     }
+    private fun cancel(prep: Preparation) { (prep.outgoing+prep.incoming+listOfNotNull(prep.refinement?.first,prep.refinement?.second,prep.previewDecision,prep.finalDecision)).forEach { it.cancel(true) } }
+    private fun completed(futures: List<Future<TrackFeatures>>, preferTail: Boolean): TrackFeatures? =
+        mergeTrackFeatures(futures.mapNotNull { if(it.isDone && !it.isCancelled) runCatching { it.get() }.getOrNull() else null },preferTail)
 
-    private fun cancel(prep: Preparation) { (prep.outgoing + prep.incoming).forEach { it.cancel(true) } }
-    private fun completed(futures: List<Future<TrackFeatures>>, preferTail: Boolean): TrackFeatures? {
-        val values = futures.map { if (it.isDone && !it.isCancelled) runCatching { it.get() }.getOrNull() else null }
-        if (values.any { it == null }) return null
-        val parts = values.filterNotNull()
-        val preferred = if (preferTail) parts.last() else parts.first()
-        if (parts.any { abs(it.durationMs - preferred.durationMs) > 1000 }) return null
-        val consistent = parts.all { abs(it.bpm - preferred.bpm) <= 3 }
-        val total = parts.sumOf { it.lengthMs }.coerceAtLeast(1)
-        return preferred.copy(startMs = parts.first().startMs, lengthMs = total,
-            rms = kotlin.math.sqrt(parts.sumOf { it.rms * it.rms * it.lengthMs } / total),
-            peak = parts.maxOf { it.peak },
-            beatConfidence = if (consistent) parts.minOf { it.beatConfidence } else 0.0,
-            beatsMs = parts.flatMap { it.beatsMs }.distinct().sorted(),
-            energy = parts.flatMap { it.energy }.sortedBy { it.positionMs })
-    }
     private fun identity(s: MixSnapshot) = "${s.queueIdentity}|${s.outgoing.sourceIdentity}|${s.incoming.sourceIdentity}"
     override fun close() { enabled = false; invalidate(); workers.close() }
 }

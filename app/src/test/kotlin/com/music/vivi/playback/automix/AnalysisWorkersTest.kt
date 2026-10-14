@@ -12,6 +12,33 @@ class AnalysisWorkersTest {
             assertEquals(2, pool.submit("mutable source", false) { 2 }.get(2, TimeUnit.SECONDS))
         }
     }
+    @Test fun planningJobsShareTheAnalysisLimitAndAreCanceledWithObsoleteWork() {
+        AnalysisWorkers<Int>(AutoMixPerformance.EFFICIENT).use { pool ->
+            val entered=CountDownLatch(1)
+            val block=CountDownLatch(1)
+            val decoding=pool.submit("decode") { entered.countDown(); block.await(); 1 }
+            assertTrue(entered.await(2,TimeUnit.SECONDS))
+            val planned=AtomicInteger()
+            val planning=pool.submitTransient { planned.incrementAndGet(); "decision" }
+            assertEquals(0,planned.get()); assertTrue(pool.queuedCount<=4)
+            pool.cancelAll()
+            assertTrue(decoding.isCancelled); assertTrue(planning.isCancelled)
+            assertEquals(0,pool.queuedCount)
+            val thread=pool.submitTransient { Thread.currentThread().name }.get(2,TimeUnit.SECONDS)
+            assertTrue(thread.startsWith("Tinium-AutoMix-"))
+        }
+    }
+    @Test fun planningQueueCannotGrowBeyondTheSameFourWaitingJobs() {
+        AnalysisWorkers<Int>(AutoMixPerformance.EFFICIENT).use { pool ->
+            val gate=CountDownLatch(1)
+            val entered=CountDownLatch(1)
+            pool.submit("occupied") { entered.countDown(); gate.await(); 1 }
+            assertTrue(entered.await(2,TimeUnit.SECONDS))
+            val jobs=(0..12).map { pool.submitTransient { it.toString() } }
+            assertTrue(pool.queuedCount<=4); assertTrue(jobs.any { it.isCancelled })
+            pool.cancelAll(); assertTrue(jobs.all { it.isCancelled })
+        }
+    }
     @Test fun modesBoundActualConcurrentWork() {
         for (mode in AutoMixPerformance.entries) AnalysisWorkers<Int>(mode).use { pool ->
             val started=CountDownLatch(mode.workers)

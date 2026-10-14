@@ -33,9 +33,10 @@ class AudioEffectSessions(private val emit: (Event) -> Unit) {
 
     fun release(deck: String) {
         val output = outputs[deck] ?: return
+        val previous = output.session
         update(deck, 0, false)
         outputs.remove(deck)
-        emit(Event(Kind.RELEASE, deck, output.session, output.role))
+        emit(Event(Kind.RELEASE, deck, previous, output.role))
     }
     fun closeAll() { outputs.keys.toList().forEach(::release) }
 }
