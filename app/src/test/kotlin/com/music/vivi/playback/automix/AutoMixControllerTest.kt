@@ -60,9 +60,13 @@ class AutoMixControllerTest {
     private fun start(host:Host,controller:AutoMixController) {
         controller.configure(true,AutoMixPerformance.BALANCED)
         host.a.positionMs=1000
-        repeat(20) { controller.tick(); Thread.sleep(2) } // advance analysis well before the transition deadline
+        val planningDeadline=System.nanoTime()+5_000_000_000L
+        while(controller.plannedTransition==null && System.nanoTime()<planningDeadline) { controller.tick(); Thread.sleep(5) }
+        assertNotNull(controller.plannedTransition) // finish async analysis before advancing the fake clock by 46s
+        assertEquals(56000L,controller.plannedTransition!!.outgoingStartMs)
         host.a.positionMs=47000
-        repeat(100) { controller.tick(); if(host.prepares==0) Thread.sleep(5) }
+        val deadline=System.nanoTime()+5_000_000_000L
+        while(host.prepares==0 && System.nanoTime()<deadline) { controller.tick(); Thread.sleep(5) }
         assertEquals(1,host.prepares)
         assertSame(host.a,host.active) // paused standby must not publish metadata
         host.a.positionMs=56000
@@ -75,8 +79,9 @@ class AutoMixControllerTest {
         AutoMixController(h,AnalysisWorkers()).use { c ->
             c.configure(true,AutoMixPerformance.PERFORMANCE); h.a.positionMs=1000; c.tick()
             repeat(100) { if(h.requests.size<4) Thread.sleep(5) }
-            assertEquals(setOf(Triple("a",28000L,16000L),Triple("a",44000L,16000L),
-                Triple("b",0L,16000L),Triple("b",16000L,16000L)),h.requests.toSet())
+            assertTrue(h.requests.toSet().containsAll(setOf(Triple("a",28000L,16000L),Triple("a",44000L,16000L),
+                Triple("b",0L,16000L),Triple("b",16000L,16000L))))
+            assertTrue(h.requests.size<=6) // coarse four, optionally followed by two shortlisted refinements
         }
     }
     @Test fun unsupportedRoutesSpeedAndShortTracksDoNoAnalysis() {
@@ -241,18 +246,25 @@ class AutoMixControllerTest {
             val a=Deck("a").apply { positionMs=1000 }
             val b=Deck("b").apply { playing=false }
             var active=a
+            var prepared=false
             override fun snapshot()=MixSnapshot(MixTrack(active.trackId,60000,active.trackId),MixTrack("b",60000,"b"),
                 active.trackId,active.positionMs,active.playing,true)
             override fun analyze(track:MixTrack,startMs:Long,lengthMs:Long,deadlineNanos:Long)=features(if(track.id=="a")120.0 else 124.0,startMs)
             override fun currentDeck()=active
-            override fun prepareIncoming(snapshot:MixSnapshot,plan:AutoMixPlan):MixDeck { b.positionMs=plan.incomingCueMs; return b }
+            override fun prepareIncoming(snapshot:MixSnapshot,plan:AutoMixPlan):MixDeck { prepared=true; b.positionMs=plan.incomingCueMs; return b }
             override fun promote(incoming:MixDeck) { active=b }
             override fun restoreNormalAudio() { }
         }
         AutoMixController(h,AnalysisWorkers()).use { c ->
             c.configure(true,AutoMixPerformance.BALANCED)
-            repeat(20) { c.tick(); Thread.sleep(2) }
-            h.a.positionMs=47000; c.tick(); h.a.positionMs=56000; c.tick()
+            val planningDeadline=System.nanoTime()+5_000_000_000L
+            while(c.plannedTransition==null && System.nanoTime()<planningDeadline) { c.tick(); Thread.sleep(5) }
+            assertNotNull(c.plannedTransition)
+            h.a.positionMs=47000
+            val deadline=System.nanoTime()+2_000_000_000L
+            while(!h.prepared && System.nanoTime()<deadline) { c.tick(); Thread.sleep(5) }
+            assertTrue(h.prepared)
+            h.a.positionMs=56000; c.tick()
             assertEquals(120f/124,h.b.rate,0.001f)
             repeat(145) {
                 if(h.a.playing) h.a.positionMs+=50

@@ -48,37 +48,17 @@ AGPL/model code; this implementation deliberately avoids that issue.
 
 ## Analysis and planning
 
-- Use platform software codecs rather than reserving hardware/DSP decoder slots
-  required by audible playback. Missing software decoding uses the safe fallback.
-  Decode at most 32 seconds of the outgoing tail and incoming head, split into
-  four disjoint 16s jobs for ordinary tracks. This lets Performance actually use
-  four workers; all modes merge the same analyzed windows. Shorter tracks use
-  fewer jobs. A pair-wide 25-second deadline, per-job 12MiB read budget and four
-  64KiB source blocks bound work. Inconsistent segment tempos disable beat matching.
-- Use permitted resolved URLs and existing download/player caches. Streaming
-  analysis requires demonstrated HTTP byte-range support; it never downloads a
-  whole song to emulate seeking on a non-range server. Analysis cache writes are
-  disabled. DRM/encrypted audio, live/unknown duration and unsupported decoding
-  fall back safely.
-- Convert decoded PCM to fixed 22,050Hz mono **for analysis only**, identically in
-  all performance modes. This does not change audible bitrate/sample rate.
-- Measure a 10ms amplitude-attack envelope, autocorrelation tempo and beat phase.
-  Require enough beats, strong transients, energy variation and confidence before
-  using that grid. A metadata BPM never authorizes beat matching.
-- Compute FFT chroma and confidence-based key estimates, RMS/peak levels and
-  time-local energy. Favor an energy valley near the end and a weak four-beat
-  phrase-length heuristic. This is **not meter/downbeat or semantic song-structure
-  detection**; only small end regions are eligible.
-- Estimate vocal collision risk from spectral voice-band energy and tonality.
-  This is **not stem separation or reliable vocal recognition**. Instruments can
-  trigger it; uncertain/risky material gets a shorter, less ambitious transition.
-- Match sufficiently confident tempos within 4%, ordinarily use eight measured
-  beats (bounded to 4–10 seconds), align the outgoing start and incoming cue to
-  measured beats, and choose a bass handoff/beat blend. Known incompatible keys
-  or prominent vocal risk shorten the blend and disable stretching.
-- Never boost a track to loudness-match another. Attenuate the louder analyzed
-  window. Incoming cue skips only a small measured intro region (at most 2s), not
-  an arbitrary later verse/drop. The outgoing track continues to its actual end.
+The updated scan/shortlist/refine implementation can examine a 60–90 second
+outgoing region on suitable tracks, evaluate measured outro/intro section pairs,
+and execute an overlap independently of the file ending. Spectral onset evidence,
+local tempo/phase confidence, sustained energy/vocal-risk changes and repeated
+bass accents replace the old near-end-only and modulo-phrase restrictions.
+
+See [AutoMix quality and external equalizers](AUTOMIX_QUALITY_AND_EXTERNAL_EQ.md)
+for exact coverage, thresholds, scoring, resource bounds, technique selection,
+limitations and Galaxy S25 Ultra checks. This remains conservative DSP, not
+trained vocal separation or semantic phrase/chorus recognition. Permitted sources,
+software codecs, read-only caches, cancellation and graceful fallback are preserved.
 
 ## Actual transition execution
 
@@ -93,7 +73,7 @@ the silent prebuffer problem caused by analyzing/muting decoded standby samples.
 The PCM processor performs gentle low-end handoff or treble filtering with
 smoothed coefficients. A temporary incoming playback-rate adjustment uses the
 existing Media3 Sonic software path with pitch 1.0. Player-position drift receives
-at most 1% additional correction; rate and transition attenuation ease back over
+at most 1% additional correction, with a deadband and bounded update cadence; rate and transition attenuation ease back over
 3s after the outgoing decoder is released. No Rubber Band or native stretcher is
 added. Independent AudioTracks are not sample-locked: perceived beat alignment
 and latency need actual-device testing, particularly on Bluetooth/Cast changes.
@@ -130,7 +110,8 @@ AutoMix defaults **Off**. Its performance selector is shown only while enabled:
 One service-owned executor has a four-task bounded waiting queue, deduplicates
 identical rendition/window requests and keeps at most 64 small feature results.
 Reusable keys include track ID, resolved source, audio quality, duration, format
-itag/length/codecs/sample rate and queue generation. Mutable file/content URIs
+itag/length/codecs/sample rate and analysis detail/version. Queue generation
+invalidates preparation separately. Mutable file/content URIs
 and upcoming tracks without a confirmed format are deduplicated while running
 but never reused from the feature cache; no claim of a cryptographic content hash
 is made. A changed queue, source or rendition invalidates preparation.
@@ -171,8 +152,9 @@ and the same controller's preparation/promotion/pause/seek/queue/error states.
 Android MediaExtractor/MediaCodec and AudioTrack output require instrumentation
 or a phone; JVM fake-deck tests do not validate the OS decoder or listening quality.
 
-The ARM64 GMS debug and universal FOSS debug unit suites passed **107 tests each**,
-including **51 AutoMix tests each**, with no failures. Tests also exercise the real
+The ARM64 GMS debug and universal FOSS debug unit suites pass 140 tests each,
+including 72 AutoMix/worker and 12 per-output session cases each. Current scope
+and device limitations are recorded in the implementation PR. Tests also exercise the real
 Media3 PCM processor's neutral prebuffer, Sonic's generated-tone duration/pitch,
 DataStore serialization, four-window scheduling, source changes and failed
 session promotion. No live music provider or private key is required for these
@@ -204,3 +186,8 @@ fallbacks. Check that disabling AutoMix restores the prior Crossfade choice and
 that restarting the app preserves settings. Listen for timing drift, silence,
 center-level dips, clipping, and tempo artifacts. Do not publish based solely on
 unit tests; test the exact normally prepared release candidate separately.
+
+External effect handling now follows each real output's Media3 AudioTrack/session
+callbacks across both Crossfade and AutoMix. The old global opened flag is gone;
+no concurrent decks are forced to share a session ID. Poweramp/OEM compatibility
+still needs the [documented device test](AUTOMIX_QUALITY_AND_EXTERNAL_EQ.md#galaxy-s25-ultra-verification).

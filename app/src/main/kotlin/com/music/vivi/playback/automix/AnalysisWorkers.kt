@@ -15,6 +15,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
             }
         }, ThreadPoolExecutor.AbortPolicy()).apply { allowCoreThreadTimeOut(true) }
     private val running = mutableMapOf<String, FutureTask<T>>()
+    private val transient = mutableSetOf<FutureTask<*>>()
     private val cache = object : LinkedHashMap<String, T>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, T>) = size > 64
     }
@@ -23,7 +24,14 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
 
     fun submit(key: String, cacheable: Boolean = true, work: () -> T): Future<T> = synchronized(lock) {
         if (cacheable) cache[key]?.let { return@synchronized CompletableFuture.completedFuture(it) }
-        running[key]?.let { return@synchronized it }
+        running[key]?.let { existing ->
+            if (!existing.isDone) return@synchronized existing
+            // get() may return before FutureTask.done removes this entry. Reuse a finished
+            // success only for immutable/cacheable sources, never as mutable in-flight work.
+            if (cacheable && !existing.isCancelled && runCatching { existing.get() }.isSuccess)
+                return@synchronized existing
+            running.remove(key)
+        }
         lateinit var task: FutureTask<T>
         task = object : FutureTask<T>(Callable { work() }) {
             override fun done() = synchronized(lock) {
@@ -36,6 +44,16 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
             running.remove(key)
             task.cancel(false)
         }
+        task
+    }
+
+    /** Small aggregation/planning jobs share the SAME bounded pool, without feature-cache casts. */
+    fun <R> submitTransient(work: () -> R): Future<R> = synchronized(lock) {
+        val task=object : FutureTask<R>(Callable { work() }) {
+            override fun done() = synchronized(lock) { transient.remove(this); Unit }
+        }
+        transient.add(task)
+        try { executor.execute(task) } catch (_: RejectedExecutionException) { task.cancel(false) }
         task
     }
 
@@ -53,8 +71,14 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
     }
 
     fun cancelAll() = synchronized(lock) {
+        // Cancel waiting work before interrupting workers: freeing a worker first could let
+        // an obsolete queued planner begin between those operations.
+        executor.queue.toList().forEach { (it as? Future<*>)?.cancel(false) }
+        executor.purge()
         running.values.toList().forEach { it.cancel(true) }
         running.clear()
+        transient.toList().forEach { it.cancel(true) }
+        transient.clear()
         executor.purge()
     }
 

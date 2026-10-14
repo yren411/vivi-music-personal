@@ -22,7 +22,7 @@ data class AnalysisSource(val uri: Uri, val cacheKey: String, val length: Long,
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class AndroidWindowDecoder {
     fun analyze(source: AnalysisSource, startMs: Long, requestedLengthMs: Long,
-                deadlineNanos: Long): TrackFeatures {
+                deadlineNanos: Long, detail: AnalysisDetail = AnalysisDetail.DETAIL): TrackFeatures {
         val extractor = MediaExtractor()
         val bridge = RangeSource(source, deadlineNanos)
         var codec: MediaCodec? = null
@@ -118,7 +118,7 @@ class AndroidWindowDecoder {
                 }
             }
             if (written < samples.size - targetRate / 2) throw IOException("Truncated audio window")
-            return TrackFeaturesAnalyzer().analyze(samples.copyOf(written), targetRate, startMs, durationMs, deadlineNanos)
+            return TrackFeaturesAnalyzer().analyze(samples.copyOf(written), targetRate, startMs, durationMs, deadlineNanos, detail)
         } finally {
             runCatching { codec?.stop() }; runCatching { codec?.release() }
             runCatching { extractor.release() }; runCatching { bridge.close() }
@@ -139,7 +139,7 @@ class AndroidWindowDecoder {
             if (source.length > 0 && position >= source.length) return -1
             val blockStart = position / 65536 * 65536
             val block = blocks[blockStart] ?: run {
-                if (fetched >= 12 * 1024 * 1024) throw IOException("Analysis byte budget exhausted")
+                if (fetched >= (if (source.fullyCached) 12 else 3) * 1024 * 1024) throw IOException("Analysis byte budget exhausted")
                 val data = source.factory.createDataSource()
                 try {
                     val length = if (source.length > 0) min(65536L, source.length - blockStart) else 65536L
