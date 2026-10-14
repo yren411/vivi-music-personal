@@ -286,6 +286,7 @@ class MusicService :
     private var crossfadeTriggerJob: Job? = null
     private var autoMixRequested = false
     private var autoMixFocusGain = 1f
+    val autoMixRecorder = com.music.vivi.playback.automix.AutoMixRecorder()
     private val _autoMixStatus = MutableStateFlow(com.music.vivi.playback.automix.AutoMixStatus())
     val autoMixStatus: kotlinx.coroutines.flow.StateFlow<com.music.vivi.playback.automix.AutoMixStatus> = _autoMixStatus.asStateFlow()
     private val _audioDiagnostics = MutableStateFlow(AudioDiagnostics())
@@ -1086,7 +1087,7 @@ class MusicService :
                         cleanupCrossfade()
                         player.volume = if (isMuted.value) 0f else playerVolume.value
                     }
-                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers(), onStatus = { _autoMixStatus.value = it })
+                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers(), onStatus = { _autoMixStatus.value = it }, recorder=autoMixRecorder)
                 }
                 intelligentAutoMix?.configure(autoMixRequested, settings.performance)
                 if (playerInitialized.value) setupLoudnessEnhancer()
@@ -1094,7 +1095,7 @@ class MusicService :
                     autoMixTicker = scope.launch {
                         while (isActive && autoMixRequested) {
                             try { intelligentAutoMix?.tick() } catch (_: Exception) {
-                                intelligentAutoMix?.invalidate()
+                                intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.ANALYSIS_CANCELED)
                                 Timber.tag("AutoMix").w("Transition unavailable; retaining normal playback")
                             }
                             delay(intelligentAutoMix?.nextTickDelayMs() ?: 1000)
@@ -2694,7 +2695,7 @@ class MusicService :
     }
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
-        intelligentAutoMix?.invalidate()
+        intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.QUEUE_CHANGED)
         updateNotification()
         if (shuffleModeEnabled) {
             // If queue is empty, don't shuffle
@@ -2723,7 +2724,7 @@ class MusicService :
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
-        intelligentAutoMix?.invalidate()
+        intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.QUEUE_CHANGED)
         updateNotification()
         scope.launch {
             dataStore.edit { settings ->
@@ -2937,7 +2938,7 @@ class MusicService :
     }
 
     override fun onPlayerError(error: PlaybackException) {
-        intelligentAutoMix?.invalidate()
+        intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.DECODER_FAILED)
         super.onPlayerError(error)
 
         // Safety check : ensuring player is still initialized
@@ -3910,7 +3911,7 @@ class MusicService :
         reason: Int
     ) {
         if (reason != Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
-            intelligentAutoMix?.invalidate()
+            intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.SEEK)
             if (isCrossfading) {
                 crossfadeJob?.cancel()
                 cleanupCrossfade()
@@ -3997,14 +3998,16 @@ class MusicService :
             try {
                 return AndroidWindowDecoder().analyze(source, startMs, lengthMs, deadlineNanos, detail)
             } catch(error: Exception) {
-                val reason=when(error) {
-                    is java.util.concurrent.CancellationException -> "canceled-or-deadline"
-                    is com.music.vivi.playback.automix.AnalysisUnavailable -> error.reason
-                    is java.io.IOException -> "source-or-decoder-unavailable"
-                    else -> "invalid-analysis-or-decoder-state"
+                val classified: Exception=when(error) {
+                    is com.music.vivi.playback.automix.AnalysisUnavailable, is java.util.concurrent.CancellationException -> error
+                    is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException ->
+                        com.music.vivi.playback.automix.AnalysisUnavailable(if(error.responseCode in listOf(401,403)) "SOURCE_DENIED" else "SOURCE_IO_FAILURE").apply { initCause(error) }
+                    is java.io.IOException -> com.music.vivi.playback.automix.AnalysisUnavailable("SOURCE_IO_FAILURE").apply { initCause(error) }
+                    is IllegalArgumentException -> com.music.vivi.playback.automix.AnalysisUnavailable("UNSUPPORTED_FORMAT").apply { initCause(error) }
+                    else -> com.music.vivi.playback.automix.AnalysisUnavailable("DECODER_FAILED").apply { initCause(error) }
                 }
-                diagnostic("event=analysis-failed pass=$detail reason=$reason",true)
-                throw error // no exception message, media ID, URL or credentials in our diagnostics
+                diagnostic("event=analysis-failed pass=$detail reason=${com.music.vivi.playback.automix.AutoMixFailure.of(classified)}",true)
+                throw classified // never export/log the original exception's message or URL
             }
         }
 
@@ -4024,8 +4027,8 @@ class MusicService :
                 val shuffle = if (player.shuffleModeEnabled) getCurrentShuffleOrderIndices(player) else null
                 next.volume = 0f
                 // Prebuffer real PCM, not zero samples. AudioTrack volume keeps this paused deck silent.
-                autoMixProcessors[next]?.parameters = AutoMixAudioProcessor.Parameters(1.0,
-                    if (plan.technique == MixTechnique.BASS_HANDOFF) 0.85 else 0.0)
+                val initial=com.music.vivi.playback.automix.djAutomation(plan,0.0).incoming
+                autoMixProcessors[next]?.parameters = AutoMixAudioProcessor.Parameters(1.0,initial.bassCut,initial.trebleCut)
                 next.playbackParameters = PlaybackParameters(plan.incomingRate, 1f)
                 next.setMediaItems(items, nextIndex, plan.incomingCueMs)
                 next.repeatMode = player.repeatMode

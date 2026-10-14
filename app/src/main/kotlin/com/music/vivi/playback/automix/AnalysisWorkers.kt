@@ -8,7 +8,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
     private val lock = Any()
     private val sequence = AtomicInteger()
     private val executor = ThreadPoolExecutor(mode.workers, mode.workers, 1, TimeUnit.SECONDS,
-        ArrayBlockingQueue(4), ThreadFactory { task ->
+        ArrayBlockingQueue(8), ThreadFactory { task ->
             Thread(task, "Tinium-AutoMix-${sequence.incrementAndGet()}").apply {
                 isDaemon = true
                 priority = Thread.NORM_PRIORITY - 1
@@ -21,6 +21,8 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
     }
     var mode = mode
         private set
+
+    fun hasCached(key: String): Boolean = synchronized(lock) { cache.containsKey(key) }
 
     fun submit(key: String, cacheable: Boolean = true, work: () -> T): Future<T> = synchronized(lock) {
         if (cacheable) cache[key]?.let { return@synchronized CompletableFuture.completedFuture(it) }
@@ -43,6 +45,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
         try { executor.execute(task) } catch (_: RejectedExecutionException) {
             running.remove(key)
             task.cancel(false)
+            return@synchronized CompletableFuture<T>().apply { completeExceptionally(AnalysisUnavailable("WORKER_QUEUE_FULL")) }
         }
         task
     }
@@ -53,7 +56,10 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
             override fun done() = synchronized(lock) { transient.remove(this); Unit }
         }
         transient.add(task)
-        try { executor.execute(task) } catch (_: RejectedExecutionException) { task.cancel(false) }
+        try { executor.execute(task) } catch (_: RejectedExecutionException) {
+            task.cancel(false)
+            return@synchronized CompletableFuture<R>().apply { completeExceptionally(AnalysisUnavailable("WORKER_QUEUE_FULL")) }
+        }
         task
     }
 
@@ -73,7 +79,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
     fun cancelAll() = synchronized(lock) {
         // Cancel waiting work before interrupting workers: freeing a worker first could let
         // an obsolete queued planner begin between those operations.
-        executor.queue.toList().forEach { (it as? Future<*>)?.cancel(false) }
+        executor.queue.toTypedArray().forEach { (it as? Future<*>)?.cancel(false) }
         executor.purge()
         running.values.toList().forEach { it.cancel(true) }
         running.clear()

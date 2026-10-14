@@ -3,7 +3,7 @@ package com.music.vivi.playback.automix
 /** Public diagnostics contain track IDs and timings, never media URLs or auth information. */
 enum class AutoMixPhase {
     DISABLED, WAITING_NEXT, WAITING_SOURCE, ANALYZING_CURRENT, ANALYZING_NEXT, REFINING,
-    PLANNED, PREPARING, READY, MIXING, FALLBACK_PLANNED, FALLBACK_PLAYING, RECOVERING, UNAVAILABLE
+    PLANNED, PREPARING, READY, MIXING, FALLBACK_PLANNED, FALLBACK_PLAYING, RECOVERING, COMPLETED, UNAVAILABLE
 }
 data class AutoMixStatus(
     val phase: AutoMixPhase = AutoMixPhase.DISABLED,

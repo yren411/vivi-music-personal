@@ -10,7 +10,9 @@ data class RhythmSection(val startMs: Long, val endMs: Long, val bpm: Double, va
                          val downbeatsMs: List<Long> = emptyList(), val downbeatConfidence: Double = 0.0)
 data class SectionBoundary(val positionMs: Long, val confidence: Double, val beforeRms: Double,
                            val afterRms: Double, val beforeVocal: Double, val afterVocal: Double)
-data class EnergyPoint(val positionMs: Long, val rms: Double, val vocalRisk: Double)
+data class EnergyPoint(val positionMs: Long, val rms: Double, val vocalRisk: Double,
+                       val bassFraction: Double? = null, val spectralDensity: Double? = null,
+                       val percussion: Double? = null)
 data class TrackFeatures(
     val durationMs: Long,
     val startMs: Long,
@@ -28,6 +30,9 @@ data class TrackFeatures(
     val boundaries: List<SectionBoundary> = emptyList(),
 )
 
+enum class AutoMixTier { A, B, C }
+enum class CueReason { TRACK_START, LEADING_SILENCE, RHYTHMIC_ENTRY, PRESERVED_INTRO }
+
 enum class MixTechnique { BEAT_BLEND, BASS_HANDOFF, GENTLE_FILTER, ENERGY_FADE, SAFE_FADE }
 data class AutoMixPlan(
     val outgoingStartMs: Long,
@@ -40,9 +45,14 @@ data class AutoMixPlan(
     val score: Double = 0.0,
     val reason: String = "insufficient-analysis",
     val phaseConfidence: Double = 0.0,
+    val tier: AutoMixTier = if(technique in setOf(MixTechnique.BEAT_BLEND,MixTechnique.BASS_HANDOFF)) AutoMixTier.B else AutoMixTier.C,
+    val beats: Int? = null,
+    val cueReason: CueReason = if(incomingCueMs==0L) CueReason.TRACK_START else CueReason.LEADING_SILENCE,
+    val bassCollision: Double? = null,
+    val overlapDensity: Double? = null,
 ) {
     init {
-        require(outgoingStartMs >= 0 && incomingCueMs >= 0 && durationMs in 500..24_000)
+        require(outgoingStartMs >= 0 && incomingCueMs >= 0 && durationMs in 500..48_000)
         require(incomingRate.isFinite() && incomingRate in 0.96f..1.04f)
         require(outgoingLevel in 0.0..1.0 && incomingLevel in 0.0..1.0)
     }
@@ -54,7 +64,6 @@ fun mixingPolicy(autoMix: Boolean, crossfade: Boolean, offload: Boolean, inShare
     MixingPolicy(autoMix && !inSharedRoom, crossfade && !autoMix && !inSharedRoom, offload && !autoMix && !crossfade)
 
 internal fun checkAnalysisCancellation(deadlineNanos: Long) {
-    if (Thread.currentThread().isInterrupted || System.nanoTime() >= deadlineNanos) {
-        throw java.util.concurrent.CancellationException("AutoMix analysis canceled or timed out")
-    }
+    if(Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException("AutoMix analysis canceled")
+    if(System.nanoTime()>=deadlineNanos) throw AnalysisUnavailable("ANALYSIS_TIMEOUT")
 }

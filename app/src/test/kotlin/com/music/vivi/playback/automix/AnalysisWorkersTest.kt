@@ -20,7 +20,7 @@ class AnalysisWorkersTest {
             assertTrue(entered.await(2,TimeUnit.SECONDS))
             val planned=AtomicInteger()
             val planning=pool.submitTransient { planned.incrementAndGet(); "decision" }
-            assertEquals(0,planned.get()); assertTrue(pool.queuedCount<=4)
+            assertEquals(0,planned.get()); assertTrue(pool.queuedCount<=8)
             pool.cancelAll()
             assertTrue(decoding.isCancelled); assertTrue(planning.isCancelled)
             assertEquals(0,pool.queuedCount)
@@ -28,15 +28,15 @@ class AnalysisWorkersTest {
             assertTrue(thread.startsWith("Tinium-AutoMix-"))
         }
     }
-    @Test fun planningQueueCannotGrowBeyondTheSameFourWaitingJobs() {
+    @Test fun planningQueueCannotGrowBeyondTheSameEightWaitingJobs() {
         AnalysisWorkers<Int>(AutoMixPerformance.EFFICIENT).use { pool ->
             val gate=CountDownLatch(1)
             val entered=CountDownLatch(1)
             pool.submit("occupied") { entered.countDown(); gate.await(); 1 }
             assertTrue(entered.await(2,TimeUnit.SECONDS))
             val jobs=(0..12).map { pool.submitTransient { it.toString() } }
-            assertTrue(pool.queuedCount<=4); assertTrue(jobs.any { it.isCancelled })
-            pool.cancelAll(); assertTrue(jobs.all { it.isCancelled })
+            assertTrue(pool.queuedCount<=8); assertTrue(jobs.any { it.isDone && !it.isCancelled && runCatching { it.get() }.exceptionOrNull()?.let(AutoMixFailure::of)==AutoMixFailure.WORKER_QUEUE_FULL })
+            pool.cancelAll(); assertTrue(jobs.all { it.isCancelled || (it.isDone && runCatching { it.get() }.exceptionOrNull()?.let(AutoMixFailure::of)==AutoMixFailure.WORKER_QUEUE_FULL) })
         }
     }
     @Test fun modesBoundActualConcurrentWork() {
@@ -51,7 +51,7 @@ class AnalysisWorkersTest {
             } }
             assertTrue(started.await(2,TimeUnit.SECONDS))
             assertEquals(mode.workers,maximum.get())
-            assertTrue(pool.queuedCount<=4)
+            assertTrue(pool.queuedCount<=8)
             release.countDown()
             jobs.forEach { if (!it.isCancelled) it.get(3,TimeUnit.SECONDS) }
             assertTrue(maximum.get()<=mode.workers)
@@ -88,11 +88,22 @@ class AnalysisWorkersTest {
     @Test fun queueIsBoundedAndCancellationRemovesQueuedWork() {
         AnalysisWorkers<Int>(AutoMixPerformance.EFFICIENT).use { pool ->
             val jobs=(0..20).map { i -> pool.submit("$i") { CountDownLatch(1).await(); 1 } }
-            assertTrue(pool.queuedCount<=4)
-            assertTrue(jobs.any { it.isCancelled })
+            assertTrue(pool.queuedCount<=8)
+            assertTrue(jobs.any { it.isDone && !it.isCancelled && runCatching { it.get() }.exceptionOrNull()?.let(AutoMixFailure::of)==AutoMixFailure.WORKER_QUEUE_FULL })
             pool.cancelAll()
             assertEquals(0,pool.queuedCount)
-            assertTrue(jobs.all { it.isCancelled })
+            assertTrue(jobs.all { it.isCancelled || it.isDone })
         }
     }
+    @Test fun cancellationSnapshotsAQueueWhileWorkersDrainItWithoutIteratorRaces() {
+        AnalysisWorkers<Int>(AutoMixPerformance.EFFICIENT).use { pool ->
+            repeat(500) { turn ->
+                pool.submit("race-$turn-a",false) { 1 }
+                pool.submit("race-$turn-b",false) { 2 }
+                pool.cancelAll()
+            }
+            assertEquals(0,pool.queuedCount)
+        }
+    }
+
 }

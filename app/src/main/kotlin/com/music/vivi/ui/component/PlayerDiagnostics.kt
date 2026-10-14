@@ -1,6 +1,18 @@
 package com.music.vivi.ui.component
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import java.util.concurrent.CancellationException
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -65,6 +77,7 @@ fun AutoMixTimeline(connection: PlayerConnection, currentId: String?, durationMs
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun PlayerDiagnostics(connection: PlayerConnection, modifier: Modifier=Modifier,
                       color: Color=MaterialTheme.colorScheme.onSurfaceVariant, remotePlayback: Boolean=false) {
@@ -73,7 +86,46 @@ fun PlayerDiagnostics(connection: PlayerConnection, modifier: Modifier=Modifier,
     val audio by connection.service.audioDiagnostics.collectAsStateWithLifecycle()
     val state by connection.service.autoMixStatus.collectAsStateWithLifecycle()
     val enabled by rememberPreference(AutoMixEnabledKey,false)
-    Column(modifier.fillMaxWidth().padding(vertical=2.dp)) {
+    val context=LocalContext.current
+    val scope=rememberCoroutineScope()
+    val gate=remember { MixLogExportGate() }
+    var pendingReport by remember { mutableStateOf<String?>(null) }
+    val mode by com.music.vivi.utils.rememberEnumPreference(AutoMixPerformanceKey,AutoMixPerformance.BALANCED)
+    fun finish(success: Boolean) {
+        gate.finish()
+        android.widget.Toast.makeText(context,context.getString(if(success) { if(android.os.Build.VERSION.SDK_INT>=29) R.string.automix_log_saved else R.string.automix_log_saved_document } else R.string.automix_log_failed),android.widget.Toast.LENGTH_SHORT).show()
+    }
+    val picker=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val report=pendingReport;pendingReport=null
+        if(uri==null || report==null) gate.finish() else scope.launch {
+            try {
+                withContext(Dispatchers.IO) { MixLogWriter.save(SelectedMixLogDestination(context.contentResolver,uri),
+                    "",report) { ensureActive() } }
+                finish(true)
+            } catch(error: Exception) { gate.finish();if(error !is CancellationException) finish(false) }
+        }
+    }
+    fun export() {
+        if(!gate.begin()) return
+        scope.launch {
+            try {
+                val report=withContext(Dispatchers.IO) {
+                    val installed=com.music.vivi.vivimusic.updater.installedVersion(context)
+                    AutoMixRecorder.render(connection.service.autoMixRecorder.snapshot(),MixReportHeader(installed.name,installed.code,
+                        android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,enabled,mode))
+                }
+                val filename=MixLogWriter.filename()
+                if(android.os.Build.VERSION.SDK_INT>=29) {
+                    withContext(Dispatchers.IO) { MixLogWriter.save(DownloadsMixLogDestination(context.contentResolver),filename,report) { ensureActive() } }
+                    finish(true)
+                } else { pendingReport=report;picker.launch(filename) }
+            } catch(error: Exception) { gate.finish();if(error !is CancellationException) finish(false) }
+        }
+    }
+    val exportLabel=stringResource(R.string.automix_log_export)
+    Column(modifier.fillMaxWidth().padding(vertical=2.dp)
+        .combinedClickable(onClick={},onLongClickLabel=exportLabel,onLongClick=::export)
+        .semantics { customActions=listOf(CustomAccessibilityAction(exportLabel) { export();true }) }) {
         val source=if(remotePlayback) stringResource(R.string.audio_info_remote) else audio.fields().joinToString(" · ")
             .ifBlank { stringResource(R.string.audio_info_unknown) }
         Text(stringResource(R.string.audio_info_source,source), color=color,
@@ -108,6 +160,7 @@ private fun autoMixDescription(state: AutoMixStatus): String {
         AutoMixPhase.MIXING -> R.string.automix_status_mixing
         AutoMixPhase.FALLBACK_PLANNED -> R.string.automix_status_fallback_planned
         AutoMixPhase.FALLBACK_PLAYING -> R.string.automix_status_fallback_playing
+        AutoMixPhase.COMPLETED -> R.string.automix_status_completed
         AutoMixPhase.RECOVERING -> R.string.automix_status_recovering
         AutoMixPhase.UNAVAILABLE -> R.string.automix_status_unavailable
     })
@@ -119,10 +172,16 @@ private fun autoMixDescription(state: AutoMixStatus): String {
         MixTechnique.ENERGY_FADE -> R.string.automix_technique_energy
         MixTechnique.SAFE_FADE -> R.string.automix_technique_fallback
     }) }
-    val summary=if(plan!=null) stringResource(R.string.automix_plan_summary,phase,technique ?: "",
+    val base=if(plan!=null) stringResource(R.string.automix_plan_summary,phase,technique ?: "",
         makeTimeString(plan.outgoingStartMs),makeTimeString(plan.incomingCueMs),plan.durationMs/1000.0)
         else stringResource(R.string.automix_status_summary,phase)
-    if(state.reason==null || (plan!=null && plan.technique!=MixTechnique.SAFE_FADE)) return summary
+    val summary=if(plan!=null) "$base · ${stringResource(when(plan.tier) {
+        AutoMixTier.A -> R.string.automix_tier_a
+        AutoMixTier.B -> R.string.automix_tier_b
+        AutoMixTier.C -> R.string.automix_tier_c
+    })}" + (state.actualStartMs?.let { " · ${stringResource(R.string.automix_actual_start,makeTimeString(it))}" } ?: "") else base
+    if(state.reason=="coarse-analysis-recovery") return "$summary · ${stringResource(R.string.automix_recovered)}"
+    if(state.reason==null || (plan!=null && plan.tier!=AutoMixTier.C)) return summary
     val reason=stringResource(when {
         state.reason.contains("source-not-range") -> R.string.automix_reason_seek
         state.reason.contains("source-unresolved") -> R.string.automix_reason_source
@@ -131,5 +190,5 @@ private fun autoMixDescription(state: AutoMixStatus): String {
         state.reason.contains("missed") -> R.string.automix_reason_missed
         else -> R.string.automix_reason_analysis
     })
-    return "$summary · $reason"
+    return "$summary · $reason (${AutoMixFailure.from(state.reason).name})"
 }

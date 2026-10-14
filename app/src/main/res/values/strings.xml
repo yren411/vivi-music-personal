@@ -500,4 +500,14 @@
     <string name="automix_reason_deck">Incoming decoder not ready</string>
     <string name="automix_reason_missed">Planned start missed</string>
     <string name="automix_reason_analysis">Unsupported or insufficient analysis</string>
+    <string name="automix_status_completed">Completed</string>
+    <string name="automix_tier_a">Tier A · DJ mix</string>
+    <string name="automix_tier_b">Tier B · Moderate</string>
+    <string name="automix_tier_c">Tier C · Safe</string>
+    <string name="automix_actual_start">Actual %1$s</string>
+    <string name="automix_log_export">Export AutoMix diagnostic log</string>
+    <string name="automix_log_saved">AutoMix log saved to Downloads.</string>
+    <string name="automix_log_failed">Could not save AutoMix log.</string>
+    <string name="automix_recovered">Recovered from refinement</string>
+<string name="automix_log_saved_document">AutoMix log saved to the selected document.</string>
 </resources>

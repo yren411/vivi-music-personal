@@ -74,12 +74,13 @@ class TrackFeaturesAnalyzer {
         if (bestLag > 0) {
             phase = (0 until bestLag).maxBy { p -> (p until attacks.size step bestLag).sumOf { attacks[it] } }
         }
-        // Silence before/after the measured material is not missing rhythm. Evaluate the
-        // grid only where signal exists; retain absolute timestamps for the incoming cue.
-        val audibleFloor=max(0.001, (levels.maxOrNull() ?: 0.0)*0.03)
-        val firstAudible=levels.indexOfFirst { it>=audibleFloor }.coerceAtLeast(0)
-        val lastAudible=levels.indexOfLast { it>=audibleFloor }.coerceAtLeast(firstAudible)
-        val beatTicks=if(bestLag>0) (phase until attacks.size step bestLag).filter { it in (firstAudible-5)..(lastAudible+5) } else emptyList()
+        // A quiet audible intro without drums is not a failed beat grid. Require a
+        // sustained train of three measured onsets at the grid edges, not merely RMS.
+        val strongest=attacks.maxOrNull() ?: 0.0
+        val grid=if(bestLag>0) (phase until attacks.size step bestLag).toList() else emptyList()
+        val supported=grid.map { tick -> (max(0,tick-5)..min(attacks.lastIndex,tick+5)).maxOf { attacks[it] }>=max(0.035,strongest*0.12) }
+        val trains=(0 until (grid.size-2).coerceAtLeast(0)).filter { supported[it] && supported[it+1] && supported[it+2] }
+        val beatTicks=if(trains.isEmpty()) emptyList() else grid.subList(trains.first(),trains.last()+3)
         val beats = beatTicks.map { startMs + it * 10L }
         val captured = beats.indices.sumOf { index ->
             val tick = beatTicks[index]
@@ -87,7 +88,6 @@ class TrackFeaturesAnalyzer {
         }
         val phaseQuality = if (bestLag > 0 && attacks.sum() > 1e-8)
             ((captured / attacks.sum() - 7.0 / bestLag) / 0.65).coerceIn(0.0, 1.0) else 0.0
-        val strongest = attacks.maxOrNull() ?: 0.0
         val beatStrengths = beats.indices.map { index ->
             val tick = beatTicks[index]
             (max(0,tick-5)..min(attacks.lastIndex,tick+5)).maxOf { attacks[it] }
@@ -131,9 +131,15 @@ class TrackFeaturesAnalyzer {
             var largest = 0.0
             var logSum = 0.0
             var bins = 0
+            var fullPower = 0.0; var bassPower = 0.0; var occupied = 0
             for (bin in 1 until fftSize / 2) {
                 val hz = bin.toDouble() * sampleRate / fftSize
                 val magnitude = sqrt(real[bin] * real[bin] + imaginary[bin] * imaginary[bin])
+                if(hz in 40.0..8000.0) {
+                    fullPower+=magnitude*magnitude
+                    if(hz<200) bassPower+=magnitude*magnitude
+                    if(magnitude>0.02) occupied++
+                }
                 if (hz in 120.0..4000.0) {
                     val midi = (69 + 12 * log2(hz / 440.0)).roundToInt()
                     chroma[((midi % 12) + 12) % 12] += magnitude
@@ -154,7 +160,14 @@ class TrackFeaturesAnalyzer {
             if(first+49>levels.lastIndex) break
             val last = first + 49
             val localRms = sqrt((first..last).sumOf { levels[it] * levels[it] } / (last-first+1))
-            energy += EnergyPoint(startMs + offset * 1000L / sampleRate + 250, localRms, risk)
+            val bassFraction=if(fullPower>1e-8) (bassPower/fullPower).coerceIn(0.0,1.0) else 0.0
+            val percussion=((first..last).sumOf { attacks[it] }/(50*strongest.coerceAtLeast(0.035)*0.04)).coerceIn(0.0,1.0)
+            val density=(occupied/300.0).coerceIn(0.0,1.0)
+            // A bass-dominant transient must not become "vocals" merely because the old
+            // voice proxy's denominator excluded its fundamental. Still a proxy, not stems.
+            val voiced=risk*(1-bassFraction*0.75)
+            energy += EnergyPoint(startMs + offset * 1000L / sampleRate + 250, localRms, voiced,
+                bassFraction,density,percussion)
         }
         val length = samples.size * 1000L / sampleRate
         val section = RhythmSection(startMs, startMs+length, bpm, confidence, phaseQuality, stability,
