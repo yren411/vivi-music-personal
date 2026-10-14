@@ -1825,6 +1825,11 @@ fun BottomSheetPlayer(
 
             Spacer(Modifier.height(if (useNewPlayerDesign) 24.dp else 8.dp))
 
+            com.music.vivi.ui.component.AutoMixTimeline(
+                playerConnection, if (isCasting) null else mediaMetadata.id, duration,
+                sliderPosition ?: effectivePosition, sliderStyle, PlayerHorizontalPadding,
+                scrubbing = sliderPosition != null
+            ) {
             when (sliderStyle) {
                 SliderStyle.DEFAULT -> {
                     Slider(
@@ -2003,6 +2008,11 @@ fun BottomSheetPlayer(
                     )
                 }
             }
+
+            }
+            com.music.vivi.ui.component.PlayerDiagnostics(playerConnection,
+                Modifier.padding(horizontal=PlayerHorizontalPadding), color=TextBackgroundColor,
+                remotePlayback=isCasting)
 
             Spacer(Modifier.height(4.dp))
 
