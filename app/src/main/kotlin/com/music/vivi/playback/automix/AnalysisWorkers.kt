@@ -21,14 +21,14 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
     var mode = mode
         private set
 
-    fun submit(key: String, work: () -> T): Future<T> = synchronized(lock) {
-        cache[key]?.let { return@synchronized CompletableFuture.completedFuture(it) }
+    fun submit(key: String, cacheable: Boolean = true, work: () -> T): Future<T> = synchronized(lock) {
+        if (cacheable) cache[key]?.let { return@synchronized CompletableFuture.completedFuture(it) }
         running[key]?.let { return@synchronized it }
         lateinit var task: FutureTask<T>
         task = object : FutureTask<T>(Callable { work() }) {
             override fun done() = synchronized(lock) {
                 if (running[key] === this) running.remove(key)
-                if (!isCancelled) try { cache[key] = get() } catch (_: Exception) { /* failed analyses are not cached */ }
+                if (cacheable && !isCancelled) try { cache[key] = get() } catch (_: Exception) { /* failed analyses are not cached */ }
             }
         }
         running[key] = task

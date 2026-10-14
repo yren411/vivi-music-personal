@@ -3,7 +3,8 @@ package com.music.vivi.playback.automix
 import java.util.concurrent.Future
 import kotlin.math.abs
 
-data class MixTrack(val id: String, val durationMs: Long, val sourceIdentity: String, val sourceUri: String = id)
+data class MixTrack(val id: String, val durationMs: Long, val sourceIdentity: String, val sourceUri: String = id,
+                    val cacheable: Boolean = true)
 data class MixSnapshot(val outgoing: MixTrack, val incoming: MixTrack, val queueIdentity: String,
                        val positionMs: Long, val playing: Boolean, val normalSpeed: Boolean)
 
@@ -53,11 +54,38 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         blend?.takeIf { !it.finished }?.let { if (it.incoming.playing) it.outgoing.play() else it.outgoing.pause() }
     }
 
+    fun trackChanged(id: String?) {
+        if ((preparation != null && preparation!!.snapshot.outgoing.id != id) ||
+            (blend != null && blend!!.incomingId != id)) invalidate()
+    }
+
+    fun playlistChanged(currentTrackId: String?) {
+        val state = blend
+        if (state == null || state.incomingId != currentTrackId) invalidate()
+        else {
+            // Appending/reordering FUTURE songs does not invalidate two already audible decks.
+            // Preserve the blend when the active song is unchanged; seeks/skips still cancel it.
+            state.incomingQueue = host.snapshot()?.queueIdentity
+        }
+    }
+
     fun configure(enabled: Boolean, mode: AutoMixPerformance) {
-        if (this.enabled != enabled || workers.mode != mode) invalidate()
+        if (this.enabled != enabled || (workers.mode != mode && blend == null)) invalidate()
         workers.configure(mode)
         this.enabled = enabled
         if (!enabled) workers.cancelAll()
+    }
+
+    fun nextTickDelayMs(): Long {
+        if (blend != null) return 25
+        val snapshot = host.snapshot() ?: return 1000
+        if (!snapshot.playing) return 1000
+        val target = preparation?.plan?.outgoingStartMs ?: snapshot.outgoing.durationMs - 14_000
+        return when {
+            target - snapshot.positionMs > 12_000 -> 500
+            target - snapshot.positionMs > 500 -> 100
+            else -> 25
+        }
     }
 
     /** Explicit seek/skip/queue replacement/settings change cancels every obsolete operation. */
@@ -134,7 +162,16 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         try {
             host.promote(incoming)
             state.incomingQueue = host.snapshot()?.queueIdentity
-        } catch (_: Exception) { invalidate() }
+        } catch (_: Exception) {
+            if (host.snapshot()?.outgoing?.id == snapshot.outgoing.id) {
+                // A failed session promotion must not release the still-current audible deck.
+                blend = null
+                incoming.release()
+                outgoing.process(1.0)
+                finishedPair = pair
+                host.restoreNormalAudio()
+            } else invalidate()
+        }
     }
 
     private fun driveBlend(state: Blend) {
@@ -185,7 +222,7 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         // simultaneous decoder/DSP tasks; all modes analyze the identical combined windows.
         val windows = if (length == 32_000L) listOf(start to 16_000L, start + 16_000 to 16_000L)
             else listOf(start to length)
-        return windows.map { (position, size) -> workers.submit("${track.sourceIdentity}|$position:$size") {
+        return windows.map { (position, size) -> workers.submit("${track.sourceIdentity}|$position:$size", track.cacheable) {
             host.analyze(track, position, size, deadline)
         } }
     }

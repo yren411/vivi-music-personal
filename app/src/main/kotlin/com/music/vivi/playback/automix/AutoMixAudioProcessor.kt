@@ -6,6 +6,7 @@ import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 
 /** Local decoded PCM only. Neutral state is an exact byte copy; no effects while AutoMix is off. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class AutoMixAudioProcessor : BaseAudioProcessor() {
     data class Parameters(val gain: Double = 1.0, val bassCut: Double = 0.0, val trebleCut: Double = 0.0)
     @Volatile var parameters = Parameters()

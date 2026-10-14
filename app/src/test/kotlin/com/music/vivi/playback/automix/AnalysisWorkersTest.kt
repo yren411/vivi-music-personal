@@ -6,6 +6,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AnalysisWorkersTest {
+    @Test fun uncertainOrMutableSourcesAreDeduplicatedButNeverReusedFromCache() {
+        AnalysisWorkers<Int>().use { pool ->
+            assertEquals(1, pool.submit("mutable source", false) { 1 }.get(2, TimeUnit.SECONDS))
+            assertEquals(2, pool.submit("mutable source", false) { 2 }.get(2, TimeUnit.SECONDS))
+        }
+    }
     @Test fun modesBoundActualConcurrentWork() {
         for (mode in AutoMixPerformance.entries) AnalysisWorkers<Int>(mode).use { pool ->
             val started=CountDownLatch(mode.workers)

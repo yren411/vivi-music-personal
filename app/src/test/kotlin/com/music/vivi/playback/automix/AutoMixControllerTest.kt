@@ -30,10 +30,16 @@ class AutoMixControllerTest {
         var promotions=0
         var restored=0
         var analysisFailures=false
-        override fun snapshot()=MixSnapshot(MixTrack(active.trackId,60000,active.trackId),
-            MixTrack(if(active===a) "b" else "c",60000,if(active===a) "b" else "c"),
-            "$queue:${active.trackId}",active.positionMs,active.playing,abs(active.rate-1f)<0.001f)
+        var failPromotion=false
+        var normalSpeed=true
+        var duration=60000L
+        var sourceRevision="1"
+        val requests=java.util.concurrent.ConcurrentLinkedQueue<Triple<String,Long,Long>>()
+        override fun snapshot()=MixSnapshot(MixTrack(active.trackId,duration,"${active.trackId}:$sourceRevision"),
+            MixTrack(if(active===a) "b" else "c",duration,"${if(active===a) "b" else "c"}:$sourceRevision"),
+            "$queue:${active.trackId}",active.positionMs,active.playing,normalSpeed && abs(active.rate-1f)<0.001f)
         override fun analyze(track:MixTrack,startMs:Long,lengthMs:Long,deadlineNanos:Long):TrackFeatures {
+            requests.add(Triple(track.id,startMs,lengthMs))
             if(analysisFailures) throw java.io.IOException("Unsupported source")
             return features(start=startMs)
         }
@@ -41,7 +47,10 @@ class AutoMixControllerTest {
         override fun prepareIncoming(snapshot:MixSnapshot,plan:AutoMixPlan):MixDeck {
             prepares++; b.positionMs=plan.incomingCueMs; return b
         }
-        override fun promote(incoming:MixDeck) { promotions++; active=incoming as Deck }
+        override fun promote(incoming:MixDeck) {
+            if(failPromotion) error("Session unavailable")
+            promotions++; active=incoming as Deck
+        }
         override fun restoreNormalAudio() { restored++ }
         fun advance(ms:Long) {
             if(a.playing) a.positionMs+=ms
@@ -60,6 +69,45 @@ class AutoMixControllerTest {
         controller.tick()
         assertEquals(1,host.promotions)
         assertSame(host.b,host.active)
+    }
+    @Test fun realPipelineSchedulesFourDisjointEqualQualityWindows() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            c.configure(true,AutoMixPerformance.PERFORMANCE); h.a.positionMs=1000; c.tick()
+            repeat(100) { if(h.requests.size<4) Thread.sleep(5) }
+            assertEquals(setOf(Triple("a",28000L,16000L),Triple("a",44000L,16000L),
+                Triple("b",0L,16000L),Triple("b",16000L,16000L)),h.requests.toSet())
+        }
+    }
+    @Test fun unsupportedRoutesSpeedAndShortTracksDoNoAnalysis() {
+        for(h in listOf(Host().apply { allowed=false },Host().apply { normalSpeed=false },Host().apply { duration=10000 })) {
+            AutoMixController(h,AnalysisWorkers()).use { c ->
+                c.configure(true,AutoMixPerformance.BALANCED); repeat(5) { c.tick() }
+                assertTrue(h.requests.isEmpty()); assertEquals(0,h.prepares)
+            }
+        }
+    }
+    @Test fun changedSourceReleasesPreparedDecoderWithoutPromotingIt() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            c.configure(true,AutoMixPerformance.BALANCED); h.a.positionMs=1000
+            repeat(20) { c.tick(); Thread.sleep(2) }; h.a.positionMs=47000
+            repeat(100) { c.tick(); if(h.prepares==0) Thread.sleep(5) }
+            assertEquals(1,h.prepares)
+            h.sourceRevision="changed"; c.tick()
+            assertTrue(h.b.released); assertEquals(0,h.promotions); assertFalse(h.a.released)
+        }
+    }
+    @Test fun failedPromotionPreservesCurrentAudibleDecoder() {
+        val h=Host().apply { failPromotion=true }
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            c.configure(true,AutoMixPerformance.BALANCED); h.a.positionMs=1000
+            repeat(20) { c.tick(); Thread.sleep(2) }; h.a.positionMs=47000
+            repeat(100) { c.tick(); if(h.prepares==0) Thread.sleep(5) }
+            h.a.positionMs=56000; c.tick()
+            assertSame(h.a,h.active); assertFalse(h.a.released); assertTrue(h.a.playing)
+            assertEquals(1.0,h.a.gain,0.0); assertTrue(h.b.released); assertFalse(c.mixing)
+        }
     }
     @Test fun twoDecodersOverlapThenAdvanceExactlyOnceWithoutRestartingIncoming() {
         val h=Host()
@@ -160,6 +208,58 @@ class AutoMixControllerTest {
             h.a.positionMs=57500; c.tick()
             assertEquals(1,h.promotions)
             assertEquals(1f,h.b.rate,0f)
+        }
+    }
+    @Test fun livePerformanceChangeDoesNotCutAnAudibleBlend() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            start(h,c); c.configure(true,AutoMixPerformance.PERFORMANCE)
+            assertTrue(c.mixing); assertFalse(h.a.released)
+            h.advance(1000); c.tick(); assertTrue(h.a.gain>0 && h.b.gain>0)
+        }
+    }
+    @Test fun automaticQueueExpansionDoesNotCutTheAlreadyAudiblePair() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            start(h,c); h.queue="a,b,c,d,e"
+            c.playlistChanged(h.active.trackId); h.advance(1000); c.tick()
+            assertTrue(c.mixing); assertFalse(h.a.released); assertTrue(h.a.gain>0 && h.b.gain>0)
+            c.playlistChanged("removed or skipped song")
+            assertFalse(c.mixing); assertTrue(h.a.released)
+        }
+    }
+    @Test fun changedUserSpeedIsPreservedWhenMixIsCanceled() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            start(h,c); h.b.rate=0.8f; c.tick()
+            assertFalse(c.mixing); assertEquals(0.8f,h.b.rate,0f)
+        }
+    }
+    @Test fun tempoMatchingAdjustsActualIncomingDeckAndReturnsToNormal() {
+        val h=object: AutoMixHost {
+            override val allowed=true
+            val a=Deck("a").apply { positionMs=1000 }
+            val b=Deck("b").apply { playing=false }
+            var active=a
+            override fun snapshot()=MixSnapshot(MixTrack(active.trackId,60000,active.trackId),MixTrack("b",60000,"b"),
+                active.trackId,active.positionMs,active.playing,true)
+            override fun analyze(track:MixTrack,startMs:Long,lengthMs:Long,deadlineNanos:Long)=features(if(track.id=="a")120.0 else 124.0,startMs)
+            override fun currentDeck()=active
+            override fun prepareIncoming(snapshot:MixSnapshot,plan:AutoMixPlan):MixDeck { b.positionMs=plan.incomingCueMs; return b }
+            override fun promote(incoming:MixDeck) { active=b }
+            override fun restoreNormalAudio() { }
+        }
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            c.configure(true,AutoMixPerformance.BALANCED)
+            repeat(20) { c.tick(); Thread.sleep(2) }
+            h.a.positionMs=47000; c.tick(); h.a.positionMs=56000; c.tick()
+            assertEquals(120f/124,h.b.rate,0.001f)
+            repeat(145) {
+                if(h.a.playing) h.a.positionMs+=50
+                if(h.b.playing) h.b.positionMs+=(50*h.b.rate).toLong()
+                c.tick()
+            }
+            assertTrue(h.a.released); assertEquals(1f,h.b.rate,0.001f)
         }
     }
 }

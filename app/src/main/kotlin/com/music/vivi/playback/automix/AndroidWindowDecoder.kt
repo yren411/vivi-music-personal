@@ -4,6 +4,8 @@ import android.media.MediaCodec
 import android.media.MediaDataSource
 import android.media.MediaExtractor
 import android.media.MediaFormat
+import android.media.MediaCodecList
+import android.os.Build
 import android.net.Uri
 import androidx.media3.common.C
 import androidx.media3.datasource.DataSource
@@ -12,10 +14,12 @@ import java.io.IOException
 import java.nio.ByteOrder
 import kotlin.math.*
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 data class AnalysisSource(val uri: Uri, val cacheKey: String, val length: Long,
                           val identity: String, val factory: DataSource.Factory, val fullyCached: Boolean = false)
 
 /** Android's decoder, fed through the SAME permitted cache/CDN path as playback. */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class AndroidWindowDecoder {
     fun analyze(source: AnalysisSource, startMs: Long, requestedLengthMs: Long,
                 deadlineNanos: Long): TrackFeatures {
@@ -45,7 +49,14 @@ class AndroidWindowDecoder {
             if (lengthMs < 4000) throw IOException("Insufficient audio")
             extractor.selectTrack(track)
             extractor.seekTo(startMs * 1000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-            codec = MediaCodec.createDecoderByType(format.getString(MediaFormat.KEY_MIME)!!)
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
+            val software = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
+                !info.isEncoder && info.supportedTypes.any { it.equals(mime, true) } &&
+                    (if (Build.VERSION.SDK_INT >= 29) info.isSoftwareOnly
+                     else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
+            } ?: throw IOException("No software analysis decoder")
+            codec = MediaCodec.createByCodecName(software.name)
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
