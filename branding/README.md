@@ -19,12 +19,28 @@ completion timing and navigation are unchanged.
 
 The shared `Theme.vivimusic.Starting` already covers WelcomeActivity and
 MainActivity. Its icon now uses `tinium_splash_logo.xml`: a transparent 288dp
-canvas with the complete circular PNG centered at 180dp. Android's no-icon-
-background splash has a 192dp safe circle; the artwork has almost 6dp radial
+canvas with the complete circular PNG centered at 144dp. Android's no-icon-
+background splash has a 192dp safe circle; the artwork has about 24dp radial
 clearance. This layout-only adaptation preserves every source pixel/design detail
 without cropping, stretching, tinting or creating a second background. AndroidX
 uses the same drawable on pre-Android-12 devices. Light/dark splash surfaces remain
 white/#121212 respectively; no splash-specific icon background is added.
+
+The previous 180dp splash artwork was mask-safe but filled roughly 94% of the
+safe diameter. The 144dp presentation is 20% smaller, keeping more transparent
+space around the full gradient circle. Adaptive launcher resources already fit
+their safe areas and are unchanged. The main app bar, About, onboarding content
+and other Compose branding also keep their existing sizes. AndroidX 1.2.0 maps
+the shared splash theme's icon to Android 12+'s system splash attribute; both
+startup activities still call `installSplashScreen()` without a new delay.
+
+Samsung One UI controls the launcher-to-app opening animation, including any
+launcher icon zoom. The app controls its splash drawable, not that launcher
+animation. This resource adjustment does not claim to eliminate OEM animation
+effects. Verify cold launches on the Galaxy S25 Ultra from both the home screen
+and app drawer in light/dark mode; also compare a warm launch. Keep the launcher
+icon appearance and in-app logos unchanged. Test the existing WelcomeActivity
+path with the `FORCE_SHOW` command below without clearing user data.
 
 Keep the original transparent assets in the 16dp lyrics/share watermark, compact
 About menu item, player placeholders and share-image branding. The regular,
