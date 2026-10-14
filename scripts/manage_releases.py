@@ -6,7 +6,8 @@ import os
 from pathlib import Path
 import sys
 
-from release_apks import certificate_digest, notes_for, prepare_bundle, validate_bundle
+from release_apks import certificate_digest, prepare_bundle, validate_bundle
+from release_notes import candidate_notes_for, render_notes
 from release_tools import (BUILD_WORKFLOWS, GitHub, Registry, ReleaseError, artifact_name,
                            require, require_manual_workflow, validate_version)
 
@@ -59,7 +60,10 @@ def main():
     if args.command == 'allocate':
         require_manual_workflow(args.repository, BUILD_WORKFLOWS)
         validate_version(args.channel, args.version)
-        notes_for(args.version)  # Missing notes do not consume a version code.
+        # Check safe note inputs before allocating; missing/empty draft notes are allowed.
+        selected_notes = candidate_notes_for(args.version)
+        render_notes(args.version, selected_notes)
+        print(f'Candidate notes: {selected_notes.review_status}; source: {selected_notes.source or "internal-testing placeholder"}')
         record = registry.reserve(args.channel, args.version, args.commit)
         outputs({'code': record['versionCode'], 'tag': record['tag']})
         print(f"Reserved {record['tag']}: versionCode {record['versionCode']}; source {record['commit']}")
@@ -79,7 +83,12 @@ def main():
         if summary:
             with open(summary, 'a', encoding='utf-8') as stream:
                 stream.write(f"## Tinium candidate ready for testing\n\nTag: `{record['tag']}`; versionCode: **{record['versionCode']}**.\n\n")
-                stream.write(f"Publish only after testing. Select build run **{os.environ['GITHUB_RUN_ID']}**, attempt **{os.environ['GITHUB_RUN_ATTEMPT']}** "
+                status = manifest['notes']['reviewStatus']
+                stream.write(f"Notes status: **{status.upper()}**; source: `{manifest['notes']['source'] or 'internal-testing placeholder'}`.\n\n")
+                stream.write(f"Exact notes SHA-256: `{manifest['notes']['sha256']}`.\n\n")
+                if status != 'reviewed':
+                    stream.write("**NOT PUBLISHABLE:** this is an unpublished testing candidate. For public distribution, commit reviewed version-specific notes and build/test a fresh version.\n\n")
+                stream.write(f"Publish only a reviewed candidate after testing. Select build run **{os.environ['GITHUB_RUN_ID']}**, attempt **{os.environ['GITHUB_RUN_ATTEMPT']}** "
                              f"and approval tag **{record['tag']}** in the separate Publish Tested Tinium Release workflow.\n\n")
                 stream.write(f"Permanent certificate SHA-256: `{manifest['certificateSha256']}`.\n")
     elif args.command == 'inspect-build':
@@ -87,10 +96,11 @@ def main():
         outputs({'artifact_id': descriptor['artifactId'], 'source': descriptor['commit']})
     else:
         require_manual_workflow(args.repository, ['.github/workflows/publish_release.yml'])
+        require(os.environ.get('NOTES_REVIEWED') == 'true', 'Confirm that you reviewed the exact candidate release-notes.md before public publication.')
         descriptor = registry.build_artifact(args.run_id, args.attempt)
         record, files, notes = validate_bundle(args.directory, descriptor, registry,
                                              os.environ['ANDROID_KEYSTORE_PATH'], args.repository)
-        released = registry.publish(record, descriptor, files, notes, args.expected_tag, certificate_digest(os.environ['ANDROID_KEYSTORE_PATH']))
+        released = registry.publish(record, descriptor, files, notes, args.expected_tag, certificate_digest(os.environ['ANDROID_KEYSTORE_PATH']), notes_reviewed=True)
         print(f"Published/verified immutable Tinium release: {released['html_url']}")
 
 

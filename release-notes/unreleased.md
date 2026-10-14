@@ -20,9 +20,13 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add project instructions for Codex to prepare accurate release-note drafts
   alongside meaningful changes, using a chosen release version when assigned or
   this unversioned draft otherwise.
-- Document how to review drafts and prepare the required versioned Markdown file
-  before manually building a beta or stable candidate. Signing, coordinated
-  version codes, immutable candidates and manual publishing approval are unchanged.
+- Let unpublished beta and production test builds use the accumulating draft
+  automatically when version-specific notes are missing, or clearly labeled
+  internal-testing notes when no meaningful draft exists.
+- Preserve exact candidate notes, source hashes and review status in immutable
+  artifacts. Block unreviewed drafts/placeholders from public publication, and
+  require reviewed version-specific source notes plus explicit review confirmation.
+  Coordinated version codes, permanent signing and manual publishing remain intact.
 
 ## Checks before assigning a release
 
