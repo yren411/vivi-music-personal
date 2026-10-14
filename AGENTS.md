@@ -33,3 +33,17 @@ Never mark drafts as reviewed or remove placeholder markers in CI to bypass this
 Preserve version allocation, permanent signing, certificate/provenance checks and
 manual publishing. Notes drafting is not permission to dispatch builds, allocate
 versions, change keys/secrets or publish. Do not force version bumps for small tasks.
+
+# Future commit attribution
+
+For owner-authorized new commits in this repository, use the owner's requested
+name `yren411` and exact owner-provided GitHub noreply address
+`285469303+yren411@users.noreply.github.com` (GitHub login/account ID verified).
+Set repository-local `user.name` and `user.email`, then check `git var
+GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` before committing. Avoid
+changing global identity or attributing work to an official bot. Never rewrite
+historical authors or upstream attribution. Local Git configuration is not
+tracked: repeat this check in fresh cloud checkouts. Environment variables,
+host-enforced identity and GitHub-created merge commits can override local Git
+settings; AGENTS.md cannot override the host. Report such limits rather than
+claiming attribution is guaranteed.

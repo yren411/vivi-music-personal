@@ -14,6 +14,9 @@ This is an unversioned draft for review. No release version or tag is assigned.
   is unavailable. Actual album artwork and playback controls remain unchanged.
 - Keep the transparent Tinium mark for compact UI, player placeholders, sharing
   and Android's required monochrome status-bar/themed icons.
+- Reduce only the system startup logo's display size, adding transparent margins
+  around the unchanged gradient artwork. Launcher icons and in-app branding retain
+  their existing appearance; Samsung's launcher animation remains OS-controlled.
 
 ## Release preparation
 

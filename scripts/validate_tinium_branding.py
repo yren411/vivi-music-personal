@@ -86,11 +86,13 @@ wrapper = ET.parse(RES / 'drawable/tinium_splash_logo.xml').getroot()
 canvas, artwork = wrapper.findall('item')
 assert canvas.get(ns+'width') == canvas.get(ns+'height') == '288dp'
 assert canvas.find('shape/solid').get(ns+'color') == '@android:color/transparent'
-assert artwork.get(ns+'width') == artwork.get(ns+'height') == '180dp'
+assert artwork.get(ns+'width') == artwork.get(ns+'height') == '144dp'
 assert artwork.get(ns+'gravity') == 'center' and artwork.get(ns+'drawable') == '@drawable/tinium_logo_background'
 ys, xs = np.nonzero(np.asarray(background_logo.getchannel('A')))
-radius = np.sqrt((xs-539.5)**2+(ys-539.5)**2).max() * 180 / 1080
+artwork_size_dp = float(artwork.get(ns+'width').removesuffix('dp'))
+radius = np.sqrt((xs-539.5)**2+(ys-539.5)**2).max() * artwork_size_dp / 1080
 assert radius < 96, 'Background artwork would be clipped by the splash safe-circle mask'
+assert radius <= 73, 'Splash artwork lost its intended transparent margin'
 component = (ROOT / 'app/src/main/kotlin/com/music/vivi/ui/component/TiniumBrandLogo.kt').read_text()
 assert 'R.drawable.tinium_logo_background' in component and 'ContentScale.Fit' in component and 'colorFilter = null' in component
 for relative in ('MainActivity.kt', 'WelcomeActivity.kt', 'ui/screens/settings/AboutScreen.kt', 'ui/screens/wrapped/pages/WrappedIntro.kt', 'ui/screens/wrapped/pages/ConclusionPage.kt'):
