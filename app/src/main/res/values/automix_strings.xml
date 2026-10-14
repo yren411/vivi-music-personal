@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="automix">AutoMix</string>
+    <string name="automix_description">Automatically analyze songs and create smooth, intelligent transitions.</string>
+    <string name="automix_performance">AutoMix performance</string>
+    <string name="automix_performance_description">Choose how many CPU analysis threads AutoMix can use.</string>
+    <string name="automix_efficient">Efficient — 1 thread</string>
+    <string name="automix_balanced">Balanced — 2 threads</string>
+    <string name="automix_fast">Performance — 4 threads</string>
+    <string name="automix_efficient_description">Uses fewer system resources and may take longer to analyze upcoming songs.</string>
+    <string name="automix_balanced_description">Balances analysis speed with CPU and battery usage.</string>
+    <string name="automix_fast_description">Allows faster analysis using more CPU resources.</string>
+    <string name="automix_crossfade_disabled">Unavailable while AutoMix is enabled. Your Crossfade preferences are preserved.</string>
+    <string name="automix_offload_disabled">Unavailable while AutoMix is enabled. Your audio offload preference is preserved.</string>
+    <string name="automix_normalization_info">AutoMix uses measured transition level balancing. Hardware normalization is temporarily disabled; your preference is preserved.</string>
+    <string name="automix_compatibility">AutoMix uses local software audio. Cast, Listen Together, skip silence, changed playback speed or pitch, and unsuitable sources use normal playback. Analysis may read small audio sections over the network. Inspired by BitChord; DSP vocal and phrase estimates are approximate.</string>
+</resources>
