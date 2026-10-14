@@ -789,6 +789,10 @@ fun PlayerV2(
                             label = "trackScale"
                         )
                         
+                        com.music.vivi.ui.component.AutoMixTimeline(
+                            playerConnection, if(isCasting) null else mediaMetadata?.id, duration, currentPos,
+                            com.music.vivi.constants.SliderStyle.SLIM, scrubbing=sliderPosition != null
+                        ) {
                         Slider(
                             value = currentPos.toFloat(),
                             valueRange = 0f..(if (duration == androidx.media3.common.C.TIME_UNSET) 0f else duration.toFloat()),
@@ -827,6 +831,9 @@ fun PlayerV2(
                             },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        }
+                        com.music.vivi.ui.component.PlayerDiagnostics(playerConnection, color=adaptiveSecondary,
+                            remotePlayback=isCasting)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()

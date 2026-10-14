@@ -232,3 +232,7 @@ universal FOSS debug), including 72 AutoMix/worker cases and 12 output/session
 cases per variant. Universal GMS/FOSS release source compilation passes without
 packaging/signing APKs. Merged manifests retain `com.yren411.tinium`; unchanged
 development/beta/stable/publish workflow syntax and `git diff --check` pass.
+
+Post-PR #12 analysis lifecycle and player diagnostics are documented in
+[AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md](AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md).
+The audio-effect session registry/output lifecycle from this change is preserved.

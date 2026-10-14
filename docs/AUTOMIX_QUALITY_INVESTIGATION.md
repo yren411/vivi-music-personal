@@ -63,3 +63,11 @@ JVM tests can prove ID ownership/event order and synthesized DSP behavior, not
 Poweramp attachment, OEM routing, actual decoder output or perceived musical
 quality. A shared-output mixer could offer a single effect session but requires
 substantial source/decoder/session changes and is outside this focused approach.
+
+## Follow-up after PR #12
+
+The original quality changes did not eliminate end-window choices. The generated
+PCM regression and subsequent corrections are recorded in
+[AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md](AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md).
+The older test fixtures supplied high-confidence features directly; the new
+regression exercises measured PCM through scanning and refinement.

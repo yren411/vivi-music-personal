@@ -35,18 +35,18 @@ class AndroidWindowDecoder {
                     probe.open(DataSpec.Builder().setUri(source.uri).setKey(source.cacheKey + ":automix-range-probe")
                         .setPosition(0).setLength(1).build())
                     val range = probe.responseHeaders.entries.firstOrNull { it.key.equals("Content-Range", true) }?.value?.firstOrNull()
-                    if (range == null || !range.startsWith("bytes 0-")) throw IOException("Source does not establish byte-range support")
+                    if (range == null || !range.startsWith("bytes 0-")) throw AnalysisUnavailable("source-not-range-seekable")
                 } finally { probe.close() }
             }
             extractor.setDataSource(bridge)
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
-            } ?: throw IOException("No analyzable audio track")
+            } ?: throw AnalysisUnavailable("no-audio-track")
             val format = extractor.getTrackFormat(track)
             val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1000 else 0
-            if (durationMs <= 0 || durationMs > 30 * 60_000 || startMs >= durationMs) throw IOException("Unsupported analysis duration")
+            if (durationMs <= 0 || durationMs > 30 * 60_000 || startMs >= durationMs) throw AnalysisUnavailable("unknown-or-unsupported-duration")
             val lengthMs = min(requestedLengthMs, durationMs - startMs).coerceAtMost(32_000)
-            if (lengthMs < 4000) throw IOException("Insufficient audio")
+            if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             extractor.selectTrack(track)
             extractor.seekTo(startMs * 1000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
             val mime = format.getString(MediaFormat.KEY_MIME)!!
@@ -55,7 +55,7 @@ class AndroidWindowDecoder {
                 !info.isEncoder && info.supportedTypes.any { it.equals(mime, true) } &&
                     (if (Build.VERSION.SDK_INT >= 29) info.isSoftwareOnly
                      else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
-            } ?: throw IOException("No software analysis decoder")
+            } ?: throw AnalysisUnavailable("software-decoder-unavailable")
             codec = MediaCodec.createByCodecName(software.name)
             codec.configure(format, null, null, 0)
             codec.start()
@@ -80,7 +80,7 @@ class AndroidWindowDecoder {
                             codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputEnded = true
                         } else {
-                            if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw IOException("Encrypted analysis is unsupported")
+                            if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw AnalysisUnavailable("encrypted-source")
                             codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
                             extractor.advance()
                         }
@@ -92,7 +92,7 @@ class AndroidWindowDecoder {
                     outputRate = actual.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                     channels = actual.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                     encoding = if (actual.containsKey(MediaFormat.KEY_PCM_ENCODING)) actual.getInteger(MediaFormat.KEY_PCM_ENCODING) else C.ENCODING_PCM_16BIT
-                    if (outputRate !in 8000..192000 || channels !in 1..8 || encoding !in listOf(C.ENCODING_PCM_16BIT, C.ENCODING_PCM_FLOAT)) throw IOException("Unsupported decoded PCM")
+                    if (outputRate !in 8000..192000 || channels !in 1..8 || encoding !in listOf(C.ENCODING_PCM_16BIT, C.ENCODING_PCM_FLOAT)) throw AnalysisUnavailable("unsupported-decoded-pcm")
                 } else if (output >= 0) {
                     try {
                         val buffer = codec.getOutputBuffer(output)!!.order(ByteOrder.nativeOrder())
@@ -117,7 +117,7 @@ class AndroidWindowDecoder {
                     } finally { codec.releaseOutputBuffer(output, false) }
                 }
             }
-            if (written < samples.size - targetRate / 2) throw IOException("Truncated audio window")
+            if (written < samples.size - targetRate / 2) throw AnalysisUnavailable("truncated-audio-window")
             return TrackFeaturesAnalyzer().analyze(samples.copyOf(written), targetRate, startMs, durationMs, deadlineNanos, detail)
         } finally {
             runCatching { codec?.stop() }; runCatching { codec?.release() }
@@ -139,7 +139,7 @@ class AndroidWindowDecoder {
             if (source.length > 0 && position >= source.length) return -1
             val blockStart = position / 65536 * 65536
             val block = blocks[blockStart] ?: run {
-                if (fetched >= (if (source.fullyCached) 12 else 3) * 1024 * 1024) throw IOException("Analysis byte budget exhausted")
+                if (fetched >= (if (source.fullyCached) 12 else 3) * 1024 * 1024) throw AnalysisUnavailable("analysis-byte-budget-exhausted")
                 val data = source.factory.createDataSource()
                 try {
                     val length = if (source.length > 0) min(65536L, source.length - blockStart) else 65536L

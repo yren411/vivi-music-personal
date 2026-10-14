@@ -297,6 +297,8 @@ fun AppearanceSettings(
     val (swipeLyrics, onSwipeLyricsChange) = rememberPreference(SwipeLyricsKey, defaultValue = false)
     val (enableLyricsThumbnailPlayPause, onEnableLyricsThumbnailPlayPauseChange) = rememberPreference(EnableLyricsThumbnailPlayPauseKey, defaultValue = false)
 
+    val (showAutoMixTransition, onShowAutoMixTransitionChange) = rememberPreference(com.music.vivi.constants.ShowAutoMixTransitionKey, false)
+    val (statsForNerds, onStatsForNerdsChange) = rememberPreference(com.music.vivi.constants.StatsForNerdsKey, false)
     val (sliderStyle, onSliderStyleChange) = rememberEnumPreference(
         SliderStyleKey,
         defaultValue = SliderStyle.SLIM
@@ -1499,6 +1501,13 @@ fun AppearanceSettings(
                     onClick = { showSliderOptionDialog = true }
                 ),
                 Material3SettingsItem(
+                    icon = painterResource(R.drawable.sliders),
+                    title = { Text(stringResource(R.string.show_automix_transition)) },
+                    description = { Text(stringResource(R.string.show_automix_transition_description)) },
+                    trailingContent = { Switch(checked=showAutoMixTransition, onCheckedChange=onShowAutoMixTransitionChange) },
+                    onClick = { onShowAutoMixTransitionChange(!showAutoMixTransition) }
+                ),
+                Material3SettingsItem(
                     icon = painterResource(R.drawable.swipe),
                     title = { Text(stringResource(R.string.enable_swipe_thumbnail)) },
                     trailingContent = {
@@ -2138,6 +2147,17 @@ fun AppearanceSettings(
                     onClick = { onShowCachedPlaylistChange(!showCachedPlaylist) }
                 )
             )
+        )
+        Spacer(modifier = Modifier.height(27.dp))
+        ExpressiveSettingGroup(
+            title = stringResource(R.string.player_diagnostics_advanced),
+            items = listOf(Material3SettingsItem(
+                icon = painterResource(R.drawable.sliders),
+                title = { Text(stringResource(R.string.stats_for_nerds)) },
+                description = { Text(stringResource(R.string.stats_for_nerds_description)) },
+                trailingContent = { Switch(checked=statsForNerds, onCheckedChange=onStatsForNerdsChange) },
+                onClick = { onStatsForNerdsChange(!statsForNerds) }
+            ))
         )
         Spacer(modifier = Modifier.height(16.dp))
     }

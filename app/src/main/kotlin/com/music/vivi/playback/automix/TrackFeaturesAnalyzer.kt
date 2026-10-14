@@ -74,16 +74,22 @@ class TrackFeaturesAnalyzer {
         if (bestLag > 0) {
             phase = (0 until bestLag).maxBy { p -> (p until attacks.size step bestLag).sumOf { attacks[it] } }
         }
-        val beats = if (bestLag > 0) (phase until attacks.size step bestLag).map { startMs + it * 10L } else emptyList()
+        // Silence before/after the measured material is not missing rhythm. Evaluate the
+        // grid only where signal exists; retain absolute timestamps for the incoming cue.
+        val audibleFloor=max(0.001, (levels.maxOrNull() ?: 0.0)*0.03)
+        val firstAudible=levels.indexOfFirst { it>=audibleFloor }.coerceAtLeast(0)
+        val lastAudible=levels.indexOfLast { it>=audibleFloor }.coerceAtLeast(firstAudible)
+        val beatTicks=if(bestLag>0) (phase until attacks.size step bestLag).filter { it in (firstAudible-5)..(lastAudible+5) } else emptyList()
+        val beats = beatTicks.map { startMs + it * 10L }
         val captured = beats.indices.sumOf { index ->
-            val tick = phase + index * bestLag
+            val tick = beatTicks[index]
             (max(0, tick - 3)..min(attacks.lastIndex, tick + 3)).sumOf { attacks[it] }
         }
         val phaseQuality = if (bestLag > 0 && attacks.sum() > 1e-8)
             ((captured / attacks.sum() - 7.0 / bestLag) / 0.65).coerceIn(0.0, 1.0) else 0.0
         val strongest = attacks.maxOrNull() ?: 0.0
         val beatStrengths = beats.indices.map { index ->
-            val tick = phase + index * bestLag
+            val tick = beatTicks[index]
             (max(0,tick-5)..min(attacks.lastIndex,tick+5)).maxOf { attacks[it] }
         }
         val stability = if (strongest > 0) beatStrengths.count { it >= strongest * 0.12 }.toDouble() / beats.size.coerceAtLeast(1) else 0.0
@@ -92,7 +98,7 @@ class TrackFeaturesAnalyzer {
         // A bar estimate requires REPEATED measured low-frequency accent dominance. Uniform
         // beats never authorize downbeats; no arbitrary index modulo is labelled a phrase.
         val beatAccents = beats.indices.map { index ->
-            val tick = phase + index * bestLag
+            val tick = beatTicks[index]
             (max(0,tick-5)..min(accents.lastIndex,tick+5)).maxOf { accents[it] }
         }
         val groups = (0..3).map { group -> beatAccents.filterIndexed { i,_ -> i%4==group }.average().takeIf { it.isFinite() } ?: 0.0 }
@@ -143,9 +149,12 @@ class TrackFeaturesAnalyzer {
             // Broadband percussion is less voice-like than sustained harmonic mid-band energy.
             val risk = if (total > 1e-6) ((voiceBand / total) * (1 - largest / total) * (1-flatness)).coerceIn(0.0, 1.0) else 0.0
             val first = offset / hop
-            val last = min(levels.lastIndex, first + 50)
+            // A 500ms energy bin excludes the NEXT frame. Including frame 50 sampled
+            // the following kick into a silence bin and invented a cue 500ms early.
+            if(first+49>levels.lastIndex) break
+            val last = first + 49
             val localRms = sqrt((first..last).sumOf { levels[it] * levels[it] } / (last-first+1))
-            energy += EnergyPoint(startMs + offset * 1000L / sampleRate, localRms, risk)
+            energy += EnergyPoint(startMs + offset * 1000L / sampleRate + 250, localRms, risk)
         }
         val length = samples.size * 1000L / sampleRate
         val section = RhythmSection(startMs, startMs+length, bpm, confidence, phaseQuality, stability,

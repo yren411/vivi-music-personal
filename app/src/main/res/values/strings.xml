@@ -460,4 +460,44 @@
     <string name="library_sync_error">Sync failed — tap to retry</string>
     <string name="listening_summary">Listening summary</string>
     <string name="setting_listening_summary_desc">View your daily listening trends and historical playback analytics.</string>
+
+    <!-- Opt-in playback diagnostics. Other locales use these default strings. -->
+    <string name="show_automix_transition">Show AutoMix transition point</string>
+    <string name="show_automix_transition_description">Show where AutoMix plans to begin the next transition on the player slider.</string>
+    <string name="player_diagnostics_advanced">Advanced</string>
+    <string name="stats_for_nerds">Stats for Nerds</string>
+    <string name="stats_for_nerds_description">Show technical audio information and AutoMix diagnostics in the player.</string>
+    <string name="automix_marker_description">AutoMix transition planned at %1$s</string>
+    <string name="audio_info_source">Source · %1$s</string>
+    <string name="audio_info_unknown">Audio format unknown</string>
+    <string name="audio_info_remote">Remote output information unavailable</string>
+    <string name="audio_encoding_unknown">Encoding unknown</string>
+    <string name="audio_info_app_output">App output · %1$s · %2$.1f kHz</string>
+    <string name="automix_status_disabled">Off</string>
+    <string name="automix_status_waiting_next">Waiting for next song</string>
+    <string name="automix_status_waiting_source">Waiting for source</string>
+    <string name="automix_status_analyzing_current">Analyzing current track…</string>
+    <string name="automix_status_analyzing_next">Analyzing next track…</string>
+    <string name="automix_status_refining">Refining candidate…</string>
+    <string name="automix_status_planned">Transition confirmed</string>
+    <string name="automix_status_preparing">Incoming deck preparing</string>
+    <string name="automix_status_ready">Incoming deck ready</string>
+    <string name="automix_status_mixing">Mixing</string>
+    <string name="automix_status_fallback_planned">Fallback planned</string>
+    <string name="automix_status_fallback_playing">Fallback playing</string>
+    <string name="automix_status_recovering">Mix complete · Restoring tempo</string>
+    <string name="automix_status_unavailable">Unavailable · Normal playback</string>
+    <string name="automix_technique_beat">Beat blend</string>
+    <string name="automix_technique_bass">Bass handoff</string>
+    <string name="automix_technique_filter">Gentle filter</string>
+    <string name="automix_technique_energy">Energy fade</string>
+    <string name="automix_technique_fallback">Fallback fade</string>
+    <string name="automix_status_summary">AutoMix · %1$s</string>
+    <string name="automix_plan_summary">AutoMix · %1$s · %2$s · Starts %3$s · Cue %4$s · %5$.1fs overlap</string>
+    <string name="automix_reason_source">Source not resolved</string>
+    <string name="automix_reason_seek">Source does not support range seeking</string>
+    <string name="automix_reason_deadline">Analysis incomplete or timed out</string>
+    <string name="automix_reason_deck">Incoming decoder not ready</string>
+    <string name="automix_reason_missed">Planned start missed</string>
+    <string name="automix_reason_analysis">Unsupported or insufficient analysis</string>
 </resources>

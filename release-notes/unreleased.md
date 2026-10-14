@@ -74,3 +74,16 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Improved Crossfade metadata, seek/error cleanup and promotion recovery while
   preserving its duration/curve. Poweramp Equalizer compatibility and listening
   quality still require device validation; no third-party settings are reset.
+
+## AutoMix analysis and player diagnostics
+
+- Corrected incoming rhythm confidence around leading silence and energy-window
+  timing so supported track pairs can retain measured earlier outro transitions.
+- Gave refinement its own bounded deadline, preserved analysis across future-only
+  queue changes, and identified missed starts, decoder problems and fallback fades.
+- Added optional **Show AutoMix transition point** below Appearance’s player slider
+  style and **Stats for Nerds** in its new Advanced section. Both default off.
+  Stats show verified source/app-output audio details and actual AutoMix stages;
+  the marker represents a confirmed rhythmic plan, never a fallback estimate.
+- Preserved existing Crossfade settings and external audio-effect session ownership.
+  Audible quality and external equalizer behavior still require device testing.

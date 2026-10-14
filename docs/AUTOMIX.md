@@ -191,3 +191,7 @@ External effect handling now follows each real output's Media3 AudioTrack/sessio
 callbacks across both Crossfade and AutoMix. The old global opened flag is gone;
 no concurrent decks are forced to share a session ID. Poweramp/OEM compatibility
 still needs the [documented device test](AUTOMIX_QUALITY_AND_EXTERNAL_EQ.md#galaxy-s25-ultra-verification).
+
+See [pipeline correction and diagnostics](AUTOMIX_PIPELINE_AND_DIAGNOSTICS.md) for
+the post-PR #12 measurement/scheduling fixes, real-PCM regression, Appearance
+marker/Stats settings and device validation.

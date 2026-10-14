@@ -848,3 +848,7 @@ val SuggestionRegionSlugToName =
         "ae" to "United Arab Emirates",
         "il" to "Israel"
     )
+
+// Appearance only; never change analysis concurrency or playback behavior.
+val ShowAutoMixTransitionKey = booleanPreferencesKey("showAutoMixTransitionPoint")
+val StatsForNerdsKey = booleanPreferencesKey("statsForNerds")
