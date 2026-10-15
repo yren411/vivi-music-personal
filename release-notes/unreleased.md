@@ -105,3 +105,12 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Real-device musical quality, storage-provider/gesture behavior and external EQ
   still need verification; generated-PCM and storage-contract tests do not certify
   listening quality. No new dependency, model, signing or release-version change.
+
+## AutoMix analysis foundation
+
+- Separate decoded PCM windows from musical analysis behind a replaceable engine,
+  keeping the existing Kotlin analyzer and playback behavior as the production default.
+- Add explicit source timing/coverage, backend versions and evidence qualifications,
+  plus generated-audio parity and characterization tests for future analyzer work.
+  Existing tempo/confidence, decoding/resampling and gain weaknesses remain unfixed
+  in this preparation phase; no native analyzer, model, setting or UI change is added.
