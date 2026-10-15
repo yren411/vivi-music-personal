@@ -52,7 +52,7 @@ class LegacyKotlinAnalysisEngine(private val analyzer: TrackFeaturesAnalyzer = T
             )
             AnalysisResult.Completed(AnalysisMetadata(backend, window.preprocessingVersion, window.requested,
                 window.sampleInterval, window.coverage, window.coverageStatus, window.identity, detail,
-                window.duration, window.sourceFormats, window.repeatedOutputFrames, window.endOfStreamReached), evidence, features)
+                window.duration, window.sourceFormats, window.repeatedOutputFrames, window.endOfStreamReached, window.preparation, window.decoderDiagnostic), evidence, features)
         } catch (error: Exception) {
             AnalysisResult.Failed(backend, AnalysisFailure(AnalysisFailureStage.ANALYSIS,
                 AutoMixFailure.of(error), if (error is AnalysisUnavailable) error.reason else

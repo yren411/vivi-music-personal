@@ -59,6 +59,8 @@ data class AnalysisMetadata(
     val sourceFormats: List<SourcePcmFormat>,
     val repeatedOutputFrames: Long?,
     val endOfStreamReached: Boolean?,
+    val preparation: PcmPreparationMetadata? = null,
+    val decoderDiagnostic: DecoderDiagnostic? = null,
 )
 
 sealed interface AnalysisResult {
@@ -101,6 +103,10 @@ class WindowAnalysisPipeline<S>(
                         window.preprocessingVersion != preprocessingVersion) {
                         AnalysisResult.Failed(engine.backend, AnalysisFailure(stage,
                             AutoMixFailure.SOURCE_CHANGED, "WINDOW_IDENTITY_MISMATCH"))
+                    } else if (window.preprocessingVersion == PcmPreprocessing.BANDLIMITED &&
+                        window.coverage.status(window.decodeInterval) != CoverageStatus.FULL) {
+                        AnalysisResult.Failed(engine.backend, AnalysisFailure(stage,
+                            AutoMixFailure.INSUFFICIENT_AUDIO_DATA, "PARTIAL_SOURCE_COVERAGE"))
                     } else {
                         stage = AnalysisFailureStage.ANALYSIS
                         val result = engine.analyze(window, detail, control)

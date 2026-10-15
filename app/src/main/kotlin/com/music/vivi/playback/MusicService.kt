@@ -3925,9 +3925,10 @@ class MusicService :
 
     /** AutoMix's decks use the existing Media3 queue/source/equalizer infrastructure. */
     private inner class AutoMixServiceHost : AutoMixHost {
+        private val analysisDecoder = AndroidWindowDecoder() // Immutable LEGACY production selection.
         private val analysisPipeline = com.music.vivi.playback.automix.WindowAnalysisPipeline(
-            AndroidWindowDecoder(), com.music.vivi.playback.automix.LegacyKotlinAnalysisEngine(),
-            com.music.vivi.playback.automix.PcmPreprocessing.LEGACY)
+            analysisDecoder, com.music.vivi.playback.automix.LegacyKotlinAnalysisEngine(),
+            analysisDecoder.preprocessing.version)
         override val analysisProfile get() = analysisPipeline.profile
         override val allowed: Boolean get() = autoMixRequested && playerInitialized.value &&
             castConnectionHandler?.isCasting?.value != true && listenTogetherManager.roomState.value == null &&
@@ -3980,10 +3981,14 @@ class MusicService :
             analyzeWindow(track,startMs,lengthMs,deadlineNanos,AnalysisDetail.SCAN)
         override fun analyze(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long) =
             analyzeWindow(track,startMs,lengthMs,deadlineNanos,AnalysisDetail.DETAIL)
+        override fun analyzeWithDiagnostics(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long,
+            detail: AnalysisDetail, diagnostics: com.music.vivi.playback.automix.DecoderDiagnosticSink) =
+            analyzeWindow(track, startMs, lengthMs, deadlineNanos, detail, diagnostics)
         override fun diagnostic(message: String, verbose: Boolean) {
             if(!verbose || com.music.vivi.BuildConfig.DEBUG) Timber.tag("TiniumAutoMix").i(message)
         }
-        private fun analyzeWindow(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long, detail: AnalysisDetail): TrackFeatures {
+        private fun analyzeWindow(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long, detail: AnalysisDetail,
+            diagnostics: com.music.vivi.playback.automix.DecoderDiagnosticSink = com.music.vivi.playback.automix.DecoderDiagnosticSink.NONE): TrackFeatures {
             checkAnalysisCancellation(deadlineNanos)
             val format = runBlocking(Dispatchers.IO) { database.format(track.id).first() }
             val length = format?.contentLength?.takeIf { it>0 }
@@ -4005,7 +4010,7 @@ class MusicService :
                     com.music.vivi.playback.automix.AnalysisSourceIdentity(track.id, source.identity))
                 return com.music.vivi.playback.automix.LegacyPlanningFeatures.require(
                     analysisPipeline.analyze(source, request, detail,
-                        com.music.vivi.playback.automix.AnalysisControl(deadlineNanos)))
+                        com.music.vivi.playback.automix.AnalysisControl(deadlineNanos, decoderDiagnostics = diagnostics)))
             } catch(error: Exception) {
                 val classified: Exception=when(error) {
                     is com.music.vivi.playback.automix.AnalysisUnavailable, is java.util.concurrent.CancellationException -> error

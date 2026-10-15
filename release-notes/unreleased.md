@@ -114,3 +114,13 @@ This is an unversioned draft for review. No release version or tag is assigned.
   plus generated-audio parity and characterization tests for future analyzer work.
   Existing tempo/confidence, decoding/resampling and gain weaknesses remain unfixed
   in this preparation phase; no native analyzer, model, setting or UI change is added.
+
+## AutoMix PCM preparation foundation
+
+- Add a separately versioned, internally selectable anti-aliased PCM preparation
+  path with explicit source timing, gap and overlap handling; keep the existing
+  preprocessing as the production default pending Android device validation.
+- Include structured decoder coverage, EOS, format, timing and failure details in
+  the existing sanitized AutoMix diagnostic export, without changing its UI.
+- Add generated signal tests and Android decoder test fixtures for future analyzer
+  integration. Musical-analysis algorithms and playback/EQ behavior are unchanged.

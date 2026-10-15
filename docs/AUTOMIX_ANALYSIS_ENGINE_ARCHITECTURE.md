@@ -306,5 +306,18 @@ using this same corpus. Retain one backend in ordinary production, not duplicate
 analysis. A native planning adapter must interpret its own confidence/coverage;
 the legacy bridge intentionally refuses it.
 
-No C++/JNI/model/build integration or Phase2.2 decoder/DSP correction begins in this
-PR. The separate silence-level gain policy remains Phase3 work.
+Phase 2.1 introduced no C++/JNI/model/build integration or decoder/DSP correction.
+Subsequent Phase 2.2 changes are listed below; the silence-level gain policy remains
+Phase 3 work.
+
+## Phase 2.2 extension
+
+[PCM decoding and resampling](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md) adds the
+internally selectable `sinc64-blackman-mono-22050-v2` path, preparation metadata,
+per-job decoder diagnostics, and rejection of incomplete corrected coverage.
+`nearest-time-mono-22050-v1` remains unchanged and is still the production default.
+Corrected windows can have a later actual materialized origin inside their decode
+interval; legacy origin validation is unchanged. AnalysisMetadata and validation
+preserve the preparation and decoder diagnostic sidecars. Schema-2 exports add
+controlled decoder details without changing the existing export interaction.
+No native backend, musical algorithm, planner, gain, or playback/EQ change is made.
