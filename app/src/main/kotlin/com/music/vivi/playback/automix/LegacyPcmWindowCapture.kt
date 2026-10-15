@@ -63,4 +63,3 @@ internal class LegacyPcmWindowCapture(
             request.identity, PcmPreprocessing.LEGACY, repeated)
     }
 }
-

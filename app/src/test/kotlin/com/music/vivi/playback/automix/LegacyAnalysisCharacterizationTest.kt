@@ -110,4 +110,3 @@ class BeatBenchmarkTest {
             BeatBenchmark.evaluate(fixture, perfect.copy(bpm = 240.0)).ambiguity)
     }
 }
-

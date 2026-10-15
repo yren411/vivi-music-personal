@@ -153,4 +153,3 @@ class DecodedWindowTest {
         assertFalse(error.toString().contains("secret"))
     }
 }
-

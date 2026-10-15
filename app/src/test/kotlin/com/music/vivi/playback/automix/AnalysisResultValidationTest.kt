@@ -68,4 +68,3 @@ class AnalysisResultValidationTest {
         assertEquals("RESULT_CONTEXT_MISMATCH", checked.failure.code)
     }
 }
-

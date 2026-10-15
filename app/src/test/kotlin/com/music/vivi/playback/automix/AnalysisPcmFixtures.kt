@@ -147,4 +147,3 @@ internal object FutureAnalysisAccuracyTargets {
         if (metrics.accumulatedDriftMs == null || abs(metrics.accumulatedDriftMs) > 70) add("DRIFT_GT_70MS")
     }
 }
-

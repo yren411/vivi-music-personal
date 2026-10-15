@@ -144,4 +144,3 @@ sealed interface DecodeResult {
 fun interface AnalysisWindowDecoder<S> {
     fun decode(source: S, request: DecodeRequest, control: AnalysisControl): DecodeResult
 }
-

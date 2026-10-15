@@ -47,4 +47,3 @@ object AnalysisResultValidation {
         return if (qualified == e) result else result.copy(evidence = qualified)
     }
 }
-

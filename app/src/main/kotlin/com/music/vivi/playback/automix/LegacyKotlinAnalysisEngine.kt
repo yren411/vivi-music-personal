@@ -66,4 +66,3 @@ class LegacyKotlinAnalysisEngine(private val analyzer: TrackFeaturesAnalyzer = T
         val PRODUCTION_PROFILE = AnalysisProfile(BACKEND, PcmPreprocessing.LEGACY)
     }
 }
-

@@ -117,4 +117,3 @@ class AnalysisEngineTest {
         assertEquals(EvidenceNature.INVALID, invalid.nature)
     }
 }
-
