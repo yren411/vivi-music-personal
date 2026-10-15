@@ -13,8 +13,10 @@ internal object DecoderPcmBuffers {
         if (corrected && (offset < 0 || size < 0 || offset > data.capacity() - size))
             throw PcmPreparationException(DecoderFailureSubtype.MALFORMED_PCM_BUFFER)
         data.order(ByteOrder.nativeOrder())
-        data.position(offset)
+        // A recycled buffer can retain a shorter limit. Set the valid region's limit
+        // first; ByteBuffer automatically clamps an old position if necessary.
         data.limit(offset + size)
+        data.position(offset)
         return data
     }
 }

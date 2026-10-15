@@ -21,6 +21,12 @@ class DecoderDiagnosticsContractTest {
         val actual=DecoderPcmBuffers.readable(buffer,2,3,true)
         assertEquals(3,actual.remaining());assertEquals(3,actual.get().toInt());assertEquals(5,actual.limit())
     }
+    @Test fun validReusedCodecBufferDoesNotDependOnPreviousLimitOrPosition() {
+        val buffer=ByteBuffer.wrap(byteArrayOf(1,2,3,4,5,6,7,8))
+        buffer.limit(2);buffer.position(1)
+        val actual=DecoderPcmBuffers.readable(buffer,4,4,true)
+        assertEquals(4,actual.remaining());assertEquals(5,actual.get().toInt());assertEquals(8,actual.limit())
+    }
     @Test fun shortRequestAndTruncatedOutputAreNotTheSameDiagnosticCause() {
         assertEquals(DecoderFailureSubtype.REQUEST_TOO_SHORT,DecoderFailureClassification.subtype(AnalysisUnavailable("insufficient-audio")))
         assertEquals(DecoderFailureSubtype.TRUNCATED_WINDOW,DecoderFailureClassification.subtype(AnalysisUnavailable("truncated-audio-window")))

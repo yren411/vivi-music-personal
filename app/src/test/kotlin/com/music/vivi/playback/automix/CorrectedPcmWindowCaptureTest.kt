@@ -37,6 +37,35 @@ class CorrectedPcmWindowCaptureTest {
         assertEquals(CoverageStatus.FULL,w.coverageStatus);assertEquals(22050,w.frameCount)
         assertTrue(w.preparation!!.jitterAdjustedBuffers>0);assertTrue(w.preparation.maximumJitterUs<=1)
     }
+    @Test fun frameClockTrimsAcrossSourceRatesNonzeroOriginsAndNegativePrimingPts() {
+        for(rate in listOf(8000,11025,16000,22050,32000,44100,48000,96000)) {
+            for(start in listOf(0L,12345000L)) {
+                val c=capture(start,start+1000000)
+                val sourceOrigin=start-50000
+                var offset=0
+                val sourceFrames=(rate*1.1).toInt()+512
+                while(offset<sourceFrames) {
+                    val frames=minOf(257,sourceFrames-offset)
+                    c.add(frames,sourceOrigin+offset*1000000L/rate,rate)
+                    offset+=frames
+                }
+                val w=c.finish(true,AnalysisControl())
+                assertNull(w.invalidReason());assertEquals(CoverageStatus.FULL,w.coverageStatus)
+                assertEquals(start,w.sampleTimelineStartUs);assertEquals(start,w.actualStartUs)
+                assertEquals(start+1000000,w.actualEndUs);assertEquals(22050,w.frameCount)
+                assertEquals(0L,w.preparation!!.synthesizedTimelineFrames)
+            }
+        }
+    }
+    @Test fun integerMicrosecondJitterDoesNotHideAMissingSourceFrame() {
+        val contiguous=capture();contiguous.add(22050,0,44100);contiguous.add(22050,500001,44100)
+        val full=contiguous.finish(false,AnalysisControl())
+        assertEquals(CoverageStatus.FULL,full.coverageStatus)
+        assertEquals(1L,full.preparation!!.maximumJitterUs)
+        val gap=capture();gap.add(22050,0,44100)
+        failed(DecoderFailureSubtype.SOURCE_GAP){gap.add(22050,500023,44100)}
+        assertEquals(listOf(AudioIntervalUs(0,500000)),gap.coverage.intervals)
+    }
     @Test fun duplicateAndOverlappingBuffersDoNotCreateCoverageOrRepeatedOutput() {
         val c=capture(end=2_000_000);c.add(8000,0);c.add(8000,0);c.add(8000,500000);c.add(4000,1500000)
         val w=c.finish(true,AnalysisControl())

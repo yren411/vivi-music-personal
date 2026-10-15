@@ -126,6 +126,11 @@ android {
             buildConfigField("String", "ARCHITECTURE", "\"release\"")
         }
         debug {
+            // Device decoder checks must not replace a user's release-signed Tinium/data.
+            // Opt-in only; normal debug and every release retain com.yren411.tinium.
+            if (providers.gradleProperty("automixDecoderTests").orNull == "true") {
+                applicationIdSuffix = ".decodercheck"
+            }
             isDebuggable = true
             signingConfig = signingConfigs.getByName("debug")
             buildConfigField("String", "ARCHITECTURE", "\"debug\"")

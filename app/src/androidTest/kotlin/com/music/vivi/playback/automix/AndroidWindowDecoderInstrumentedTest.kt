@@ -44,7 +44,7 @@ class AndroidWindowDecoderInstrumentedTest {
             }
         }
     }
-    @Test fun seekAndNaturalEosKeepPartialCoverageHonest() {
+    @Test fun seekAndEndpointClampKeepPartialCoverageHonest() {
         withSource("tone-48000-stereo.m4a"){source ->
             val w=decode(source,AnalysisPreprocessing.BANDLIMITED,3_000_000,9_000_000)
             assertEquals(AudioIntervalUs(3_000_000,9_000_000),w.requested)
@@ -52,21 +52,25 @@ class AndroidWindowDecoderInstrumentedTest {
             assertEquals(CoverageStatus.PARTIAL,w.coverageStatus)
             assertTrue(w.actualStartUs!!>=3_000_000);assertTrue(w.actualEndUs!!<=w.decodeInterval.endUs)
             assertTrue(w.sampleInterval!!.endUs<=w.actualEndUs!!)
-            assertTrue(w.decoderDiagnostic!!.inputEnd!=DecoderInputEnd.UNKNOWN)
+            // Filling the interval may finish before input EOF or codec EOS. Do not require
+            // an event the decoder need not observe, or mistake boundary EOS for natural EOF.
+            if (w.endOfStreamReached == true) assertNotEquals(DecoderInputEnd.UNKNOWN,w.decoderDiagnostic!!.inputEnd)
+            else assertEquals(CoverageStatus.FULL,w.coverage.status(w.decodeInterval))
         }
     }
     @Test fun cancellationDuringActiveDecodeReleasesResourcesBeforeNextRequest() {
         withSource("tone-44100-mono.flac"){source ->
-            var checkpoints=0
+            val token=AnalysisCancellationToken()
             val events=mutableListOf<DecoderDiagnostic>()
             val control=AnalysisControl(System.nanoTime()+25_000_000_000,
-                cancellation=AnalysisCancellation{if(++checkpoints>=120)throw CancellationException()},
+                cancellation=token,
                 decoderDiagnostics=DecoderDiagnosticSink{events+=it})
-            val result=AndroidWindowDecoder(AnalysisPreprocessing.BANDLIMITED).decode(source,
+            val result=AndroidWindowDecoder(AnalysisPreprocessing.BANDLIMITED,onDecodedOutput={token.cancel()}).decode(source,
                 DecodeRequest(AudioIntervalUs(0,4_000_000),AnalysisSourceIdentity(source.cacheKey,source.identity)),control)
             assertTrue(result is DecodeResult.Failed)
             assertEquals(DecoderFailureSubtype.CANCELED,events.single().subtype)
-            assertTrue(events.single().stage in listOf(DecoderStage.CODEC_OUTPUT,DecoderStage.PCM_CONVERSION,DecoderStage.RESAMPLING))
+            assertEquals(DecoderStage.PCM_CONVERSION,events.single().stage)
+            assertTrue(events.single().coverage!!.acceptedDecodedFrames!!>0)
             assertNotNull(decode(source,AnalysisPreprocessing.BANDLIMITED))
         }
     }

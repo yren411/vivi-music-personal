@@ -372,3 +372,14 @@ call. This remains a separate device/source validation concern.
   issue. A combined command initially placed `--tests` after a compile task; that
   command failed configuration before compilation and was corrected to the
   task-scoped command above. The final combined command exited successfully.
+
+## Pre-merge validation follow-up
+
+The [final validation review](AUTOMIX_PHASE22_FINAL_VALIDATION.md) records the
+follow-up buffer/EOS fixes, deterministic active-decode cancellation test,
+maximum-rate four-worker JVM stress check, cache review, and exact S25 Ultra test
+commands. Use `-PautomixDecoderTests=true` for connected device tests to install an
+isolated **debug target** (`com.yren411.tinium.decodercheck`) alongside your beta.
+This test-only packaging option changes neither normal app IDs/signing nor the
+legacy production preprocessing default. Four instrumentation methods still
+require Android execution; compilation is not a runtime pass.

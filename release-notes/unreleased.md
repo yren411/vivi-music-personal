@@ -124,3 +124,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
   the existing sanitized AutoMix diagnostic export, without changing its UI.
 - Add generated signal tests and Android decoder test fixtures for future analyzer
   integration. Musical-analysis algorithms and playback/EQ behavior are unchanged.
+- Harden decoder output-buffer region handling and EOS diagnostics, and add an
+  isolated device-test target plus stronger timing and four-worker regression
+  checks. Legacy preprocessing remains the production default.

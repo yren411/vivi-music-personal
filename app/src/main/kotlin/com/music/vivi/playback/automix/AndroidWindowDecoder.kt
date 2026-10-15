@@ -19,7 +19,12 @@ data class AnalysisSource(val uri: Uri, val cacheKey: String, val length: Long,
 
 /** Android's decoder, fed through the SAME permitted cache/CDN path as playback. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-class AndroidWindowDecoder(val preprocessing: AnalysisPreprocessing = AnalysisPreprocessing.PRODUCTION) : AnalysisWindowDecoder<AnalysisSource> {
+class AndroidWindowDecoder(
+    val preprocessing: AnalysisPreprocessing = AnalysisPreprocessing.PRODUCTION,
+    /** Synchronous validation observer after actual PCM acceptance; no PCM/source data escapes.
+     * Production leaves this null. It lets instrumentation cancel during active decode reliably. */
+    private val onDecodedOutput: (() -> Unit)? = null,
+) : AnalysisWindowDecoder<AnalysisSource> {
     override fun decode(source: AnalysisSource, request: DecodeRequest, control: AnalysisControl): DecodeResult {
         val observation = Observation(request, preprocessing, source.fullyCached)
         return try {
@@ -169,6 +174,8 @@ class AndroidWindowDecoder(val preprocessing: AnalysisPreprocessing = AnalysisPr
                     encoding = if (actual.containsKey(MediaFormat.KEY_PCM_ENCODING)) actual.getInteger(MediaFormat.KEY_PCM_ENCODING) else C.ENCODING_PCM_16BIT
                     if (outputRate !in 8000..192000 || channels !in 1..8 || encoding !in listOf(C.ENCODING_PCM_16BIT, C.ENCODING_PCM_FLOAT)) throw AnalysisUnavailable("unsupported-decoded-pcm")
                 } else if (output >= 0) {
+                    // This flag is already observed even if conversion/cancellation then fails.
+                    observation.codecEos = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
                     try {
                         val buffer = DecoderPcmBuffers.readable(if (info.size == 0) null else codec.getOutputBuffer(output),
                             info.offset, info.size, corrected != null)
@@ -182,6 +189,8 @@ class AndroidWindowDecoder(val preprocessing: AnalysisPreprocessing = AnalysisPr
                         val observedFormat = SourcePcmFormat(PcmFormat(outputRate, channels,
                             if (encoding == C.ENCODING_PCM_FLOAT) PcmEncoding.FLOAT32 else PcmEncoding.PCM16), formatBasis)
                         observation.stage = DecoderStage.PCM_CONVERSION
+                        val retainedBefore = if (onDecodedOutput != null)
+                            corrected?.acceptedFrames ?: capture!!.written.toLong() else 0L
                         if (corrected != null) corrected.accept(buffer, info.presentationTimeUs, observedFormat, control)
                         else {
                             for (frame in 0 until frames) {
@@ -193,9 +202,14 @@ class AndroidWindowDecoder(val preprocessing: AnalysisPreprocessing = AnalysisPr
                                 capture!!.accept(mono, timeUs, observedFormat)
                             }
                         }
+                        // Pre-sync/priming-only buffers must not trigger an accepted-output hook.
+                        if (onDecodedOutput != null &&
+                            (corrected?.acceptedFrames ?: capture!!.written.toLong()) > retainedBefore) {
+                            onDecodedOutput.invoke()
+                            control.checkpoint()
+                        }
                         observation.stage = DecoderStage.CODEC_OUTPUT
                         outputEnded = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
-                        observation.codecEos = outputEnded
                     } finally { codec.releaseOutputBuffer(output, false) }
                 }
             }
