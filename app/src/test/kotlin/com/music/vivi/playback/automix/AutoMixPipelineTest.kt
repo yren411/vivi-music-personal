@@ -61,7 +61,15 @@ class AutoMixPipelineTest {
         }
         private fun features(track: MixTrack,start: Long,length: Long,detail: AnalysisDetail): TrackFeatures {
             if(unavailable) throw AnalysisUnavailable("source-not-range-seekable")
-            return TrackFeaturesAnalyzer().analyze(pcm(track.id,start,length),22050,start,216000,detail=detail)
+            val samples = pcm(track.id,start,length)
+            val fixture = AnalysisPcmFixtures.Fixture("controller-" + track.id, samples, 22050,
+                emptyList(), length * 1000, null)
+            val window = AnalysisPcmFixtures.window(fixture, start * 1000, 216000000)
+            val pipeline = WindowAnalysisPipeline(AnalysisWindowDecoder<MixTrack> { _, _, _ ->
+                DecodeResult.Decoded(window)
+            }, LegacyKotlinAnalysisEngine(), PcmPreprocessing.IDENTITY)
+            return LegacyPlanningFeatures.require(pipeline.analyze(track,
+                DecodeRequest(window.requested, window.identity), detail, AnalysisControl()))
         }
         override fun scan(track: MixTrack,startMs: Long,lengthMs: Long,deadlineNanos: Long): TrackFeatures {
             Thread.sleep(15) // queued work is asynchronous, not immediately completed mocks
