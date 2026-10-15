@@ -5,7 +5,8 @@ import kotlin.math.*
 /** Fixed-quality PCM DSP for all worker modes. No catalog BPM or UI-thread computation. */
 class TrackFeaturesAnalyzer {
     fun analyze(samples: FloatArray, sampleRate: Int, startMs: Long, durationMs: Long,
-                deadlineNanos: Long = Long.MAX_VALUE, detail: AnalysisDetail = AnalysisDetail.DETAIL): TrackFeatures {
+                deadlineNanos: Long = Long.MAX_VALUE, detail: AnalysisDetail = AnalysisDetail.DETAIL,
+                cancellation: AnalysisCancellation = AnalysisCancellation.NONE): TrackFeatures {
         require(sampleRate in 8_000..192_000 && samples.size >= sampleRate * 4)
         require(samples.all { it.isFinite() })
         val hop = sampleRate / 100 // 10ms attack envelope; independent of analysis-worker count.
@@ -13,7 +14,7 @@ class TrackFeaturesAnalyzer {
         var peak = 0.0
         var sum = 0.0
         for (frame in levels.indices) {
-            checkAnalysisCancellation(deadlineNanos)
+            checkAnalysisCancellation(deadlineNanos, cancellation)
             var power = 0.0
             for (i in frame * hop until (frame + 1) * hop) {
                 val v = samples[i].toDouble()
@@ -32,7 +33,7 @@ class TrackFeaturesAnalyzer {
         val previousSpectrum = DoubleArray(512)
         val onsetHop = sampleRate / 50 // 20ms, identical for every performance mode and scan/detail.
         for (offset in 0..samples.size - 1024 step onsetHop) {
-            checkAnalysisCancellation(deadlineNanos)
+            checkAnalysisCancellation(deadlineNanos, cancellation)
             for (i in onsetReal.indices) {
                 onsetReal[i] = samples[offset + i] * (0.5 - 0.5 * cos(2 * PI * i / 1023))
                 onsetImaginary[i] = 0.0
@@ -54,7 +55,7 @@ class TrackFeaturesAnalyzer {
         var bestLag = 0
         var bestCorrelation = 0.0
         for (lag in 33..100) { // 60..182 BPM. Octave ambiguity remains confidence-gated.
-            checkAnalysisCancellation(deadlineNanos)
+            checkAnalysisCancellation(deadlineNanos, cancellation)
             var cross = 0.0
             var a = 0.0
             var b = 0.0
@@ -117,7 +118,7 @@ class TrackFeaturesAnalyzer {
         val real = DoubleArray(fftSize)
         val imaginary = DoubleArray(fftSize)
         for (offset in 0..samples.size - fftSize step stride) {
-            checkAnalysisCancellation(deadlineNanos)
+            checkAnalysisCancellation(deadlineNanos, cancellation)
             var power = 0.0
             for (i in real.indices) {
                 val v = samples[offset + i].toDouble()

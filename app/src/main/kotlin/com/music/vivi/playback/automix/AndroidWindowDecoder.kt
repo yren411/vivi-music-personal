@@ -20,14 +20,25 @@ data class AnalysisSource(val uri: Uri, val cacheKey: String, val length: Long,
 
 /** Android's decoder, fed through the SAME permitted cache/CDN path as playback. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-class AndroidWindowDecoder {
-    fun analyze(source: AnalysisSource, startMs: Long, requestedLengthMs: Long,
-                deadlineNanos: Long, detail: AnalysisDetail = AnalysisDetail.DETAIL): TrackFeatures {
+class AndroidWindowDecoder : AnalysisWindowDecoder<AnalysisSource> {
+    override fun decode(source: AnalysisSource, request: DecodeRequest, control: AnalysisControl): DecodeResult = try {
+        control.checkpoint()
+        require(request.interval.valid && request.interval.startUs % 1000 == 0L && request.interval.endUs % 1000 == 0L)
+        require(request.identity == AnalysisSourceIdentity(source.cacheKey, source.identity))
+        DecodeResult.Decoded(decodeWindow(source, request, control))
+    } catch (error: Exception) {
+        DecodeResult.Failed(AnalysisFailure(AnalysisFailureStage.DECODING, AutoMixFailure.of(error),
+            if (error is AnalysisUnavailable) error.reason else AutoMixFailure.of(error).name, error))
+    }
+
+    private fun decodeWindow(source: AnalysisSource, request: DecodeRequest, control: AnalysisControl): DecodedWindow {
+        val startMs = request.interval.startUs / 1000
+        val requestedLengthMs = (request.interval.endUs - request.interval.startUs) / 1000
         val extractor = MediaExtractor()
-        val bridge = RangeSource(source, deadlineNanos)
+        val bridge = RangeSource(source, control)
         var codec: MediaCodec? = null
         try {
-            checkAnalysisCancellation(deadlineNanos)
+            control.checkpoint()
             if (!source.fullyCached && source.uri.scheme in listOf("http", "https")) {
                 val probe = source.factory.createDataSource()
                 try {
@@ -43,7 +54,8 @@ class AndroidWindowDecoder {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
             } ?: throw AnalysisUnavailable("no-audio-track")
             val format = extractor.getTrackFormat(track)
-            val durationMs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) / 1000 else 0
+            val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0
+            val durationMs = durationUs / 1000
             if (durationMs <= 0 || durationMs > 30 * 60_000 || startMs >= durationMs) throw AnalysisUnavailable("unknown-or-unsupported-duration")
             val lengthMs = min(requestedLengthMs, durationMs - startMs).coerceAtMost(32_000)
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
@@ -60,17 +72,19 @@ class AndroidWindowDecoder {
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
-            val samples = FloatArray((lengthMs * targetRate / 1000).toInt())
-            var written = 0
+            val capture = LegacyPcmWindowCapture(request,
+                AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000),
+                AudioDuration(durationUs, DurationBasis.EXTRACTOR), targetRate)
             var inputEnded = false
             var outputEnded = false
             var outputRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE)
             var channels = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
             var encoding = C.ENCODING_PCM_16BIT
+            var formatBasis = SourceFormatBasis.CONTAINER_WITH_ASSUMED_PCM16
             val info = MediaCodec.BufferInfo()
             val endUs = (startMs + lengthMs) * 1000
-            while (!outputEnded && written < samples.size) {
-                checkAnalysisCancellation(deadlineNanos)
+            while (!outputEnded && capture.written < capture.capacity) {
+                control.checkpoint()
                 if (!inputEnded) {
                     val index = codec.dequeueInputBuffer(5000)
                     if (index >= 0) {
@@ -89,6 +103,7 @@ class AndroidWindowDecoder {
                 val output = codec.dequeueOutputBuffer(info, 5000)
                 if (output == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     val actual = codec.outputFormat
+                    formatBasis = SourceFormatBasis.DECODER_OUTPUT
                     outputRate = actual.getInteger(MediaFormat.KEY_SAMPLE_RATE)
                     channels = actual.getInteger(MediaFormat.KEY_CHANNEL_COUNT)
                     encoding = if (actual.containsKey(MediaFormat.KEY_PCM_ENCODING)) actual.getInteger(MediaFormat.KEY_PCM_ENCODING) else C.ENCODING_PCM_16BIT
@@ -99,26 +114,22 @@ class AndroidWindowDecoder {
                         buffer.position(info.offset); buffer.limit(info.offset + info.size)
                         val bytes = if (encoding == C.ENCODING_PCM_FLOAT) 4 else 2
                         val frames = buffer.remaining() / (bytes * channels)
+                        val observedFormat = SourcePcmFormat(PcmFormat(outputRate, channels,
+                            if (encoding == C.ENCODING_PCM_FLOAT) PcmEncoding.FLOAT32 else PcmEncoding.PCM16), formatBasis)
                         for (frame in 0 until frames) {
-                            if (frame % 512 == 0) checkAnalysisCancellation(deadlineNanos)
+                            if (frame % 512 == 0) control.checkpoint()
                             var mono = 0f
                             repeat(channels) { mono += if (bytes == 4) buffer.float else buffer.short / 32768f }
                             mono /= channels
                             val timeUs = info.presentationTimeUs + frame * 1_000_000L / outputRate
-                            if (timeUs >= startMs * 1000 && timeUs < endUs) {
-                                val index = ((timeUs - startMs * 1000) * targetRate / 1_000_000).toInt()
-                                if (index in written until samples.size) {
-                                    // Fixed nearest-time analysis conversion, not a playback-rate adjustment.
-                                    while (written <= index) samples[written++] = mono
-                                }
-                            }
+                            capture.accept(mono, timeUs, observedFormat)
                         }
                         outputEnded = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
                     } finally { codec.releaseOutputBuffer(output, false) }
                 }
             }
-            if (written < samples.size - targetRate / 2) throw AnalysisUnavailable("truncated-audio-window")
-            return TrackFeaturesAnalyzer().analyze(samples.copyOf(written), targetRate, startMs, durationMs, deadlineNanos, detail)
+            if (capture.written < capture.capacity - targetRate / 2) throw AnalysisUnavailable("truncated-audio-window")
+            return capture.finish(outputEnded)
         } finally {
             runCatching { codec?.stop() }; runCatching { codec?.release() }
             runCatching { extractor.release() }; runCatching { bridge.close() }
@@ -126,7 +137,7 @@ class AndroidWindowDecoder {
     }
 
     /** Bounded random access. Range failures are errors, never whole-song download workarounds. */
-    private class RangeSource(private val source: AnalysisSource, private val deadline: Long) : MediaDataSource() {
+    private class RangeSource(private val source: AnalysisSource, private val control: AnalysisControl) : MediaDataSource() {
         private var fetched = 0L
         private var closed = false
         private val blocks = object : LinkedHashMap<Long, ByteArray>(4, 0.75f, true) {
@@ -134,7 +145,7 @@ class AndroidWindowDecoder {
         }
         override fun getSize() = source.length.takeIf { it > 0 } ?: -1L
         @Synchronized override fun readAt(position: Long, buffer: ByteArray, offset: Int, size: Int): Int {
-            checkAnalysisCancellation(deadline)
+            control.checkpoint()
             if (closed || position < 0) throw IOException("Analysis source closed")
             if (source.length > 0 && position >= source.length) return -1
             val blockStart = position / 65536 * 65536
@@ -147,7 +158,7 @@ class AndroidWindowDecoder {
                     val bytes = ByteArray(length.toInt())
                     var count = 0
                     while (count < bytes.size) {
-                        checkAnalysisCancellation(deadline)
+                        control.checkpoint()
                         val read = data.read(bytes, count, bytes.size - count)
                         if (read < 0) break
                         count += read; fetched += read

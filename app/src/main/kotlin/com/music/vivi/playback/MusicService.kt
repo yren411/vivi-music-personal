@@ -3925,6 +3925,10 @@ class MusicService :
 
     /** AutoMix's decks use the existing Media3 queue/source/equalizer infrastructure. */
     private inner class AutoMixServiceHost : AutoMixHost {
+        private val analysisPipeline = com.music.vivi.playback.automix.WindowAnalysisPipeline(
+            AndroidWindowDecoder(), com.music.vivi.playback.automix.LegacyKotlinAnalysisEngine(),
+            com.music.vivi.playback.automix.PcmPreprocessing.LEGACY)
+        override val analysisProfile get() = analysisPipeline.profile
         override val allowed: Boolean get() = autoMixRequested && playerInitialized.value &&
             castConnectionHandler?.isCasting?.value != true && listenTogetherManager.roomState.value == null &&
             !player.skipSilenceEnabled && !sleepTimer.pauseWhenSongEnd && !player.isCurrentMediaItemLive &&
@@ -3996,7 +4000,12 @@ class MusicService :
             if(track.cacheable && (rendition==null || !track.sourceIdentity.contains("|$rendition")))
                 throw com.music.vivi.playback.automix.AnalysisUnavailable("source-rendition-changed")
             try {
-                return AndroidWindowDecoder().analyze(source, startMs, lengthMs, deadlineNanos, detail)
+                val request = com.music.vivi.playback.automix.DecodeRequest(
+                    com.music.vivi.playback.automix.AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000),
+                    com.music.vivi.playback.automix.AnalysisSourceIdentity(track.id, source.identity))
+                return com.music.vivi.playback.automix.LegacyPlanningFeatures.require(
+                    analysisPipeline.analyze(source, request, detail,
+                        com.music.vivi.playback.automix.AnalysisControl(deadlineNanos)))
             } catch(error: Exception) {
                 val classified: Exception=when(error) {
                     is com.music.vivi.playback.automix.AnalysisUnavailable, is java.util.concurrent.CancellationException -> error

@@ -63,7 +63,8 @@ data class MixingPolicy(val autoMix: Boolean, val crossfade: Boolean, val offloa
 fun mixingPolicy(autoMix: Boolean, crossfade: Boolean, offload: Boolean, inSharedRoom: Boolean = false) =
     MixingPolicy(autoMix && !inSharedRoom, crossfade && !autoMix && !inSharedRoom, offload && !autoMix && !crossfade)
 
-internal fun checkAnalysisCancellation(deadlineNanos: Long) {
+internal fun checkAnalysisCancellation(deadlineNanos: Long, cancellation: AnalysisCancellation = AnalysisCancellation.NONE) {
     if(Thread.currentThread().isInterrupted) throw java.util.concurrent.CancellationException("AutoMix analysis canceled")
     if(System.nanoTime()>=deadlineNanos) throw AnalysisUnavailable("ANALYSIS_TIMEOUT")
+    cancellation.throwIfCancelled()
 }

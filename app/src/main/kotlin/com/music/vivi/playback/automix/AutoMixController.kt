@@ -26,6 +26,7 @@ interface MixDeck {
 }
 
 interface AutoMixHost {
+    val analysisProfile: AnalysisProfile get() = LegacyKotlinAnalysisEngine.PRODUCTION_PROFILE
     val allowed: Boolean
     fun snapshot(): MixSnapshot?
     fun sourcesReady(snapshot: MixSnapshot): Boolean = true
@@ -458,7 +459,8 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         val role=if(tail) MixRole.OUTGOING else MixRole.INCOMING
         val attempt=attemptId
         val stage=if(detail)MixStage.REFINEMENT else MixStage.SCAN
-        val key="v5-${if(detail) "detail" else "scan"}:${track.sourceIdentity}|$start:$length"
+        val key = host.analysisProfile.cacheKey(AnalysisSourceIdentity(track.id, track.sourceIdentity),
+            start, length, if (detail) AnalysisDetail.DETAIL else AnalysisDetail.SCAN)
         if(workers.hasCached(key)) recorder?.record(attempt,MixEvent.CACHE_HIT,role=role,stage=stage)
         val job=workers.submit(key,track.cacheable) {
             val began=nanoTime()
