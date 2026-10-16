@@ -13,8 +13,10 @@ constructing the native engine does not load its library. There is no public
 switch, automatic native job or production comparison pass.
 
 GMS/FOSS JVM tests, real **host JVM JNI execution**, Android app/test APK builds,
-four packaged native ABIs and ELF/APK alignment checks passed. **Android runtime
-acceptance is pending physical-device execution.** No emulator/system image,
+four packaged native ABIs and ELF/APK alignment checks passed. The owner's first
+SM-S938U / Android 17 native test run finished 14 tests with one failure, in
+`correctedAacAndFlacDecodeThroughNativePipeline`. **Full Android runtime
+acceptance remains pending resolution and a passing device rerun.** No emulator/system image,
 KVM or USB device is provisioned here; adb also failed to initialize its default
 read-only user directory. No connected-test task or zero-test invocation is
 reported as a pass. The owner's four earlier Phase 2.2 phone passes are historical,
@@ -359,6 +361,37 @@ test method. Open the HTML report path printed by Gradle under
 `NATIVE_JNI_METRIC`, `NATIVE_JNI_CANCEL`, `NATIVE_JNI_NEGATIVE`,
 `NATIVE_ANDROID_CODEC` output if a test fails. No unrestricted logcat export is
 needed. Report the failing method, controlled status, ABI and timings.
+
+For the currently failing codec integration case alone (one test, both assets):
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest#correctedAacAndFlacDecodeThroughNativePipeline" --no-configuration-cache --no-daemon --stacktrace
+```
+
+The test now attaches `NATIVE_ANDROID_CODEC` details to its assertion: generated
+asset name, actual sample interval/origin, requested/effective/accepted regions,
+codec PTS/frame counts, EOS versus request-boundary termination, and preprocessing.
+JUnit's `ErrorCollector` attempts both AAC and FLAC even if one fails, then fails
+the test for every failed assertion. No partial-coverage acceptance, timestamp
+substitution, smaller request or decoder policy change is made.
+
+The initial report establishes `INPUT_VALIDATION/INSUFFICIENT_AUDIO_DATA/
+PARTIAL_SOURCE_COVERAGE` before JNI, not a DSP failure. The old loop attempted
+AAC first and aborted before FLAC. Both committed generated assets are 30 seconds
+according to host FFprobe; the requested interval is 0..24 seconds. That rules out
+the request deliberately extending beyond the fixture's container duration, but
+does not establish the actual Android decoded head/tail. The supplied failure
+contains no source coverage/PTS fields, so the missing interval and its cause
+remain unknown. Codec priming, output timestamps and request-boundary EOS handling
+are investigation candidates, not confirmed fixes. Preserve the expanded failure
+message (or the two per-asset lines in the test report's standard output) from the
+targeted rerun. Production decoding and the strict coverage gate are unchanged.
+
+Cloud validation of this diagnostic-only update: Android instrumentation Kotlin
+compiles for Arm64 GMS and Universal FOSS (the native class still has 14 tests).
+Both full JVM suites executed with the host JNI library: 286 tests per variant,
+zero failures/errors/skips, including ten real-JNI tests per variant. This does
+not resolve or reproduce the phone's codec coverage failure in an Android runtime.
 
 `automixDecoderTests=true` uses the existing isolated
 `com.yren411.tinium.decodercheck` test application ID. Normal Tinium's ID is

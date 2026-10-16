@@ -160,3 +160,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
   when their completion callbacks are delayed, avoiding unnecessary decoding.
   Keep canceled/failed work out of the cache and prevent late callbacks from
   repopulating it after shutdown. Playback and backend defaults are unchanged.
+- Include controlled decoder coverage and timestamp details in native Android
+  codec-test failures, and attempt both generated AAC and FLAC fixtures without
+  weakening their assertions. The first phone run exposed a partial-coverage
+  rejection before JNI; its precise decoder cause still needs device diagnostics.

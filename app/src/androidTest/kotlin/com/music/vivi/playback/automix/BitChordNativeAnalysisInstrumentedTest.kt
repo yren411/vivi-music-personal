@@ -6,7 +6,9 @@ import androidx.media3.datasource.DefaultDataSource
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.ErrorCollector
 import java.io.File
 
 /** Fourteen real Android tests. No mocks replace JNI or the DSP in NativeJniChecks. */
@@ -14,6 +16,7 @@ import java.io.File
 class BitChordNativeAnalysisInstrumentedTest {
     private val loader: () -> Unit = BitChordNativeBindings::loadPackagedLibrary
     private val bridge=JniBitChordBridge(loader)
+    @get:Rule val codecResults = ErrorCollector()
     @Before fun requireActualLibrary()=NativeJniChecks.loading(bridge)
     @Test fun libraryLoadsOnDeviceAbi()=NativeJniChecks.loading(bridge)
     @Test fun sevenKnownTemposAndOneToOneBeatAccuracy()=NativeJniChecks.tempos(bridge)
@@ -35,20 +38,45 @@ class BitChordNativeAnalysisInstrumentedTest {
         } finally {assertTrue(file.delete())}
     }
     @Test fun correctedAacAndFlacDecodeThroughNativePipeline() {
-        for(asset in listOf("rhythm-128-48000.m4a","rhythm-128-44100.flac"))withSource(asset){ source->
-            val request=DecodeRequest(AudioIntervalUs(0,24_000_000),AnalysisSourceIdentity(source.cacheKey,source.identity))
-            val pipeline=WindowAnalysisPipeline(AndroidWindowDecoder(AnalysisPreprocessing.BANDLIMITED),
-                BitChordNativeAnalysisEngine(bridge),PcmPreprocessing.BANDLIMITED)
-            val result=NativeJniChecks.completed(pipeline.analyze(source,request,AnalysisDetail.DETAIL,
-                AnalysisControl(System.nanoTime()+30_000_000_000)))
-            assertEquals(BitChordNativeAnalysisEngine.BACKEND,result.backend)
-            assertEquals(PcmPreprocessing.BANDLIMITED,result.metadata.preprocessingVersion)
-            assertEquals(CoverageStatus.FULL,result.metadata.coverage.status(result.metadata.sampleInterval!!))
-            assertEquals(0L,result.metadata.preparation!!.synthesizedTimelineFrames)
-            assertNotNull(result.metadata.decoderDiagnostic)
-            assertEquals(128.0,result.evidence.tempoBpm.value!!,1.0)
-            assertTrue(result.evidence.beatsUs.value!!.isNotEmpty())
-            println("NATIVE_ANDROID_CODEC backend=${result.backend.id} preprocessing=${result.metadata.preprocessingVersion} native=${result.metadata.nativeDiagnostic}")
+        // Collect both formats' real failures instead of aborting at AAC and leaving FLAC
+        // untested. The collector still fails this test if ANY original assertion fails.
+        for(asset in listOf("rhythm-128-48000.m4a","rhythm-128-44100.flac"))codecResults.checkSucceeds {
+            withSource(asset){ source->
+                val request=DecodeRequest(AudioIntervalUs(0,24_000_000),AnalysisSourceIdentity(source.cacheKey,source.identity))
+                val events=mutableListOf<DecoderDiagnostic>()
+                var decodedWindow:DecodedWindow?=null
+                val decoder=AndroidWindowDecoder(AnalysisPreprocessing.BANDLIMITED)
+                val observedDecoder=AnalysisWindowDecoder<AnalysisSource>{ input,wanted,control->
+                    decoder.decode(input,wanted,control).also { decoded->
+                        if(decoded is DecodeResult.Decoded) decodedWindow=decoded.window
+                    }
+                }
+                val pipeline=WindowAnalysisPipeline(observedDecoder,
+                    BitChordNativeAnalysisEngine(bridge),PcmPreprocessing.BANDLIMITED)
+                val actual=pipeline.analyze(source,request,AnalysisDetail.DETAIL,
+                    AnalysisControl(System.nanoTime()+30_000_000_000,
+                        decoderDiagnostics=DecoderDiagnosticSink{events+=it}))
+                // Generated asset names and controlled PCM fields only: no cache-file URI,
+                // arbitrary exception text, raw PCM, song metadata or source credentials.
+                val context="NATIVE_ANDROID_CODEC asset=$asset sampleInterval=${decodedWindow?.sampleInterval}"+
+                    " sampleOriginUs=${decodedWindow?.sampleTimelineStartUs}"+
+                    " outcome="+(if(actual is AnalysisResult.Failed) "${actual.failure.stage}/${actual.failure.category}/${actual.failure.code}" else "COMPLETED")+
+                    " diagnostics="+events.joinToString("; "){it.reportFields()}
+                println(context)
+                assertEquals(context,1,events.size)
+                assertTrue(context,actual is AnalysisResult.Completed)
+                val result=NativeJniChecks.completed(actual)
+                val window=requireNotNull(decodedWindow){context}
+                assertEquals(context,BitChordNativeAnalysisEngine.BACKEND,result.backend)
+                assertEquals(context,PcmPreprocessing.BANDLIMITED,result.metadata.preprocessingVersion)
+                assertEquals(context,CoverageStatus.FULL,window.coverage.status(window.decodeInterval))
+                assertEquals(context,CoverageStatus.FULL,result.metadata.coverage.status(result.metadata.sampleInterval!!))
+                assertEquals(context,0L,result.metadata.preparation!!.synthesizedTimelineFrames)
+                assertNotNull(context,result.metadata.decoderDiagnostic)
+                assertEquals(context,128.0,result.evidence.tempoBpm.value!!,1.0)
+                assertTrue(context,result.evidence.beatsUs.value!!.isNotEmpty())
+                println("NATIVE_ANDROID_CODEC backend=${result.backend.id} preprocessing=${result.metadata.preprocessingVersion} native=${result.metadata.nativeDiagnostic}")
+            }
         }
     }
     @Test fun partialAndUnknownSourceCoverageAreRejected() {
