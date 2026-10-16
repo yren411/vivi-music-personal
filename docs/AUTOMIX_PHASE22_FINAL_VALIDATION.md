@@ -101,11 +101,24 @@ Codex session cannot access the USB phone automatically.
    debugging authorization. Run `adb devices` from the SDK platform-tools folder;
    the phone must show `device`, rather than `unauthorized` or `offline`.
 3. Keep only the intended test phone connected. In the project's Android Studio
-   Terminal, run the following. In Windows PowerShell, replace `bash gradlew` with `.\gradlew.bat`:
+   Terminal, use the exact command for your shell. Quote each **whole** `-P`
+   argument, especially the dotted instrumentation property; quoting only its
+   value is insufficient in Windows PowerShell.
+
+Windows PowerShell:
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Bash:
 
 ```sh
-bash gradlew :app:connectedArm64GmsDebugAndroidTest -PautomixDecoderTests=true -Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest --no-daemon
+bash gradlew :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
+
+The first retry disables configuration-cache reuse for a fresh configuration.
+It does not delete caches or change repository settings.
 
 The isolated target is `com.yren411.tinium.decodercheck`; the test package is
 `com.yren411.tinium.decodercheck.test`. Your installed `com.yren411.tinium` beta,
@@ -188,3 +201,61 @@ Gradle reused unchanged resources/Java and some aggregate Sources tasks; the fin
 focused JVM test tasks executed rather than returning up-to-date/cache outcomes.
 The isolated instrumentor manifests and Kotlin sources were separately compiled;
 none of these commands invoke connected tests or APK signing/packaging.
+
+## Windows PowerShell / protobuf 0.9.6 configuration failure
+
+The reported exception was `MissingPropertyException: No such property:
+sourceSets for class: java.lang.String` at `ProtobufPlugin.groovy:135`, before
+compilation. This is an **Android project-property collision**, not evidence of a
+Java version mismatch or a missing Android sourceSets API.
+
+The [actual protobuf 0.9.6 source](https://github.com/google/protobuf-gradle-plugin/blob/v0.9.6/src/main/groovy/com/google/protobuf/gradle/ProtobufPlugin.groovy#L135)
+calls `project.android.sourceSets.configureEach`. A bare `-Pandroid` creates a
+String project property named `android` that shadows the real Android extension
+for this Groovy lookup. The registered extension still exists, but the plugin
+receives the String instead. The earlier Windows command left the dotted
+`-Pandroid.testInstrumentationRunnerArguments.class=...` token unquoted; PowerShell
+argument parsing can turn such a token into the bare property plus a remaining
+fragment. The corrected commands above quote the entire property argument.
+
+### Investigation and compatibility evidence
+
+The cloud JVM is **21.0.12.1**, matching the reported Windows launcher version;
+the daemon criteria require Java 21. No JDK change is needed for this exception.
+The repository uses AGP **9.1.1**, wrapper **9.3.1**, project Kotlin **2.3.10**,
+Gradle-embedded Kotlin **2.2.21** / Groovy **4.0.29**, protobuf plugin **0.9.6** and
+protoc/runtime **4.33.5**. `android.newDsl=false` retains the legacy Android DSL
+used by this plugin; leave it intact. The application plugin precedes protobuf
+in `app/build.gradle.kts`, and protobuf waits for Android via `withPlugin` callbacks
+before `doApply`. Reordering plugins or changing Kotlin DSL is unnecessary.
+
+Two fresh Linux configurations, with configuration-cache reuse disabled, isolate
+the failure independently of Windows and Java:
+
+| Input | Groovy project.android | Registered Android extension | Result |
+|---|---|---|---|
+| Bare `-Pandroid` | `java.lang.String` | `BaseAppModuleExtension_Decorated` | Same exception at protobuf line 135 |
+| Intact dotted `-Pandroid.testInstrumentationRunnerArguments.class=...` | `BaseAppModuleExtension_Decorated` | Same Android extension | Configuration succeeds; dotted property present, bare property absent |
+
+Four GMS/FOSS debug/release protobuf generation tasks were then **forced to run**;
+all **144 generated Java/Kotlin source hashes remained identical**. All 20 normal
+ABI × GMS/FOSS × debug/release protobuf-generation tasks remain registered. The
+GMS/FOSS isolated Android-test compilation checks with intact arguments succeed;
+unchanged compilation outputs may be reused. No dependency, plugin version/order,
+Gradle setting, proto schema, generated source, flavor, signing or AutoMix code is
+changed by this command-documentation correction.
+
+The Windows shell itself and Android instrumentation were not executed in cloud.
+The supplied Windows command and the exact reproduced failure establish the
+property-collision mechanism; the corrected PowerShell invocation is the local
+retry. This is not a claim about every AGP 9/new-DSL configuration or future plugin
+compatibility.
+
+If the same error persists with the fully quoted command, check for an accidental
+**bare** `android=` entry in project/user `gradle.properties`, an
+`ORG_GRADLE_PROJECT_android` environment variable, or another explicit `-Pandroid` /
+`-Dorg.gradle.project.android` input. Remove only that accidental bare property;
+do not remove legitimate dotted properties such as `android.newDsl=false`.
+There is no reason to delete signing files, regenerate keys or clear all Gradle
+caches to resolve this collision. Do not dump environment/property files containing
+credentials when collecting diagnostics.

@@ -127,3 +127,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Harden decoder output-buffer region handling and EOS diagnostics, and add an
   isolated device-test target plus stronger timing and four-worker regression
   checks. Legacy preprocessing remains the production default.
+- Correct the Windows PowerShell instrumentation-test command to quote complete
+  dotted Gradle properties, avoiding an Android-extension/protobuf configuration
+  collision without changing toolchain or plugin versions.
