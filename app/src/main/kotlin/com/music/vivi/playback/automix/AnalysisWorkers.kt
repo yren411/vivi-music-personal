@@ -14,13 +14,29 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
                 priority = Thread.NORM_PRIORITY - 1
             }
         }, ThreadPoolExecutor.AbortPolicy()).apply { allowCoreThreadTimeOut(true) }
-    private val running = mutableMapOf<String, FutureTask<T>>()
+    private val running = mutableMapOf<String, AnalysisTask>()
     private val transient = mutableSetOf<FutureTask<*>>()
     private val cache = object : LinkedHashMap<String, T>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, T>) = size > 64
     }
     var mode = mode
         private set
+
+    private inner class AnalysisTask(val key: String, val cacheable: Boolean, work: () -> T) :
+        FutureTask<T>(Callable { work() }) {
+        // Called only under lock, after completion (or an unsuccessful cancellation).
+        fun cacheCompletedResult() {
+            if (cacheable && isDone && !isCancelled) try { cache[key] = get() }
+            catch (_: Exception) { /* failed analyses are not cached */ }
+        }
+
+        override fun done() = synchronized(lock) {
+            if (running[key] === this) {
+                cacheCompletedResult()
+                running.remove(key)
+            }
+        }
+    }
 
     fun hasCached(key: String): Boolean = synchronized(lock) { cache.containsKey(key) }
 
@@ -34,13 +50,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
                 return@synchronized existing
             running.remove(key)
         }
-        lateinit var task: FutureTask<T>
-        task = object : FutureTask<T>(Callable { work() }) {
-            override fun done() = synchronized(lock) {
-                if (running[key] === this) running.remove(key)
-                if (cacheable && !isCancelled) try { cache[key] = get() } catch (_: Exception) { /* failed analyses are not cached */ }
-            }
-        }
+        val task = AnalysisTask(key, cacheable, work)
         running[key] = task
         try { executor.execute(task) } catch (_: RejectedExecutionException) {
             running.remove(key)
@@ -81,7 +91,14 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
         // an obsolete queued planner begin between those operations.
         executor.queue.toTypedArray().forEach { (it as? Future<*>)?.cancel(false) }
         executor.purge()
-        running.values.toList().forEach { it.cancel(true) }
+        running.values.toList().forEach {
+            it.cancel(true)
+            // FutureTask publishes its result and wakes get() before invoking done().
+            // If completion won cancellation, preserve that success before clearing the
+            // map; its callback may still be waiting for this lock. Canceled/failed and
+            // non-cacheable tasks never publish. A delayed done() cannot publish again.
+            it.cacheCompletedResult()
+        }
         running.clear()
         transient.toList().forEach { it.cancel(true) }
         transient.clear()

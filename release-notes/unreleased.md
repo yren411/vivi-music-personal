@@ -156,3 +156,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
   Normal AutoMix still uses the existing Kotlin analyzer and legacy preprocessing;
   no setting, playback transition, lyrics or EQ behavior changes. Android runtime
   validation and musical-confidence calibration remain required before activation.
+- Preserve completed analysis cache entries across cancellation/invalidation even
+  when their completion callbacks are delayed, avoiding unnecessary decoding.
+  Keep canceled/failed work out of the cache and prevent late callbacks from
+  repopulating it after shutdown. Playback and backend defaults are unchanged.

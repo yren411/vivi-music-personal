@@ -388,3 +388,51 @@ overlap, deadline, gain and audio-output testing. Preserve existing Media3 decks
 Poweramp sessions, normal Crossfade, settings, timeline marker and Stats/export.
 Until those gates are met, no native/corrected production activation or improved
 audible AutoMix behavior is claimed.
+
+## PR #20 CI follow-up: completed-result invalidation race
+
+At head `ff0346c3`, [Build PR run 38944756233](https://github.com/yren411/vivi-music-personal/actions/runs/38944756233)
+reported 283 FOSS tests, one failure and ten skipped optional host-JNI tests.
+`AnalysisPipelineContractsTest.completedResultsAreReusedAfterInvalidationWithoutRepeatingDecode`
+failed its object-identity assertion after `cancelAll()`. No test-report artifact
+was uploaded by that failed run; its build/lint step was skipped. The separate
+GMS debug-build check passed.
+
+This is a pre-existing worker race, not a native confidence or cache-profile
+collision. `FutureTask` makes a result available to `get()` before `done()`
+publishes it under the worker lock. Invalidation can acquire that lock first,
+fail to cancel the already completed future, and clear its tracking entry before
+the cache is populated. An immediate resubmission then repeats decoding and
+returns a different object. Direct repetition of the original test failed
+**35/1,000** times before the fix and **0/1,000** afterwards. A full pre-fix FOSS
+run also passed (273 passed, ten skipped), demonstrating why one green run is
+insufficient to disprove this race.
+
+`AnalysisWorkers` now retains each task's cacheability and harvests completed
+successes while invalidating under that same lock. Failed, canceled and mutable
+work remains excluded. A delayed callback only publishes if it still owns its
+tracking entry, preventing late publication after invalidation/shutdown. Worker
+counts, queue/LRU bounds, profiles, scheduling and backend defaults are unchanged.
+The original assertion remains unchanged. Three added tests force delayed
+callbacks using the private monitor (test-only reflection, no sleeps or
+production hooks): retained successes in all modes, exclusion of mutable/failed
+work, and no cache repopulation after close. The first fails against old workers.
+Existing canceled-old-generation and actual worker-limit tests remain intact.
+
+Post-fix local validation executed both **full** app unit-test suites with the
+real host JNI library: **286 tests per variant, 572 total, zero failures/errors/
+skips**. This includes all ten real-JNI tests per variant and production-isolation,
+controller, decoder, cache/cancellation and effect-session tests. Native Release
+CTest also reran: **10/10 passed**. These are JVM/Linux native executions, not
+new Android device tests. The 14-test and four-test phone commands above remain
+unchanged.
+
+```bash
+bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest \
+  "-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so" \
+  --no-configuration-cache --no-daemon --max-workers=4 --console=plain
+```
+
+The host library must first be built with the existing CMake instructions above.
+Without that opt-in library, CI explicitly skips the ten host-JNI tests; it does
+not represent those skips as native runtime coverage.

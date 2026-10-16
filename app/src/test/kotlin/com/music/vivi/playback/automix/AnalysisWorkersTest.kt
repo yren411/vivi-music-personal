@@ -6,6 +6,61 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AnalysisWorkersTest {
+    /** Force Future.get() to return while done() is waiting for the worker lock.
+     * Reflection is confined to this scheduling test: no production callback or sleep is needed.
+     */
+    private fun withCompletionCallbackBlocked(pool: AnalysisWorkers<*>, test: () -> Unit) {
+        val field = AnalysisWorkers::class.java.getDeclaredField("lock").apply { isAccessible = true }
+        synchronized(field.get(pool)) { test() }
+    }
+
+    @Test fun invalidationRetainsCompletedSuccessBeforeItsCompletionCallbackCanRun() {
+        for (mode in AutoMixPerformance.entries) AnalysisWorkers<Any>(mode).use { pool ->
+            withCompletionCallbackBlocked(pool) {
+                val result = Any()
+                val calls = AtomicInteger()
+                val first = pool.submit("immutable") { calls.incrementAndGet(); result }
+                assertSame(result, first.get(2, TimeUnit.SECONDS))
+                pool.cancelAll()
+                assertTrue(pool.hasCached("immutable"))
+                assertSame(result, pool.submit("immutable") { calls.incrementAndGet(); Any() }
+                    .get(2, TimeUnit.SECONDS))
+                assertEquals(1, calls.get())
+            }
+        }
+    }
+
+    @Test fun invalidationNeverCachesMutableOrFailedWorkEvenBeforeCompletionCallback() {
+        AnalysisWorkers<Any>(AutoMixPerformance.PERFORMANCE).use { pool ->
+            withCompletionCallbackBlocked(pool) {
+                val mutable = pool.submit("mutable", false) { Any() }.get(2, TimeUnit.SECONDS)
+                val failed = pool.submit("failed") { throw AnalysisUnavailable("DECODER_FAILED") }
+                try { failed.get(2, TimeUnit.SECONDS); fail("Expected analysis failure") }
+                catch (expected: ExecutionException) { assertTrue(expected.cause is AnalysisUnavailable) }
+                pool.cancelAll()
+                assertFalse(pool.hasCached("mutable"))
+                assertFalse(pool.hasCached("failed"))
+                assertNotSame(mutable, pool.submit("mutable", false) { Any() }.get(2, TimeUnit.SECONDS))
+                val recovered = Any()
+                assertSame(recovered, pool.submit("failed") { recovered }.get(2, TimeUnit.SECONDS))
+            }
+        }
+    }
+
+    @Test fun delayedCompletionCallbackCannotRepopulateCacheAfterClose() {
+        AnalysisWorkers<Thread>().use { pool ->
+            lateinit var worker: Thread
+            withCompletionCallbackBlocked(pool) {
+                worker = pool.submit("completed") { Thread.currentThread() }.get(2, TimeUnit.SECONDS)
+                pool.close()
+                assertFalse(pool.hasCached("completed"))
+            }
+            worker.join(TimeUnit.SECONDS.toMillis(5))
+            assertFalse("Worker must finish its callback and exit", worker.isAlive)
+            assertFalse(pool.hasCached("completed"))
+        }
+    }
+
     @Test fun uncertainOrMutableSourcesAreDeduplicatedButNeverReusedFromCache() {
         AnalysisWorkers<Int>().use { pool ->
             assertEquals(1, pool.submit("mutable source", false) { 1 }.get(2, TimeUnit.SECONDS))
