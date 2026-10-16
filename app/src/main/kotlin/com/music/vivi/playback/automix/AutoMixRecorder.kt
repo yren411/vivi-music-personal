@@ -5,7 +5,7 @@ import java.time.Instant
 import java.util.UUID
 
 /** Typed fields prevent accidentally recording an arbitrary log string, URL or exception message. */
-enum class MixEvent { PAIR, SOURCE_READY, WINDOW_START, WINDOW_DONE, CACHE_HIT, FAILURE, RETRY,
+enum class MixEvent { DECODER, PAIR, SOURCE_READY, WINDOW_START, WINDOW_DONE, CACHE_HIT, FAILURE, RETRY,
     RECOVERED, COARSE_READY, CANDIDATE, REJECTION, PLAN, PREPARING, READY, START, AUTOMATION, COMPLETE, SKIPPED, CANCELED }
 enum class MixMetric { POSITION_MS, OUT_DURATION_MS, IN_DURATION_MS, REGION_START_MS, REGION_LENGTH_MS,
     BPM, GRID_CONFIDENCE, PHASE_CONFIDENCE, RMS, PEAK, KEY_TONIC, KEY_MINOR, KEY_CONFIDENCE,
@@ -31,7 +31,7 @@ enum class MixRole { OUTGOING, INCOMING }
 data class MixRecord(val elapsedMs: Long, val event: MixEvent, val metrics: Map<MixMetric,Double>,
                      val role: MixRole?=null, val failure: AutoMixFailure?=null,
                      val tier: AutoMixTier?=null, val technique: MixTechnique?=null,
-                     val cueReason: CueReason?=null,val stage: MixStage?=null,val errorType: MixErrorType?=null)
+                     val cueReason: CueReason?=null,val stage: MixStage?=null,val errorType: MixErrorType?=null, val decoder: DecoderDiagnostic?=null)
 data class MixAttempt(val number: Long,val outgoingHash: String,val incomingHash: String,val records: List<MixRecord>)
 data class MixHistory(val session: String,val startedAt: String,val attempts: List<MixAttempt>)
 data class MixReportHeader(val versionName: String,val versionCode: Long,val androidVersion: String,
@@ -58,10 +58,10 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
     }
     @Synchronized fun record(attempt: Long,event: MixEvent,metrics: Map<MixMetric,Double> = emptyMap(),
                              role: MixRole?=null,failure: AutoMixFailure?=null,tier: AutoMixTier?=null,
-                             technique: MixTechnique?=null,cueReason: CueReason?=null,stage: MixStage?=null,errorType: MixErrorType?=null) {
+                             technique: MixTechnique?=null,cueReason: CueReason?=null,stage: MixStage?=null,errorType: MixErrorType?=null, decoder: DecoderDiagnostic?=null) {
         val target=attempts.firstOrNull { it.number==attempt } ?: return // late obsolete decoder result
         val values=metrics.filterValues { it.isFinite() }.toMap()
-        target.records.addLast(MixRecord((nanoTime()-started)/1_000_000,event,values,role,failure,tier,technique,cueReason,stage,errorType))
+        target.records.addLast(MixRecord((nanoTime()-started)/1_000_000,event,values,role,failure,tier,technique,cueReason,stage,errorType,decoder))
         while(target.records.size>maxEvents) target.records.removeFirst()
     }
     @Synchronized fun snapshot()=MixHistory(session,startedAt,attempts.map { MixAttempt(it.number,it.outgoing,it.incoming,it.records.toList()) })
@@ -69,7 +69,7 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
     companion object {
         fun render(history: MixHistory,header: MixReportHeader): String = buildString {
             fun safe(s: String)=s.take(100).replace(Regex("[^A-Za-z0-9 ._:+-]"),"_")
-            appendLine("Tinium AutoMix diagnostic report — schema 1")
+            appendLine("Tinium AutoMix diagnostic report — schema 2")
             appendLine("Generated: ${safe(header.generatedAt)}")
             appendLine("Tinium ${safe(header.versionName)} / versionCode ${header.versionCode}")
             appendLine("Android ${safe(header.androidVersion)} / model ${safe(header.model)}")
@@ -94,6 +94,7 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
                     r.role?.let { append(" role=$it") };r.failure?.let { append(" failure=$it") }
                     r.tier?.let { append(" tier=$it") };r.technique?.let { append(" technique=$it") }
                     r.cueReason?.let { append(" cueReason=$it") }
+                    r.decoder?.let { append(it.reportFields()) }
                     r.metrics.forEach { (key,value) -> append(" $key=$value") }
                     appendLine()
                 }

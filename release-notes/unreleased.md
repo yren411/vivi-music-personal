@@ -114,3 +114,24 @@ This is an unversioned draft for review. No release version or tag is assigned.
   plus generated-audio parity and characterization tests for future analyzer work.
   Existing tempo/confidence, decoding/resampling and gain weaknesses remain unfixed
   in this preparation phase; no native analyzer, model, setting or UI change is added.
+
+## AutoMix PCM preparation foundation
+
+- Add a separately versioned, internally selectable anti-aliased PCM preparation
+  path with explicit source timing, gap and overlap handling; keep the existing
+  preprocessing as the production default pending Android device validation.
+- Include structured decoder coverage, EOS, format, timing and failure details in
+  the existing sanitized AutoMix diagnostic export, without changing its UI.
+- Add generated signal tests and Android decoder test fixtures for future analyzer
+  integration. Musical-analysis algorithms and playback/EQ behavior are unchanged.
+- Harden decoder output-buffer region handling and EOS diagnostics, and add an
+  isolated device-test target plus stronger timing and four-worker regression
+  checks. Legacy preprocessing remains the production default.
+- Correct the Windows PowerShell instrumentation-test command to quote complete
+  dotted Gradle properties, avoiding an Android-extension/protobuf configuration
+  collision without changing toolchain or plugin versions.
+- Document restoring the existing local debug keystore before Android decoder
+  tests, without replacing permanent keys or changing signing configuration.
+- Add sanitized decoder-test diagnostics and correct a seek-test assumption
+  exposed by Samsung's reported 8 ms missing head. Test honest partial coverage
+  and rejection before musical analysis; the updated device rerun remains pending.

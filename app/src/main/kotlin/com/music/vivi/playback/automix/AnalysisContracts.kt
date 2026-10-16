@@ -43,6 +43,7 @@ data class AudioCoverage(
 
 object PcmPreprocessing {
     const val LEGACY = "nearest-time-mono-22050-v1"
+    const val BANDLIMITED = "sinc64-blackman-mono-22050-v2"
     const val IDENTITY = "identity-float-v1"
 }
 
@@ -65,6 +66,8 @@ data class DecodedWindow(
     val identity: AnalysisSourceIdentity,
     val preprocessingVersion: String,
     val repeatedOutputFrames: Long?,
+    val preparation: PcmPreparationMetadata? = null,
+    val decoderDiagnostic: DecoderDiagnostic? = null,
 ) {
     val frameCount: Int? get() = format.channels?.takeIf { it > 0 }?.let { samples.size / it }
     val actualStartUs: Long? get() = coverage.intervals?.minOfOrNull { it.startUs }
@@ -81,7 +84,8 @@ data class DecodedWindow(
     /** Structural validation only; no new beat/coverage/loudness acceptance thresholds. */
     fun invalidReason(): String? = when {
         !requested.valid || !decodeInterval.valid || !requested.contains(decodeInterval) -> "INVALID_INTERVAL"
-        sampleTimelineStartUs < 0 || sampleTimelineStartUs != decodeInterval.startUs -> "INVALID_SAMPLE_ORIGIN"
+        sampleTimelineStartUs < 0 || (sampleTimelineStartUs != decodeInterval.startUs &&
+            (preprocessingVersion != PcmPreprocessing.BANDLIMITED || sampleTimelineStartUs !in decodeInterval.startUs until decodeInterval.endUs)) -> "INVALID_SAMPLE_ORIGIN"
         format.sampleRateHz == null || format.channels == null -> "MISSING_PCM_FORMAT"
         format.sampleRateHz !in 8_000..192_000 || format.channels !in 1..8 -> "UNSUPPORTED_PCM_FORMAT"
         format.encoding != PcmEncoding.FLOAT32 -> "UNSUPPORTED_PCM_ENCODING"
@@ -89,6 +93,7 @@ data class DecodedWindow(
         samples.size % format.channels != 0 -> "INCOMPLETE_PCM_FRAME"
         sampleInterval == null || sampleInterval?.endUs?.let { it > decodeInterval.endUs || it <= sampleTimelineStartUs } == true -> "INVALID_PCM_DURATION"
         preprocessingVersion.isBlank() -> "MISSING_PREPROCESSING_VERSION"
+        decoderDiagnostic != null && decoderDiagnostic.preprocessing.version != preprocessingVersion -> "INCONSISTENT_DECODER_PREPROCESSING"
         duration.durationUs != null && duration.durationUs <= 0 -> "INVALID_DURATION"
         coverage.acceptedDecodedFrames != null && coverage.acceptedDecodedFrames < 0 -> "INVALID_FRAME_COUNT"
         repeatedOutputFrames != null && repeatedOutputFrames !in 0..frameCount!!.toLong() -> "INVALID_REPETITION_COUNT"
@@ -117,6 +122,7 @@ class AnalysisCancellationToken : AnalysisCancellation {
 data class AnalysisControl(
     val deadlineNanos: Long = Long.MAX_VALUE,
     val cancellation: AnalysisCancellation = AnalysisCancellation.NONE,
+    val decoderDiagnostics: DecoderDiagnosticSink = DecoderDiagnosticSink.NONE,
 ) {
     fun checkpoint() = checkAnalysisCancellation(deadlineNanos, cancellation)
 }
@@ -137,7 +143,7 @@ data class AnalysisFailure(
 
 sealed interface DecodeResult {
     data class Decoded(val window: DecodedWindow) : DecodeResult
-    data class Failed(val failure: AnalysisFailure) : DecodeResult
+    data class Failed(val failure: AnalysisFailure, val diagnostic: DecoderDiagnostic? = null) : DecodeResult
 }
 
 /** Generic source handle keeps this JVM boundary independent of Android/source providers. */

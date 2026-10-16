@@ -13,7 +13,8 @@ object AnalysisResultValidation {
             m.sampleInterval != window.sampleInterval || m.coverage != window.coverage ||
             m.coverageStatus != window.coverageStatus || m.preprocessingVersion != window.preprocessingVersion ||
             m.detail != detail || m.duration != window.duration || m.sourceFormats != window.sourceFormats ||
-            m.repeatedOutputFrames != window.repeatedOutputFrames || m.endOfStreamReached != window.endOfStreamReached) {
+            m.repeatedOutputFrames != window.repeatedOutputFrames || m.endOfStreamReached != window.endOfStreamReached ||
+            m.preparation != window.preparation || m.decoderDiagnostic != window.decoderDiagnostic) {
             return mismatch("RESULT_CONTEXT_MISMATCH")
         }
         fun <T> qualify(value: MusicalValue<T>, valid: (T) -> Boolean): MusicalValue<T> =

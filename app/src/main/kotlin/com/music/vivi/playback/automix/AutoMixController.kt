@@ -34,6 +34,10 @@ interface AutoMixHost {
         analyze(track, startMs, lengthMs, deadlineNanos)
     fun diagnostic(message: String, verbose: Boolean = false) {}
     fun analyze(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long): TrackFeatures
+    fun analyzeWithDiagnostics(track: MixTrack, startMs: Long, lengthMs: Long, deadlineNanos: Long,
+                               detail: AnalysisDetail, diagnostics: DecoderDiagnosticSink): TrackFeatures =
+        if (detail == AnalysisDetail.SCAN) scan(track, startMs, lengthMs, deadlineNanos)
+        else analyze(track, startMs, lengthMs, deadlineNanos)
     fun currentDeck(): MixDeck
     fun prepareIncoming(snapshot: MixSnapshot, plan: AutoMixPlan): MixDeck?
     /** Installs the incoming deck as the actual service/session player, without restarting it. */
@@ -465,8 +469,10 @@ class AutoMixController(private val host: AutoMixHost, private val workers: Anal
         val job=workers.submit(key,track.cacheable) {
             val began=nanoTime()
             recorder?.record(attempt,MixEvent.WINDOW_START,mapOf(MixMetric.REGION_START_MS to start.toDouble(),MixMetric.REGION_LENGTH_MS to length.toDouble()),role,stage=stage)
-            fun decode(position: Long,size: Long): TrackFeatures = if(detail) host.analyze(track,position,size,minOf(deadline,nanoTime()+25_000_000_000L))
-                else host.scan(track,position,size,minOf(deadline,nanoTime()+25_000_000_000L))
+            fun decode(position: Long,size: Long): TrackFeatures = host.analyzeWithDiagnostics(track, position, size,
+                minOf(deadline, nanoTime() + 25_000_000_000L), if (detail) AnalysisDetail.DETAIL else AnalysisDetail.SCAN,
+                DecoderDiagnosticSink { diagnostic -> recorder?.record(attempt, MixEvent.DECODER,
+                    role = role, stage = stage, failure = diagnostic.category, decoder = diagnostic) })
             val result=try { decode(start,length) } catch(error: Exception) {
                 val failure=AutoMixFailure.of(error)
                 recorder?.record(attempt,MixEvent.FAILURE,role=role,failure=failure,stage=stage,errorType=MixErrorType.of(error))
