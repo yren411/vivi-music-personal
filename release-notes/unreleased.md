@@ -162,5 +162,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
   repopulating it after shutdown. Playback and backend defaults are unchanged.
 - Include controlled decoder coverage and timestamp details in native Android
   codec-test failures, and attempt both generated AAC and FLAC fixtures without
-  weakening their assertions. The first phone run exposed a partial-coverage
-  rejection before JNI; its precise decoder cause still needs device diagnostics.
+  weakening their assertions. Phone diagnostics identified a one-frame AAC head
+  loss before JNI. Preserve initial priming packets in corrected decoding with a
+  separately versioned v3 input/cache identity; keep legacy decoding unchanged.
+  The repair still requires a passing Android codec rerun before acceptance.

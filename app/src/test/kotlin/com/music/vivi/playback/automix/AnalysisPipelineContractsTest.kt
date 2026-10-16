@@ -99,6 +99,51 @@ class AnalysisPipelineContractsTest {
         }
     }
 
+    @Test fun initialPrerollVersionSeparatesInflightAndCompletedResultsFromV2() {
+        val profile=BitChordNativeAnalysisEngine.PROFILE
+        val w=window()
+        assertEquals("sinc64-blackman-initial-preroll-mono-22050-v3",profile.preprocessingVersion)
+        val oldKey=profile.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2)
+            .cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
+        val newKey=profile.cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
+        assertNotEquals(oldKey,newKey)
+        val entered=CountDownLatch(2);val release=CountDownLatch(1)
+        val oldValue=Any();val newValue=Any();val calls=AtomicInteger()
+        AnalysisWorkers<Any>(AutoMixPerformance.BALANCED).use { workers ->
+            fun work(value:Any):Any {
+                calls.incrementAndGet();entered.countDown()
+                check(release.await(5,TimeUnit.SECONDS));return value
+            }
+            val old=workers.submit(oldKey){work(oldValue)}
+            val current=workers.submit(newKey){work(newValue)}
+            try {
+                assertTrue(entered.await(5,TimeUnit.SECONDS))
+                assertNotSame(old,current)
+                assertSame(current,workers.submit(newKey){error("Duplicate v3 work")})
+            } finally {release.countDown()}
+            assertSame(oldValue,old.get(5,TimeUnit.SECONDS))
+            assertSame(newValue,current.get(5,TimeUnit.SECONDS))
+            workers.cancelAll()
+            assertSame(oldValue,workers.submit(oldKey){error("V2 cache miss")}.get(5,TimeUnit.SECONDS))
+            assertSame(newValue,workers.submit(newKey){error("V3 cache miss")}.get(5,TimeUnit.SECONDS))
+            assertEquals(2,calls.get())
+        }
+    }
+
+    @Test fun historicalV2DecodedPcmCannotBeRelabeledAsCurrentPrerollInput() {
+        val w=window().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2)
+        val engine=object:AnalysisEngine {
+            override val backend=BitChordNativeAnalysisEngine.BACKEND
+            override fun analyze(window:DecodedWindow,detail:AnalysisDetail,control:AnalysisControl):AnalysisResult =
+                throw AssertionError("V2 PCM reached a V3 engine")
+        }
+        val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(w)},
+            engine,PcmPreprocessing.BANDLIMITED)
+        val r=p.analyze(Unit,DecodeRequest(w.requested,w.identity),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed
+        assertEquals(AutoMixFailure.SOURCE_CHANGED,r.failure.category)
+        assertEquals("WINDOW_IDENTITY_MISMATCH",r.failure.code)
+    }
+
     @Test fun canceledOldGenerationCannotCacheOverNewWorkEvenIfDecoderIgnoresInterrupt() {
         val w = window()
         val entered = CountDownLatch(1); val release = CountDownLatch(1); val done = CountDownLatch(1)

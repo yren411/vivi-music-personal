@@ -121,6 +121,31 @@ class CorrectedPcmWindowCaptureTest {
         assertEquals(0L,w.repeatedOutputFrames)
         assertEquals(0L,w.preparation!!.synthesizedTimelineFrames)
     }
+    @Test fun reportedAacPrimingLossStaysPartialAndIsNeverRepairedByInventingSourceFrames() {
+        // Replay the device's buffer geometry, not its audio or a MediaCodec execution.
+        val c=capture(end=24_000_000)
+        c.add(1_150_976,21_333,48000,2,PcmEncoding.PCM16)
+        val w=c.finish(true,AnalysisControl())
+        assertEquals(listOf(AudioIntervalUs(21_333,23_999_999)),w.coverage.intervals)
+        assertEquals(1_150_976L,w.coverage.acceptedDecodedFrames)
+        assertEquals(CoverageStatus.PARTIAL,w.coverage.status(w.decodeInterval))
+        assertEquals(22_000L,w.sampleTimelineStartUs)
+        assertEquals(AudioIntervalUs(22_000,23_999_959),w.sampleInterval)
+        assertEquals(528714,w.frameCount)
+        assertEquals(0L,w.preparation!!.synthesizedTimelineFrames)
+        assertEquals(0L,w.repeatedOutputFrames)
+    }
+    @Test fun fullAacRateClockAfterPreservedPrimingCoversTheExactRequestedEndpoint() {
+        val c=capture(end=24_000_000)
+        c.add(1_152_000,0,48000,2,PcmEncoding.PCM16)
+        val w=c.finish(false,AnalysisControl())
+        assertEquals(CoverageStatus.FULL,w.coverage.status(w.decodeInterval))
+        assertEquals(AudioIntervalUs(0,24_000_000),w.sampleInterval)
+        assertEquals(1_152_000L,w.coverage.acceptedDecodedFrames)
+        assertEquals(529200,w.frameCount)
+        assertEquals(0L,w.preparation!!.synthesizedTimelineFrames)
+        assertEquals(0L,w.repeatedOutputFrames)
+    }
     @Test fun endpointClampRetainsOriginalRequestAndExtractorDuration() {
         val c=capture(end=1000000,requestedEnd=1100000);c.add(8000,0)
         val w=c.finish(true,AnalysisControl())

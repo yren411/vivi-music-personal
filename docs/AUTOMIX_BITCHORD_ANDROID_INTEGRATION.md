@@ -177,6 +177,14 @@ threshold. EOS alone does not prove coverage. A request extending beyond known
 EOS can have full valid effective coverage while requested coverage remains
 PARTIAL in metadata; the native input only claims its actual materialized span.
 
+The current corrected identity is `sinc64-blackman-initial-preroll-mono-22050-v3`.
+It preserves the initial extractor position at track start to retain AAC priming
+packets; legacy and all nonzero seek positions are unchanged. The historical
+`sinc64-blackman-mono-22050-v2` string is reserved as `BANDLIMITED_V2`, never an
+alias for v3. Native backend/JNI versions and DSP arithmetic are unchanged; the
+preprocessing component of every profile/cache key changes. Old v2 windows are
+rejected by a v3 pipeline rather than relabeled. See the device follow-up below.
+
 The native packet returns window-relative seconds. Mapping is precisely:
 
 ```text
@@ -375,23 +383,80 @@ JUnit's `ErrorCollector` attempts both AAC and FLAC even if one fails, then fail
 the test for every failed assertion. No partial-coverage acceptance, timestamp
 substitution, smaller request or decoder policy change is made.
 
-The initial report establishes `INPUT_VALIDATION/INSUFFICIENT_AUDIO_DATA/
+The initial report established `INPUT_VALIDATION/INSUFFICIENT_AUDIO_DATA/
 PARTIAL_SOURCE_COVERAGE` before JNI, not a DSP failure. The old loop attempted
 AAC first and aborted before FLAC. Both committed generated assets are 30 seconds
 according to host FFprobe; the requested interval is 0..24 seconds. That rules out
 the request deliberately extending beyond the fixture's container duration, but
-does not establish the actual Android decoded head/tail. The supplied failure
-contains no source coverage/PTS fields, so the missing interval and its cause
-remain unknown. Codec priming, output timestamps and request-boundary EOS handling
-are investigation candidates, not confirmed fixes. Preserve the expanded failure
-message (or the two per-asset lines in the test report's standard output) from the
-targeted rerun. Production decoding and the strict coverage gate are unchanged.
+does not establish the actual Android decoded head/tail. That original failure
+contained no source coverage/PTS fields. The expanded rerun subsequently supplied
+the geometry below. Preserve both per-asset lines from further reruns. Normal
+production (legacy) decoding and the strict coverage gate are unchanged.
 
 Cloud validation of this diagnostic-only update: Android instrumentation Kotlin
 compiles for Arm64 GMS and Universal FOSS (the native class still has 14 tests).
 Both full JVM suites executed with the host JNI library: 286 tests per variant,
 zero failures/errors/skips, including ten real-JNI tests per variant. This does
 not resolve or reproduce the phone's codec coverage failure in an Android runtime.
+
+### Device geometry and corrected initial positioning
+
+The owner's diagnostic rerun reported AAC source coverage `21,333..23,999,999 us`,
+first codec PTS `21,333 us`, 1,150,976 accepted/codec frames at 48 kHz stereo PCM16,
+no gaps/overlaps/repeated/synthesized frames, and
+`codecEos=true / inputEnd=REQUEST_BOUNDARY`. Materialized PCM starts at 22,000 us
+and has 528,714 frames, ending at 23,999,959 us. Full 24-second PCM would contain
+1,152,000 source frames and 529,200 mono output frames. The missing 1,024 source
+frames are precisely one AAC access unit: genuinely PARTIAL, not UNKNOWN.
+The one-us conservative tail follows from anchoring a rational frame clock at
+integer PTS 21,333 instead of fractional 21,333 1/3 us.
+
+The committed AAC fixture has a priming packet at `-21,333 us` (host FFprobe),
+with a 1,024-sample skip side datum. The decoder previously called `seekTo(0)`
+unconditionally after track selection. Android's MP4 extractor applies the
+edit-list media-time shift while seeking, which can skip that initial priming
+packet. Encoder-delay trimming is still configured, so an already skipped
+priming frame can instead be removed from actual content. Initial reading and
+an explicit seek to zero are not equivalent here.
+
+Reference inspection, **not copied code or proof of Samsung's exact OS binary**:
+Lineage's AOSP-derived frameworks/av revision
+[`f13e44db891bf5caf478062365372a8fbc23e45f`](https://github.com/LineageOS/android_frameworks_av/tree/f13e44db891bf5caf478062365372a8fbc23e45f):
+`media/module/extractors/mp4/MPEG4Extractor.cpp` (`getTrackMetaData` publishes
+encoder delay/padding; `MPEG4Source::read` adjusts seek time by the edit-list
+origin and sets the current sample index), and
+`media/libstagefright/NuMediaExtractor.cpp` (`selectTrack` does not seek with its
+default -1 start time). Java JNI delegates to that default in frameworks/base
+[`155701ba6a05d0061dbab1b9f1bfec2040cf4158`](https://github.com/LineageOS/android_frameworks_base/blob/155701ba6a05d0061dbab1b9f1bfec2040cf4158/media/jni/android_media_MediaExtractor.cpp),
+`JMediaExtractor::selectTrack`. These references explain the observed one-frame
+loss; the repair still requires a passing device rerun.
+
+`DecoderSeekPolicy` now omits only the unnecessary **corrected, zero-start** seek.
+The codec receives the track's real initial packets; corrected capture still
+trims actual decoded PCM to the requested interval using unchanged timestamps.
+No offset is subtracted, no coverage is invented, and no EOS rule or byte/window/
+worker limit is expanded. Nonzero seeks can still produce honestly rejected
+partial windows. Legacy retains its original seek behavior and preprocessing ID.
+
+Because input samples can change, the repair uses preprocessing **v3**, not v2.
+Resampling/downmix arithmetic is unchanged. Profile, in-flight and completed-cache
+identities include v3; tests keep v2/v3 jobs and cache objects separate and reject
+a v2 window supplied to the current pipeline. Generated-PCM tests replay the
+reported partial geometry without promoting it to FULL, and verify the complete
+24-second frame clock independently of Android. The device test still requires
+both codecs to return FULL coverage, the exact `0..24,000,000 us` sample interval,
+529,200 output frames, valid native BPM/beats and no fabricated audio. Its request
+and accuracy assertions were not weakened. A targeted passing rerun, then all
+14 native and four decoder tests, remain required; host tests cannot confirm
+the MediaCodec repair.
+
+Cloud validation after the v3 correction: **293 tests per full GMS/FOSS JVM suite,
+586 total, zero failures/errors/skips**, including ten real host-JNI tests per
+variant. Both Android instrumentation Kotlin variants compile. The seven added
+tests cover positioning, exact reported/full frame-clock geometry, v2/v3 cache
+and in-flight isolation, and stale-v2 window rejection. These are policy/PCM/JVM
+checks, not an Android MediaCodec execution. The targeted phone rerun remains
+the acceptance gate for the actual repair.
 
 `automixDecoderTests=true` uses the existing isolated
 `com.yren411.tinium.decodercheck` test application ID. Normal Tinium's ID is

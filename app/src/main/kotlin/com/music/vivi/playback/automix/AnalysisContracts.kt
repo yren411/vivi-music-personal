@@ -43,7 +43,9 @@ data class AudioCoverage(
 
 object PcmPreprocessing {
     const val LEGACY = "nearest-time-mono-22050-v1"
-    const val BANDLIMITED = "sinc64-blackman-mono-22050-v2"
+    /** Historical identity only; never relabel v2 PCM/results as the current path. */
+    const val BANDLIMITED_V2 = "sinc64-blackman-mono-22050-v2"
+    const val BANDLIMITED = "sinc64-blackman-initial-preroll-mono-22050-v3"
     const val IDENTITY = "identity-float-v1"
 }
 

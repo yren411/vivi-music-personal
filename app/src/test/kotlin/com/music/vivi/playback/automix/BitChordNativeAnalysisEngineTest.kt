@@ -20,8 +20,9 @@ class BitChordNativeAnalysisEngineTest {
         assertTrue(native.backend.version.contains("internal11025"));assertTrue(native.backend.version.contains("evidence1"))
         val id=w().identity
         val keys=listOf(native,legacy,native.copy(preprocessingVersion=PcmPreprocessing.LEGACY),
+            native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2),
             native.copy(backend=native.backend.copy(version="future-jni2"))).map { it.cacheKey(id,0,8000,AnalysisDetail.SCAN) }
-        assertEquals(4,keys.distinct().size);assertFalse(keys.any { it.contains(id.renditionKey) })
+        assertEquals(5,keys.distinct().size);assertFalse(keys.any { it.contains(id.renditionKey) })
     }
     @Test fun evidenceUsesNativeSemanticsAndNeverInventsOtherFeatures() {
         val r=engine().analyze(w(),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Completed
@@ -72,7 +73,8 @@ class BitChordNativeAnalysisEngineTest {
         assertEquals(CoverageStatus.FULL,r.metadata.coverage.status(r.metadata.sampleInterval!!))
     }
     @Test fun invalidInputFormatAndLegacyPreprocessingAreRejected() {
-        val variants=listOf(w().copy(preprocessingVersion=PcmPreprocessing.LEGACY),w().copy(format=PcmFormat(44100,1,PcmEncoding.FLOAT32)),
+        val variants=listOf(w().copy(preprocessingVersion=PcmPreprocessing.LEGACY),
+            w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2),w().copy(format=PcmFormat(44100,1,PcmEncoding.FLOAT32)),
             w().copy(format=PcmFormat(22050,2,PcmEncoding.FLOAT32)),w().copy(samples=floatArrayOf()),
             w().copy(format=PcmFormat(22050,1,PcmEncoding.PCM16)))
         for (v in variants)assertTrue(engine().analyze(v,AnalysisDetail.SCAN,AnalysisControl()) is AnalysisResult.Failed)

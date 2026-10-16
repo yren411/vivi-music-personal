@@ -120,7 +120,9 @@ class AndroidWindowDecoder(
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
             extractor.selectTrack(track)
-            extractor.seekTo(startMs * 1000, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            DecoderSeekPolicy.targetUs(preprocessing, startMs * 1000)?.let {
+                extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            }
             val mime = format.getString(MediaFormat.KEY_MIME)!!
             // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
             observation.stage = DecoderStage.CODEC_SETUP

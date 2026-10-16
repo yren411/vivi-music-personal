@@ -71,6 +71,8 @@ class BitChordNativeAnalysisInstrumentedTest {
                 assertEquals(context,PcmPreprocessing.BANDLIMITED,result.metadata.preprocessingVersion)
                 assertEquals(context,CoverageStatus.FULL,window.coverage.status(window.decodeInterval))
                 assertEquals(context,CoverageStatus.FULL,result.metadata.coverage.status(result.metadata.sampleInterval!!))
+                assertEquals(context,AudioIntervalUs(0,24_000_000),result.metadata.sampleInterval)
+                assertEquals(context,529200,window.frameCount)
                 assertEquals(context,0L,result.metadata.preparation!!.synthesizedTimelineFrames)
                 assertNotNull(context,result.metadata.decoderDiagnostic)
                 assertEquals(context,128.0,result.evidence.tempoBpm.value!!,1.0)
