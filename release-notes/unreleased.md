@@ -146,3 +146,13 @@ This is an unversioned draft for review. No release version or tag is assigned.
   Production AutoMix, legacy preprocessing, playback and EQ behavior are unchanged.
   Confidence false positives and metrical ambiguity remain documented limitations;
   this phase does not claim improved audible transitions or Android runtime testing.
+
+## Experimental Android native analysis foundation
+
+- Add an internally selectable BitChord/Orchard native analysis backend through
+  bounded JNI, using corrected PCM, explicit beat timestamps, qualified evidence
+  and a separately identified legacy fallback. Preserve source and license notices.
+- Add real-JNI host tests, Android integration tests and native APK packaging checks.
+  Normal AutoMix still uses the existing Kotlin analyzer and legacy preprocessing;
+  no setting, playback transition, lyrics or EQ behavior changes. Android runtime
+  validation and musical-confidence calibration remain required before activation.

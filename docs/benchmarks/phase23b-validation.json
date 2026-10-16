@@ -1,0 +1,228 @@
+{
+  "schema": 1,
+  "tinium_start_commit": "ca7c68295228a150529727d216e42071e995a9dc",
+  "bitchord_commit": "fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f",
+  "android_instrumentation_run": false,
+  "android_runtime_available": false,
+  "android_tests_per_native_class": 14,
+  "existing_decoder_tests": 4,
+  "app_and_test_apks_assembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "native_benchmark_cases": 90,
+  "original_parity_cases": 90,
+  "numerical_fingerprint": "f917ce89871ca084b9f97f098dc1e03da5e2ee06cd15b661fc0918f1fb8fb000",
+  "phase23a_numerical_fingerprint_preserved": true,
+  "host_native": {
+    "ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "native_suites": 8,
+    "native_assertions": 365,
+    "python_tests": 13,
+    "provenance_tests": 1
+  },
+  "host_asan_ubsan_lsan": {
+    "ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "native_suites": 8,
+    "native_assertions": 365,
+    "python_tests": 13,
+    "provenance_tests": 1
+  },
+  "jvm": {
+    "Arm64Gms": {
+      "tests": 227,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": 33,
+      "real_host_jni_tests": 10,
+      "jni_execution_seconds": 5.74,
+      "jni_metrics": [
+        {
+          "bpm": 90.0,
+          "measured": 90.04500036017782,
+          "matches": 42.0,
+          "expected": 42.0,
+          "detected": 42.0,
+          "rawScore": 0.9148665270610075,
+          "elapsedUs": 150928.785,
+          "engineRoundTripUs": 151762.0
+        },
+        {
+          "bpm": 107.0,
+          "measured": 107.09390866382103,
+          "matches": 50.0,
+          "expected": 50.0,
+          "detected": 50.0,
+          "rawScore": 0.9130188488568566,
+          "elapsedUs": 152946.353,
+          "engineRoundTripUs": 153773.0
+        },
+        {
+          "bpm": 120.0,
+          "measured": 120.03485379603005,
+          "matches": 56.0,
+          "expected": 56.0,
+          "detected": 56.0,
+          "rawScore": 1.0,
+          "elapsedUs": 151917.875,
+          "engineRoundTripUs": 152900.0
+        },
+        {
+          "bpm": 128.0,
+          "measured": 128.0936452096952,
+          "matches": 60.0,
+          "expected": 60.0,
+          "detected": 60.0,
+          "rawScore": 0.920193558629814,
+          "elapsedUs": 152607.794,
+          "engineRoundTripUs": 153511.0
+        },
+        {
+          "bpm": 140.0,
+          "measured": 139.98122214153798,
+          "matches": 65.0,
+          "expected": 65.0,
+          "detected": 65.0,
+          "rawScore": 0.8213395878096587,
+          "elapsedUs": 152703.576,
+          "engineRoundTripUs": 153564.0
+        },
+        {
+          "bpm": 150.0,
+          "measured": 149.92573107386355,
+          "matches": 70.0,
+          "expected": 70.0,
+          "detected": 70.0,
+          "rawScore": 0.6454366832805298,
+          "elapsedUs": 152904.302,
+          "engineRoundTripUs": 153743.0
+        },
+        {
+          "bpm": 174.0,
+          "measured": 173.90258939147557,
+          "matches": 81.0,
+          "expected": 81.0,
+          "detected": 81.0,
+          "rawScore": 0.7071300272377025,
+          "elapsedUs": 174445.08,
+          "engineRoundTripUs": 175501.0
+        }
+      ],
+      "jni_cancellation_logs": [
+        "NATIVE_JNI_CANCEL totalUs=135342 latencyUs=262 tempoCheckpoints=100"
+      ],
+      "native_uncertainty_logs": [
+        "NATIVE_JNI_NEGATIVE stationaryChord rawBpm=89.06439793478404 rawScore=0.3727587552525296; not a calibrated probability",
+        "NATIVE_JNI_NEGATIVE dc=0.005 rawScore=0.05328833471256724 rmsMinusPeak=1.0113437864944785E-14",
+        "NATIVE_JNI_NEGATIVE dc=0.1 rawScore=0.05328833471256724 rmsMinusPeak=1.9059753775252375E-13",
+        "NATIVE_JNI_NEGATIVE dc=0.7 rawScore=0.05328833471256724 rmsMinusPeak=1.5124568264468508E-12"
+      ],
+      "result_timestamp_utc": "2026-10-16T18:00:14.334Z"
+    },
+    "UniversalFoss": {
+      "tests": 227,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "suites": 33,
+      "real_host_jni_tests": 10,
+      "jni_execution_seconds": 6.038,
+      "jni_metrics": [
+        {
+          "bpm": 90.0,
+          "measured": 90.04500036017782,
+          "matches": 42.0,
+          "expected": 42.0,
+          "detected": 42.0,
+          "rawScore": 0.9148665270610075,
+          "elapsedUs": 152811.005,
+          "engineRoundTripUs": 153703.0
+        },
+        {
+          "bpm": 107.0,
+          "measured": 107.09390866382103,
+          "matches": 50.0,
+          "expected": 50.0,
+          "detected": 50.0,
+          "rawScore": 0.9130188488568566,
+          "elapsedUs": 173218.098,
+          "engineRoundTripUs": 174193.0
+        },
+        {
+          "bpm": 120.0,
+          "measured": 120.03485379603005,
+          "matches": 56.0,
+          "expected": 56.0,
+          "detected": 56.0,
+          "rawScore": 1.0,
+          "elapsedUs": 168435.148,
+          "engineRoundTripUs": 169464.0
+        },
+        {
+          "bpm": 128.0,
+          "measured": 128.0936452096952,
+          "matches": 60.0,
+          "expected": 60.0,
+          "detected": 60.0,
+          "rawScore": 0.920193558629814,
+          "elapsedUs": 157096.139,
+          "engineRoundTripUs": 158058.0
+        },
+        {
+          "bpm": 140.0,
+          "measured": 139.98122214153798,
+          "matches": 65.0,
+          "expected": 65.0,
+          "detected": 65.0,
+          "rawScore": 0.8213395878096587,
+          "elapsedUs": 172454.83,
+          "engineRoundTripUs": 173405.0
+        },
+        {
+          "bpm": 150.0,
+          "measured": 149.92573107386355,
+          "matches": 70.0,
+          "expected": 70.0,
+          "detected": 70.0,
+          "rawScore": 0.6454366832805298,
+          "elapsedUs": 169462.228,
+          "engineRoundTripUs": 170529.0
+        },
+        {
+          "bpm": 174.0,
+          "measured": 173.90258939147557,
+          "matches": 81.0,
+          "expected": 81.0,
+          "detected": 81.0,
+          "rawScore": 0.7071300272377025,
+          "elapsedUs": 162852.321,
+          "engineRoundTripUs": 163746.0
+        }
+      ],
+      "jni_cancellation_logs": [
+        "NATIVE_JNI_CANCEL totalUs=149214 latencyUs=299 tempoCheckpoints=100"
+      ],
+      "native_uncertainty_logs": [
+        "NATIVE_JNI_NEGATIVE stationaryChord rawBpm=89.06439793478404 rawScore=0.3727587552525296; not a calibrated probability",
+        "NATIVE_JNI_NEGATIVE dc=0.005 rawScore=0.05328833471256724 rmsMinusPeak=1.0113437864944785E-14",
+        "NATIVE_JNI_NEGATIVE dc=0.1 rawScore=0.05328833471256724 rmsMinusPeak=1.9059753775252375E-13",
+        "NATIVE_JNI_NEGATIVE dc=0.7 rawScore=0.05328833471256724 rmsMinusPeak=1.5124568264468508E-12"
+      ],
+      "result_timestamp_utc": "2026-10-16T18:00:45.038Z"
+    }
+  },
+  "host_jni_library_is_declared_gradle_test_input": true,
+  "native_loading_from_binding_classloader": true,
+  "windows_style_checkout_preserves_pinned_lf_bytes": true,
+  "rms_roundoff_regression_passed": true,
+  "integration_code_commit": "96a09e81e3be1ba2857203dbfde79ff1cd3d0609",
+  "host_jni_library_sha256": "3216ce200c6acf2e24065770bd133cbf0718cfd89a6c2ebb247c0069d21ef880",
+  "native_android_test_class_annotations_verified_in_compiled_bytecode": 14
+}
