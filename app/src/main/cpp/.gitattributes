@@ -1,0 +1,4 @@
+/CMakeLists.txt text eol=lf
+/native_analysis_jni.cpp text eol=lf
+/NOTICE.md text eol=lf
+/NDK-LIBCXX-NOTICE text eol=lf

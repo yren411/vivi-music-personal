@@ -15,7 +15,8 @@ data class AnalysisProfile(val backend: AnalysisBackend, val preprocessingVersio
 
 enum class EvidenceNature { MEASURED, INFERRED, UNAVAILABLE, INVALID }
 enum class EvidenceMethod { SUPPLIED_PCM_STATISTIC, LEGACY_FIXED_GRID, LEGACY_ACCENT_HEURISTIC,
-    LEGACY_KEY_PROFILE, LEGACY_SPECTRAL_PROXY, NOT_AVAILABLE }
+    LEGACY_KEY_PROFILE, LEGACY_SPECTRAL_PROXY, NOT_AVAILABLE,
+    BITCHORD_TEMPO_TRACKER, BITCHORD_FOUR_BEAT_BASS_ACCENT, BITCHORD_UNCALIBRATED_CONFIDENCE }
 
 /** Method and backend qualify scores; no cross-backend probability equivalence is implied. */
 data class MusicalValue<T>(val value: T?, val nature: EvidenceNature, val method: EvidenceMethod) {
@@ -61,6 +62,7 @@ data class AnalysisMetadata(
     val endOfStreamReached: Boolean?,
     val preparation: PcmPreparationMetadata? = null,
     val decoderDiagnostic: DecoderDiagnostic? = null,
+    val nativeDiagnostic: NativeAnalysisDiagnostic? = null,
 )
 
 sealed interface AnalysisResult {

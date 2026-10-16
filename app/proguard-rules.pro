@@ -1,4 +1,8 @@
 # Add project specific ProGuard rules here.
+# Experimental AutoMix JNI names/constructors are looked up by the native adapter.
+-keep class com.music.vivi.playback.automix.BitChordNativeBindings { *; }
+-keep class com.music.vivi.playback.automix.NativeDspPacket { *; }
+-keepclassmembers class com.music.vivi.playback.automix.NativeCallControl { public int poll(int); }
 # You can control the set of applied configuration files using the
 # proguardFiles setting in build.gradle.kts.
 #

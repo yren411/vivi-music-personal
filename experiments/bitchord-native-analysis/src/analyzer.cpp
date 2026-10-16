@@ -64,6 +64,7 @@ Result analyze(const Request& request, const Control& caller_control) noexcept {
   Control control = caller_control;
   control.deadline = std::min(control.deadline, began + std::chrono::seconds(10));
   try {
+    control.enter(AnalysisStage::input_validation);
     control.checkpoint();
     if (!request.pcm || request.pcm->empty() || request.channels != 1 || request.sample_rate < 8000 || request.sample_rate > 96000 ||
         request.pcm->size() > max_input_frames || request.window_origin_us < 0 ||
@@ -94,6 +95,7 @@ Result analyze(const Request& request, const Control& caller_control) noexcept {
     const std::vector<float>* input = request.pcm;
     std::vector<float> converted;
     if (request.sample_rate != result.analysis_sample_rate) {
+      control.enter(AnalysisStage::resampling);
 #ifdef TINIUM_UNMODIFIED_REFERENCE
       converted = bitchord::smart::Resample(*input, request.sample_rate, result.analysis_sample_rate);
 #else
@@ -108,6 +110,7 @@ Result analyze(const Request& request, const Control& caller_control) noexcept {
     const double dsp_duration = static_cast<double>(input->size()) / result.analysis_sample_rate;
     result.analysis_duration_seconds = dsp_duration;
     result.analysis_frames = input->size();
+    control.enter(AnalysisStage::tempo);
 #ifdef TINIUM_UNMODIFIED_REFERENCE
     auto raw = bitchord::smart::AnalyzeTempo(*input, result.analysis_sample_rate, dsp_duration, request.audible_start_seconds);
 #else
