@@ -50,7 +50,8 @@ class PcmPreprocessingIntegrationTest {
     }
     @Test fun partialAndUnknownCorrectedWindowsCannotMasqueradeAsCompletePlannerInputs() {
         val full=PcmTestPreparation.prepare(FloatArray(8000*5),8000,AnalysisPreprocessing.BANDLIMITED)
-        for(coverage in listOf(AudioCoverage(null,40000),AudioCoverage(listOf(AudioIntervalUs(0,4000000)),32000))) {
+        for(coverage in listOf(AudioCoverage(null,40000),AudioCoverage(listOf(AudioIntervalUs(0,4000000)),32000),
+            AudioCoverage(listOf(AudioIntervalUs(1000,5000000)),39992))) {
             val partial=full.copy(coverage=coverage)
             val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(partial)},LegacyKotlinAnalysisEngine(),PcmPreprocessing.BANDLIMITED)
             val result=p.analyze(Unit,DecodeRequest(full.requested,full.identity),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed

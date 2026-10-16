@@ -29,7 +29,7 @@ class AndroidWindowDecoderInstrumentedTest {
         assertEquals(mode.version,events.single().preprocessing.version)
         assertEquals(DecoderRangeStatus.NOT_REQUIRED,events.single().rangeStatus)
         assertTrue(events.single().sourceBytesRead!!>0)
-        assertTrue("Decoder failure: "+(result as? DecodeResult.Failed)?.failure,result is DecodeResult.Decoded)
+        assertTrue("Decoder failure: "+(result as? DecodeResult.Failed)?.failure+"; "+events.single().reportFields(),result is DecodeResult.Decoded)
         return (result as DecodeResult.Decoded).window
     }
     @Test fun aacAndFlacActualCodecFormatsAndPreprocessingProvenance() {
@@ -47,6 +47,12 @@ class AndroidWindowDecoderInstrumentedTest {
     @Test fun seekAndEndpointClampKeepPartialCoverageHonest() {
         withSource("tone-48000-stereo.m4a"){source ->
             val w=decode(source,AnalysisPreprocessing.BANDLIMITED,3_000_000,9_000_000)
+            // Include only controlled decoder fields, not a source URI or arbitrary logcat.
+            // No EOS does not itself prove full coverage: seeking can leave a leading hole
+            // while capture still reaches the endpoint. Keep the strict check while actual
+            // device PTS evidence is collected; do not silently admit partial planner input.
+            val context="Seek coverage validation; sampleInterval="+w.sampleInterval+
+                "; sampleOriginUs="+w.sampleTimelineStartUs+"; "+w.decoderDiagnostic!!.reportFields()
             assertEquals(AudioIntervalUs(3_000_000,9_000_000),w.requested)
             assertTrue(w.decodeInterval.endUs<9_000_000)
             assertEquals(CoverageStatus.PARTIAL,w.coverageStatus)
@@ -54,8 +60,8 @@ class AndroidWindowDecoderInstrumentedTest {
             assertTrue(w.sampleInterval!!.endUs<=w.actualEndUs!!)
             // Filling the interval may finish before input EOF or codec EOS. Do not require
             // an event the decoder need not observe, or mistake boundary EOS for natural EOF.
-            if (w.endOfStreamReached == true) assertNotEquals(DecoderInputEnd.UNKNOWN,w.decoderDiagnostic!!.inputEnd)
-            else assertEquals(CoverageStatus.FULL,w.coverage.status(w.decodeInterval))
+            if (w.endOfStreamReached == true) assertNotEquals(context,DecoderInputEnd.UNKNOWN,w.decoderDiagnostic.inputEnd)
+            else assertEquals(context,CoverageStatus.FULL,w.coverage.status(w.decodeInterval))
         }
     }
     @Test fun cancellationDuringActiveDecodeReleasesResourcesBeforeNextRequest() {

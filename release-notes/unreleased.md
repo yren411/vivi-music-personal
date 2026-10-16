@@ -132,3 +132,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
   collision without changing toolchain or plugin versions.
 - Document restoring the existing local debug keystore before Android decoder
   tests, without replacing permanent keys or changing signing configuration.
+- Add detailed, sanitized seek-test failure output and missing-head coverage
+  regression checks to investigate a reported Samsung decoder-test failure;
+  resolution and a passing device rerun remain pending.

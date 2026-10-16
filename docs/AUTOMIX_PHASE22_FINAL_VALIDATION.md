@@ -4,6 +4,49 @@ PR: [#17](https://github.com/yren411/vivi-music-personal/pull/17).
 Reviewed starting head: `18d294428bf26282550d11ec63154319343412a5`.
 See [the PCM contract and measurements](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
 
+## Samsung seek-test failure: investigation in progress
+
+The owner ran the connected GMS tests on the phone and reported
+`seekAndEndpointClampKeepPartialCoverageHonest` failing at the strict effective
+coverage assertion: expected `FULL`, actual `PARTIAL`, without observed codec EOS.
+This is actual device evidence of that assertion failing, not a cloud runtime
+result. The supplied stack trace does not contain accepted source intervals,
+first/last codec PTS, source-frame counts or the size/location of missing coverage.
+No conclusion about the other three test outcomes is inferred from this excerpt.
+
+Code review confirms that `CorrectedPcmWindowCapture.reachedEnd` and codec EOS are
+independent of complete interval coverage. A late first accepted frame can leave a
+leading hole while capture reaches the requested endpoint without observing EOS.
+A new JVM regression exercises that case with explicitly **illustrative** 3.008 s
+first PTS and 7 s effective end; those values are not claimed as phone measurements.
+The pipeline regression also verifies that missing-head coverage is rejected.
+
+This does **not** yet establish whether the actual phone failure is a leading
+hole, endpoint/timestamp rounding, or another codec/container discrepancy. The
+strict failing instrumentation assertion is retained. Its message now includes
+the typed, sanitized decoder report plus the materialized sample origin/interval,
+so the next run can identify the measured missing region. No production code,
+coverage threshold, preprocessing version or cache semantics changed in this
+diagnostic follow-up. Keep the PR unmerged pending diagnosis and rerun.
+
+For this follow-up, **195 GMS + 195 FOSS focused JVM tests executed and passed**
+(390 total, zero failures/errors/skips). Both Android test variants' Kotlin
+sources compiled; aggregate compile tasks reused other valid outputs. No Android
+runtime test was executed in the cloud. The prior 194-per-variant counts below
+describe the earlier review, before the new regression was added.
+
+On the PR branch, update with `git pull --ff-only`, then run only the failing case
+from Android Studio's PowerShell terminal:
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest#seekAndEndpointClampKeepPartialCoverageHonest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Copy the complete assertion message beginning `Seek coverage validation` from the
+HTML test report. It includes only controlled decoder metadata, not private URLs,
+music titles, credentials or raw PCM. Do not substitute an unrestricted logcat dump.
+After the cause is resolved, rerun all four methods using the commands below.
+
 ## Runtime availability
 
 A bounded environment check found no Android emulator executable, system image,
