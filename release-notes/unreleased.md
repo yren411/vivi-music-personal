@@ -165,4 +165,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
   weakening their assertions. Phone diagnostics identified a one-frame AAC head
   loss before JNI. Preserve initial priming packets in corrected decoding with a
   separately versioned v3 input/cache identity; keep legacy decoding unchanged.
-  The repair still requires a passing Android codec rerun before acceptance.
+  The owner confirmed the targeted AAC/FLAC integration test passed on the S25
+  Ultra with Android 17; full regression and musical-quality validation remain
+  separate requirements before experimental production activation.

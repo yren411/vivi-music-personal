@@ -15,8 +15,11 @@ switch, automatic native job or production comparison pass.
 GMS/FOSS JVM tests, real **host JVM JNI execution**, Android app/test APK builds,
 four packaged native ABIs and ELF/APK alignment checks passed. The owner's first
 SM-S938U / Android 17 native test run finished 14 tests with one failure, in
-`correctedAacAndFlacDecodeThroughNativePipeline`. **Full Android runtime
-acceptance remains pending resolution and a passing device rerun.** No emulator/system image,
+`correctedAacAndFlacDecodeThroughNativePipeline`. After repair `68dea095`, the
+owner reported that this targeted test **passed on the same phone**, covering
+both AAC and FLAC through real JNI. A complete rerun of all 14 native and four
+decoder tests remains the device regression gate; see PR #20 for subsequent
+owner-reported results. No emulator/system image,
 KVM or USB device is provisioned here; adb also failed to initialize its default
 read-only user directory. No connected-test task or zero-test invocation is
 reported as a pass. The owner's four earlier Phase 2.2 phone passes are historical,
@@ -26,7 +29,7 @@ not new Android evidence for this backend.
 
 ```mermaid
 flowchart LR
-  S[Existing authorized AnalysisSource] --> D[AndroidWindowDecoder: corrected v2]
+  S[Existing authorized AnalysisSource] --> D[AndroidWindowDecoder: corrected v3]
   D --> W[DecodedWindow: mono Float32 / 22050 Hz]
   W --> V[Identity, timeline and actual coverage validation]
   V --> E[BitChordNativeAnalysisEngine]
@@ -429,7 +432,8 @@ origin and sets the current sample index), and
 default -1 start time). Java JNI delegates to that default in frameworks/base
 [`155701ba6a05d0061dbab1b9f1bfec2040cf4158`](https://github.com/LineageOS/android_frameworks_base/blob/155701ba6a05d0061dbab1b9f1bfec2040cf4158/media/jni/android_media_MediaExtractor.cpp),
 `JMediaExtractor::selectTrack`. These references explain the observed one-frame
-loss; the repair still requires a passing device rerun.
+loss. The owner subsequently confirmed that the repaired targeted test passed
+on the same phone; this does not establish Samsung's exact internal implementation.
 
 `DecoderSeekPolicy` now omits only the unnecessary **corrected, zero-start** seek.
 The codec receives the track's real initial packets; corrected capture still
@@ -446,17 +450,21 @@ reported partial geometry without promoting it to FULL, and verify the complete
 24-second frame clock independently of Android. The device test still requires
 both codecs to return FULL coverage, the exact `0..24,000,000 us` sample interval,
 529,200 output frames, valid native BPM/beats and no fabricated audio. Its request
-and accuracy assertions were not weakened. A targeted passing rerun, then all
-14 native and four decoder tests, remain required; host tests cannot confirm
-the MediaCodec repair.
+and accuracy assertions were not weakened. The owner confirmed a passing targeted
+rerun of repair `68dea095` on the SM-S938U / Android 17. Because this method checks
+both codecs, that pass verifies full coverage, exact frame counts and real native
+results for both generated assets on that device. It does not establish general
+codec, streaming or musical-quality compatibility. All 14 native and four decoder
+tests must also pass as the full device regression gate; host tests cannot replace
+that execution.
 
 Cloud validation after the v3 correction: **293 tests per full GMS/FOSS JVM suite,
 586 total, zero failures/errors/skips**, including ten real host-JNI tests per
 variant. Both Android instrumentation Kotlin variants compile. The seven added
 tests cover positioning, exact reported/full frame-clock geometry, v2/v3 cache
 and in-flight isolation, and stale-v2 window rejection. These are policy/PCM/JVM
-checks, not an Android MediaCodec execution. The targeted phone rerun remains
-the acceptance gate for the actual repair.
+checks, not an Android MediaCodec execution. The separate targeted Android pass
+above was executed and reported by the owner, not in this cloud environment.
 
 `automixDecoderTests=true` uses the existing isolated
 `com.yren411.tinium.decodercheck` test application ID. Normal Tinium's ID is
