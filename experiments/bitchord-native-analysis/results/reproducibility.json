@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "fixture_count": 45,
+  "regenerated_pcm_identities_equal": true,
+  "full_manifest_equal": true,
+  "native_cases_per_run": 90,
+  "original_parity_cases_per_run": 90,
+  "independent_runs": 2,
+  "numerical_fingerprint": "f917ce89871ca084b9f97f098dc1e03da5e2ee06cd15b661fc0918f1fb8fb000",
+  "timings_excluded_from_fingerprint": true,
+  "scope": "same Linux host/compiler; not a cross-platform bitwise guarantee"
+}

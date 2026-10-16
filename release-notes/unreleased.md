@@ -33,8 +33,9 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add persistent Efficient, Balanced and Performance analysis modes with 1, 2 and
   4 bounded workers. Preserve the previous Crossfade choice while the modes are
   mutually exclusive, and explain software-audio conflicts and safe fallbacks.
-- Credit BitChord's reference architecture. Tinium's implementation is independent;
-  no BitChord/Orchard code, native libraries or ONNX model assets are copied.
+- Credit BitChord's reference architecture. Tinium's Android implementation is
+  independent; no BitChord/Orchard code, native libraries or ONNX model assets
+  are incorporated into the application.
   Vocal and phrase estimates are approximate DSP heuristics; perceived audio
   quality and Android decoder/output behavior still require phone testing.
 
@@ -135,3 +136,13 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add sanitized decoder-test diagnostics and correct a seek-test assumption
   exposed by Samsung's reported 8 ms missing head. Test honest partial coverage
   and rejection before musical analysis; the updated device rerun remains pending.
+
+## Standalone native analysis experiment
+
+- Add an independently buildable AGPLv3-or-later prototype using pinned
+  BitChord/Orchard tempo DSP, with generated rhythm benchmarks, original-code
+  parity, bounded cancellation and Android ABI compilation checks.
+- Keep the prototype separate from Tinium's Android build and lyrics components.
+  Production AutoMix, legacy preprocessing, playback and EQ behavior are unchanged.
+  Confidence false positives and metrical ambiguity remain documented limitations;
+  this phase does not claim improved audible transitions or Android runtime testing.

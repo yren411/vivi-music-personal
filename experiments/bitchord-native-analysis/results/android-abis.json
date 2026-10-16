@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "android_api": 26,
+  "ndk": "27.0.12077973",
+  "runtime_tested": false,
+  "apk_packaging_tested": false,
+  "abis": [
+    {
+      "abi": "arm64-v8a",
+      "machine": "AArch64",
+      "elf_bytes": 872608,
+      "load_segment_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "abi": "armeabi-v7a",
+      "machine": "ARM",
+      "elf_bytes": 669616,
+      "load_segment_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "abi": "x86",
+      "machine": "Intel 80386",
+      "elf_bytes": 748820,
+      "load_segment_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "abi": "x86_64",
+      "machine": "Advanced Micro Devices X86-64",
+      "elf_bytes": 805608,
+      "load_segment_alignments": [
+        16384,
+        16384,
+        16384
+      ],
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    }
+  ]
+}

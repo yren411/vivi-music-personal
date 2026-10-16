@@ -1,0 +1,42 @@
+{
+  "repository": "https://github.com/kushagrasinghx/BitChord",
+  "revision": "fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f",
+  "license": "AGPL-3.0-or-later",
+  "authors": [
+    "SFG545 (Orchard original)",
+    "Kushagra Singh (BitChord adaptation)"
+  ],
+  "files": [
+    {
+      "upstream_path": "native/analyzer/tempo_analysis.cpp",
+      "upstream_sha256": "f6cde3e8a87fb1f42e356649fffe2a87b36f857be28d360b326c14d9c478bf2f",
+      "vendored_path": "vendor/bitchord/tempo_analysis.cpp",
+      "vendored_sha256": "f6cde3e8a87fb1f42e356649fffe2a87b36f857be28d360b326c14d9c478bf2f",
+      "change": "byte-identical"
+    },
+    {
+      "upstream_path": "native/analyzer/audio_analysis.h",
+      "upstream_sha256": "36d65e53755dd4c11fdf2b377428e2411fcc033a17f58e2c26229beb3c461d1e",
+      "vendored_path": "vendor/bitchord/audio_analysis.h",
+      "vendored_sha256": "679ab56bd8d6e632c88cbfe015dbc893809deb606a97ccaebecf3c73e306b192",
+      "change": "declarations-only subset, original notice preserved"
+    },
+    {
+      "upstream_path": "native/analyzer/resampler.cpp",
+      "upstream_sha256": "f516a5683d77537c73f628a4e45f44842ef4a5b3c6d9938d2014ac05e83884a0",
+      "vendored_path": "vendor/bitchord/resampler.cpp",
+      "vendored_sha256": "f516a5683d77537c73f628a4e45f44842ef4a5b3c6d9938d2014ac05e83884a0",
+      "change": "byte-identical"
+    },
+    {
+      "upstream_path": "native/analyzer/resampler.h",
+      "upstream_sha256": "93ae72db79f64efb5c8e0bb3296a565ae7286185482de781134bccb621ce149e",
+      "vendored_path": "vendor/bitchord/resampler.h",
+      "vendored_sha256": "93ae72db79f64efb5c8e0bb3296a565ae7286185482de781134bccb621ce149e",
+      "change": "byte-identical"
+    }
+  ],
+  "adaptation": "cmake/ControlledSources.cmake generates controlled functions in the build tree; explicit per-call Control parameter and loop checkpoints only; no DSP arithmetic changes",
+  "license_text_source": "https://github.com/spdx/license-list-data/blob/v3.27.0/text/AGPL-3.0-or-later.txt",
+  "license_text_sha256": "d8a6cc31abc16b6748c7a21f21611f5a1ec33f67d22ca23d7da1c19b95496bee"
+}
