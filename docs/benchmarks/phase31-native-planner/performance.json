@@ -1,0 +1,518 @@
+{
+    "schema": 1,
+    "measurement": "desktop JVM planning-only; no audio decoding or DSP in timed sections",
+    "planner": "tinium-native-dj-planner-v1",
+    "rows": [
+        {
+            "workers": 1,
+            "elapsedUs": 1191.676,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 26.539,
+            "candidateEvaluationUs": 1007.886,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1209.723,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 26.179,
+            "candidateEvaluationUs": 983.9,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1154.972,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 24.165,
+            "candidateEvaluationUs": 1002.668,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1131.598,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.585,
+            "candidateEvaluationUs": 977.891,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1167.431,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.805,
+            "candidateEvaluationUs": 1017.861,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1118.499,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.124,
+            "candidateEvaluationUs": 976.48,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1148.653,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.104,
+            "candidateEvaluationUs": 999.103,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 1,
+            "elapsedUs": 1184.356,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.184,
+            "candidateEvaluationUs": 1028.286,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1346.215,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 25.287,
+            "candidateEvaluationUs": 1047.804,
+            "allocatedJavaBytes": 887328
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1949.514,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 39.799,
+            "candidateEvaluationUs": 1715.929,
+            "allocatedJavaBytes": 887328
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1586.969,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 35.843,
+            "candidateEvaluationUs": 1402.918,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1898.979,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 38.076,
+            "candidateEvaluationUs": 1646.758,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1309.861,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 24.846,
+            "candidateEvaluationUs": 1118.389,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 2011.756,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.804,
+            "candidateEvaluationUs": 1753.284,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1207.94,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.996,
+            "candidateEvaluationUs": 1065.861,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1868.544,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.504,
+            "candidateEvaluationUs": 1671.954,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1203.884,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 25.387,
+            "candidateEvaluationUs": 1046.583,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 2001.86,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 37.616,
+            "candidateEvaluationUs": 1780.194,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1266.276,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 22.964,
+            "candidateEvaluationUs": 1124.728,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1966.158,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.453,
+            "candidateEvaluationUs": 1717.031,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1167.08,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 24.276,
+            "candidateEvaluationUs": 1015.797,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1905.619,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.263,
+            "candidateEvaluationUs": 1707.197,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1646.738,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 23.464,
+            "candidateEvaluationUs": 1487.052,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 2,
+            "elapsedUs": 1822.106,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.524,
+            "candidateEvaluationUs": 1626.848,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1824.169,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 36.994,
+            "candidateEvaluationUs": 1598.617,
+            "allocatedJavaBytes": 887328
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 2220.153,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 38.077,
+            "candidateEvaluationUs": 1669.11,
+            "allocatedJavaBytes": 887296
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1749.468,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 63.884,
+            "candidateEvaluationUs": 1513.851,
+            "allocatedJavaBytes": 887328
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1952.738,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 85.496,
+            "candidateEvaluationUs": 1717.752,
+            "allocatedJavaBytes": 887328
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1856.486,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 38.927,
+            "candidateEvaluationUs": 1631.706,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1838.88,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 42.713,
+            "candidateEvaluationUs": 1632.336,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1876.966,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 30.234,
+            "candidateEvaluationUs": 1603.444,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1444.239,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 29.484,
+            "candidateEvaluationUs": 1261.119,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1893.001,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 29.433,
+            "candidateEvaluationUs": 1657.964,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 4985.289,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 18.166,
+            "candidateEvaluationUs": 1001.316,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1818.07,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 26.88,
+            "candidateEvaluationUs": 1634.45,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1870.738,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 31.927,
+            "candidateEvaluationUs": 1681.339,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1923.305,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 32.317,
+            "candidateEvaluationUs": 1644.765,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1906.721,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 25.247,
+            "candidateEvaluationUs": 1639.037,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1923.866,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 29.683,
+            "candidateEvaluationUs": 1687.899,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1793.914,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 30.565,
+            "candidateEvaluationUs": 1579.649,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 5501.85,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 39.608,
+            "candidateEvaluationUs": 5243.269,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1906.069,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 39.518,
+            "candidateEvaluationUs": 1660.899,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1828.525,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 27.521,
+            "candidateEvaluationUs": 1649.241,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1934.983,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 27.851,
+            "candidateEvaluationUs": 1744.822,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1774.014,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 49.172,
+            "candidateEvaluationUs": 1575.122,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1763.941,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 32.948,
+            "candidateEvaluationUs": 1587.941,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1842.946,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 30.495,
+            "candidateEvaluationUs": 1652.165,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1724.391,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 27.33,
+            "candidateEvaluationUs": 1551.607,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 4951.82,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 17.777,
+            "candidateEvaluationUs": 997.851,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1227.479,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 20.32,
+            "candidateEvaluationUs": 1055.606,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1893.1,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 39.759,
+            "candidateEvaluationUs": 1657.603,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1872.03,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 40.65,
+            "candidateEvaluationUs": 1644.103,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1123.346,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 17.085,
+            "candidateEvaluationUs": 985.843,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1861.133,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 38.697,
+            "candidateEvaluationUs": 1645.054,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1876.436,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 38.337,
+            "candidateEvaluationUs": 1664.563,
+            "allocatedJavaBytes": 887352
+        },
+        {
+            "workers": 4,
+            "elapsedUs": 1229.102,
+            "candidates": 512,
+            "rejected": 252,
+            "anchorGenerationUs": 37.596,
+            "candidateEvaluationUs": 1094.152,
+            "allocatedJavaBytes": 887352
+        }
+    ],
+    "inputBeatsPerTrack": 117,
+    "malformed512BeatVectorRejectedUs": 68.501,
+    "cancellationRequestedAtCheckpoint": 40,
+    "cancelToReturnUs": 82.412,
+    "totalCanceledCallUs": 733.652,
+    "peakMemoryMeasured": false,
+    "resourceNotes": "Java allocation counters include validation/candidate/diagnostic objects, not native memory or peak heap. Inputs are preallocated. Retained candidates <=12; match residual scratch <=65 longs. Pool limits remain 1/2/4, waiting queue 8, LRU 64."
+}
