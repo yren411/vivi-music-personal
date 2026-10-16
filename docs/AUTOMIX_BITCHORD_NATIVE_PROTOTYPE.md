@@ -235,7 +235,8 @@ No PCM, JAR, native binary, credentials or private track identities are committe
 Host Release CTest: **10/10 passed**, containing eight native suites with
 **365 assertions**, 13 Python fixture/metric/CLI tests, and provenance validation.
 The same **10/10** passed under AddressSanitizer, UndefinedBehaviorSanitizer and
-LeakSanitizer. No suppressed sanitizer findings. Native tests include malformed
+LeakSanitizer. A source-only `git archive` of the experiment was also extracted
+outside the repository, built and passed **10/10** tests without app sources. No suppressed sanitizer findings. Native tests include malformed
 input/output, deterministic parity, actual rhythms, uncertainty, resampling,
 inside-DSP cancellation, deadline/exception mapping, stale-evidence clearing and
 four concurrent shared/independent windows. Injected `bad_alloc` verifies error

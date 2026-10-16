@@ -107,5 +107,15 @@
   },
   "app_gms_foss_builds_run": false,
   "real_music_tested": false,
-  "source_only": true
+  "source_only": true,
+  "isolated_source_archive": {
+    "source_commit": "4306ef63",
+    "only_directory": "experiments/bitchord-native-analysis",
+    "app_sources_available_in_build_tree": false,
+    "release_ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 16.97
+  }
 }
