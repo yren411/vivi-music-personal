@@ -1,0 +1,130 @@
+{
+  "schema": 1,
+  "generator": "tinium-native-corpus-v1",
+  "fixture_count": 45,
+  "case_count": 90,
+  "original_parity_cases": 90,
+  "platform": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "numerical_fingerprint": "f917ce89871ca084b9f97f098dc1e03da5e2ee06cd15b661fc0918f1fb8fb000",
+  "paths": {
+    "resample11025": {
+      "cases": 45,
+      "metrical_interpretations": {
+        "correct_2pct": 34,
+        "half_time": 1,
+        "other": 1
+      },
+      "median_f1_70ms": 1.0,
+      "median_f1_30ms": 1.0,
+      "analysis_us": {
+        "median": 171797.081,
+        "p95": 343485.75979999965,
+        "maximum": 776004.18
+      },
+      "negative_controls": [
+        {
+          "fixture": "negative-silence",
+          "status": "NO_EVIDENCE",
+          "bpm": 117.45383522727273,
+          "confidence": 0.03141333471256724,
+          "raw_false_beats": 55
+        },
+        {
+          "fixture": "negative-dc",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 117.45383522727273,
+          "confidence": 0.03734553810239775,
+          "raw_false_beats": 55
+        },
+        {
+          "fixture": "negative-noise",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 161.5209701993575,
+          "confidence": 0.1521283278236896,
+          "raw_false_beats": 76
+        },
+        {
+          "fixture": "negative-chord",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 89.09948030278322,
+          "confidence": 0.45919476822164657,
+          "raw_false_beats": 42
+        },
+        {
+          "fixture": "negative-tone",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 86.17851261080331,
+          "confidence": 0.22824303901343945,
+          "raw_false_beats": 40
+        },
+        {
+          "fixture": "negative-sweep",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 72.81034604342744,
+          "confidence": 0.5409761596125718,
+          "raw_false_beats": 34
+        }
+      ]
+    },
+    "direct": {
+      "cases": 45,
+      "metrical_interpretations": {
+        "correct_2pct": 29,
+        "other": 5,
+        "half_time": 2
+      },
+      "median_f1_70ms": 1.0,
+      "median_f1_30ms": 1.0,
+      "analysis_us": {
+        "median": 67127.02,
+        "p95": 142490.12919999988,
+        "maximum": 326943.754
+      },
+      "negative_controls": [
+        {
+          "fixture": "negative-silence",
+          "status": "NO_EVIDENCE",
+          "bpm": 117.45383522727273,
+          "confidence": 0.028672764921433794,
+          "raw_false_beats": 55
+        },
+        {
+          "fixture": "negative-dc",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 117.45383522727273,
+          "confidence": 0.0346049683112643,
+          "raw_false_beats": 55
+        },
+        {
+          "fixture": "negative-noise",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 117.26476212535796,
+          "confidence": 0.11817810432555814,
+          "raw_false_beats": 55
+        },
+        {
+          "fixture": "negative-chord",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 86.57724156178735,
+          "confidence": 0.4979974114444266,
+          "raw_false_beats": 39
+        },
+        {
+          "fixture": "negative-tone",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 124.43313356161336,
+          "confidence": 0.30538798028364894,
+          "raw_false_beats": 58
+        },
+        {
+          "fixture": "negative-sweep",
+          "status": "OK_UNCALIBRATED_EVIDENCE",
+          "bpm": 90.99418692209015,
+          "confidence": 0.5112466449956492,
+          "raw_false_beats": 43
+        }
+      ]
+    }
+  }
+}

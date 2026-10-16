@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "tinium_start_commit": "1747635132df52506169801a70d926d9c8d0c44d",
+  "bitchord_commit": "fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f",
+  "host": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "compiler": "g++ (Debian 14.2.0-19) 14.2.0",
+  "cmake": "3.31.6",
+  "python": "3.12.14",
+  "release": {
+    "ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "native_suites": [
+      {
+        "suite": "input",
+        "assertions_passed": 21
+      },
+      {
+        "suite": "output",
+        "assertions_passed": 15
+      },
+      {
+        "suite": "parity",
+        "assertions_passed": 224
+      },
+      {
+        "suite": "rhythm",
+        "assertions_passed": 33
+      },
+      {
+        "suite": "uncertainty",
+        "assertions_passed": 5
+      },
+      {
+        "suite": "resampling",
+        "assertions_passed": 29
+      },
+      {
+        "suite": "cancellation",
+        "assertions_passed": 14
+      },
+      {
+        "suite": "concurrency",
+        "assertions_passed": 24
+      }
+    ],
+    "native_assertions": 365,
+    "python_unittest_tests": 13,
+    "provenance_tests": 1,
+    "seconds": 16.4
+  },
+  "asan_ubsan_lsan": {
+    "ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "native_suites": [
+      {
+        "suite": "input",
+        "assertions_passed": 21
+      },
+      {
+        "suite": "output",
+        "assertions_passed": 15
+      },
+      {
+        "suite": "parity",
+        "assertions_passed": 224
+      },
+      {
+        "suite": "rhythm",
+        "assertions_passed": 33
+      },
+      {
+        "suite": "uncertainty",
+        "assertions_passed": 5
+      },
+      {
+        "suite": "resampling",
+        "assertions_passed": 29
+      },
+      {
+        "suite": "cancellation",
+        "assertions_passed": 14
+      },
+      {
+        "suite": "concurrency",
+        "assertions_passed": 24
+      }
+    ],
+    "native_assertions": 365,
+    "python_unittest_tests": 13,
+    "provenance_tests": 1,
+    "seconds": 72.04
+  },
+  "android_runtime_executed": false,
+  "android_instrumentation_executed": false,
+  "jni_implemented": false,
+  "apk_built": false,
+  "production_code_changed": false,
+  "legacy_comparator_output_check": {
+    "task": ":app:compileArm64GmsDebugKotlin",
+    "result": "BUILD SUCCESSFUL",
+    "up_to_date_tasks": 121,
+    "executed_compilation_tasks": 0
+  },
+  "app_gms_foss_builds_run": false,
+  "real_music_tested": false,
+  "source_only": true,
+  "isolated_source_archive": {
+    "source_commit": "4306ef63",
+    "only_directory": "experiments/bitchord-native-analysis",
+    "app_sources_available_in_build_tree": false,
+    "release_ctest_entries": 10,
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "seconds": 16.97
+  }
+}
