@@ -142,6 +142,18 @@ relative to the original request but can be complete relative to its legitimate
 clamped decode interval. These cases are deliberately different. No confidence
 threshold is relaxed to admit incomplete data.
 
+The owner's Samsung connected-test report confirmed a requested 3..9 s AAC window
+clamped to 3..7 s with first codec PTS at 3.008 s, source coverage 3.008..7 s and
+88,023 output samples ending at 6.999972 s. There is an 8 ms missing head, zero
+synthesized timeline frames and no missing tail. Capturing through the endpoint
+can terminate before codec EOS is observed, even after extractor EOF. The test's
+old inference that no EOS implies full coverage was invalid. It now checks honest
+coverage and pipeline rejection of the actual partial window; it does not pad
+the head, relax analysis acceptance, or recover missing source audio. Extractor
+seek versus decoder-priming behavior remains unisolated. See the
+[final validation review](AUTOMIX_PHASE22_FINAL_VALIDATION.md) for the device
+evidence and required rerun. Legacy remains the production default.
+
 ### EOS and source limits
 
 `codecEos` means an observed MediaCodec EOS flag. `inputEnd` independently records

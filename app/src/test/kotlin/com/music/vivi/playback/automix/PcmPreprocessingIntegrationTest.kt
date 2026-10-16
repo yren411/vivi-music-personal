@@ -59,6 +59,27 @@ class PcmPreprocessingIntegrationTest {
             assertEquals(AutoMixFailure.INSUFFICIENT_AUDIO_DATA,result.failure.category)
         }
     }
+    @Test fun samsungSeekGeometryIsRejectedBeforeAnalyzerDespiteReachingEndpointWithoutCodecEos() {
+        val request=DecodeRequest(AudioIntervalUs(3_000_000,9_000_000),AnalysisSourceIdentity("generated","samsung-seek-shape"))
+        val capture=CorrectedPcmWindowCapture(request,AudioIntervalUs(3_000_000,7_000_000),AudioDuration(7_000_000,DurationBasis.FIXTURE))
+        val format=SourcePcmFormat(PcmFormat(48000,2,PcmEncoding.PCM16),SourceFormatBasis.DECODER_OUTPUT)
+        capture.accept(ByteBuffer.allocate(192512*2*2),3_008_000,format,AnalysisControl())
+        assertTrue(capture.reachedEnd)
+        val window=capture.finish(false,AnalysisControl())
+        assertNull(window.invalidReason())
+        assertEquals(191616L,window.coverage.acceptedDecodedFrames)
+        assertEquals(AudioIntervalUs(3_008_000,6_999_972),window.sampleInterval)
+        val engine=object:AnalysisEngine {
+            override val backend=LegacyKotlinAnalysisEngine.BACKEND
+            override fun analyze(window:DecodedWindow,detail:AnalysisDetail,control:AnalysisControl):AnalysisResult =
+                throw AssertionError("Missing-head PCM must not reach the analyzer")
+        }
+        val pipeline=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(window)},engine,PcmPreprocessing.BANDLIMITED)
+        val result=pipeline.analyze(Unit,request,AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed
+        assertEquals(AnalysisFailureStage.INPUT_VALIDATION,result.failure.stage)
+        assertEquals(AutoMixFailure.INSUFFICIENT_AUDIO_DATA,result.failure.category)
+        assertEquals("PARTIAL_SOURCE_COVERAGE",result.failure.code)
+    }
     @Test fun cacheAndInflightDedupCannotSubstitutePreprocessingVersions() {
         val identity=AnalysisSourceIdentity("recording","rendition")
         val old=AnalysisProfile(LegacyKotlinAnalysisEngine.BACKEND,PcmPreprocessing.LEGACY)

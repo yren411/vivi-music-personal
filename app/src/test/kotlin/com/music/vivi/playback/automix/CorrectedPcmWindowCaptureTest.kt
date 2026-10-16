@@ -104,9 +104,10 @@ class CorrectedPcmWindowCaptureTest {
     }
     @Test fun lateFirstPtsCanReachRequestedEndWithoutCodecEosAndStillHavePartialCoverage() {
         val c=capture(3_000_000,7_000_000,9_000_000)
-        // Illustrative codec-buffer contract, NOT measured Samsung PTS. 8 ms are
-        // missing at the head; decoded frames nevertheless reach the effective end.
-        c.add(191616,3_008_000,48000)
+        // Replay the reported Samsung seek geometry: first PTS 3.008s and 192512
+        // decoded frames, of which only 191616 intersect the 7s clamped endpoint.
+        // This is a generated PCM contract replay, not another MediaCodec execution.
+        c.add(192512,3_008_000,48000)
         assertTrue(c.reachedEnd)
         val w=c.finish(false,AnalysisControl())
         assertNull(w.invalidReason())
@@ -114,6 +115,10 @@ class CorrectedPcmWindowCaptureTest {
         assertEquals(listOf(AudioIntervalUs(3_008_000,7_000_000)),w.coverage.intervals)
         assertEquals(CoverageStatus.PARTIAL,w.coverage.status(w.decodeInterval))
         assertEquals(3_008_000L,w.sampleTimelineStartUs)
+        assertEquals(191616L,w.coverage.acceptedDecodedFrames)
+        assertEquals(88023,w.frameCount)
+        assertEquals(AudioIntervalUs(3_008_000,6_999_972),w.sampleInterval)
+        assertEquals(0L,w.repeatedOutputFrames)
         assertEquals(0L,w.preparation!!.synthesizedTimelineFrames)
     }
     @Test fun endpointClampRetainsOriginalRequestAndExtractorDuration() {

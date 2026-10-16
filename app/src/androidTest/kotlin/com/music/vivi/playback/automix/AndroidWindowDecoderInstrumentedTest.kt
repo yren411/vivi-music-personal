@@ -48,20 +48,55 @@ class AndroidWindowDecoderInstrumentedTest {
         withSource("tone-48000-stereo.m4a"){source ->
             val w=decode(source,AnalysisPreprocessing.BANDLIMITED,3_000_000,9_000_000)
             // Include only controlled decoder fields, not a source URI or arbitrary logcat.
-            // No EOS does not itself prove full coverage: seeking can leave a leading hole
-            // while capture still reaches the endpoint. Keep the strict check while actual
-            // device PTS evidence is collected; do not silently admit partial planner input.
+            // Codec EOS, reaching the endpoint, and complete source coverage are independent.
+            // The Samsung run starts at 3.008s after a 3s seek. Preserve that missing head;
+            // test the actual coverage contract instead of requiring invented leading PCM.
+            val diagnostic=requireNotNull(w.decoderDiagnostic)
             val context="Seek coverage validation; sampleInterval="+w.sampleInterval+
-                "; sampleOriginUs="+w.sampleTimelineStartUs+"; "+w.decoderDiagnostic!!.reportFields()
-            assertEquals(AudioIntervalUs(3_000_000,9_000_000),w.requested)
-            assertTrue(w.decodeInterval.endUs<9_000_000)
-            assertEquals(CoverageStatus.PARTIAL,w.coverageStatus)
-            assertTrue(w.actualStartUs!!>=3_000_000);assertTrue(w.actualEndUs!!<=w.decodeInterval.endUs)
-            assertTrue(w.sampleInterval!!.endUs<=w.actualEndUs!!)
-            // Filling the interval may finish before input EOF or codec EOS. Do not require
-            // an event the decoder need not observe, or mistake boundary EOS for natural EOF.
-            if (w.endOfStreamReached == true) assertNotEquals(context,DecoderInputEnd.UNKNOWN,w.decoderDiagnostic.inputEnd)
-            else assertEquals(context,CoverageStatus.FULL,w.coverage.status(w.decodeInterval))
+                "; sampleOriginUs="+w.sampleTimelineStartUs+"; "+diagnostic.reportFields()
+            assertNull(context,w.invalidReason())
+            assertEquals(context,AudioIntervalUs(3_000_000,9_000_000),w.requested)
+            assertEquals(context,AudioIntervalUs(3_000_000,7_000_000),w.decodeInterval)
+            assertEquals(context,CoverageStatus.PARTIAL,w.coverageStatus)
+            val accepted=requireNotNull(w.coverage.intervals).single()
+            assertTrue(context,accepted.startUs>=w.decodeInterval.startUs)
+            // Keep the fixture's endpoint requirement strict. A late start is not permission
+            // to silently truncate the tail, invent internal continuity, or add padded audio.
+            assertEquals(context,w.decodeInterval.endUs,accepted.endUs)
+            assertEquals(context,0,w.preparation!!.gapCount)
+            assertEquals(context,0L,w.preparation.synthesizedTimelineFrames)
+            assertEquals(context,0L,w.repeatedOutputFrames)
+            assertEquals(context,w.coverage.acceptedDecodedFrames,w.preparation.acceptedSourceFrames)
+            assertTrue(context,w.sampleTimelineStartUs>=accepted.startUs)
+            assertTrue(context,w.sampleTimelineStartUs-accepted.startUs<1000)
+            val materialized=requireNotNull(w.sampleInterval)
+            assertTrue(context,materialized.endUs<=accepted.endUs)
+            assertTrue(context,accepted.endUs-materialized.endUs<1_000_000L/22050+1)
+            val status=w.coverage.status(w.decodeInterval)
+            assertEquals(context,if(accepted.startUs==w.decodeInterval.startUs) CoverageStatus.FULL else CoverageStatus.PARTIAL,status)
+            assertEquals(context,w.endOfStreamReached,diagnostic.codecEos)
+            if(w.endOfStreamReached==true) assertNotEquals(context,DecoderInputEnd.UNKNOWN,diagnostic.inputEnd)
+            if(status==CoverageStatus.FULL) {
+                assertEquals(context,DecoderFailureSubtype.NONE,diagnostic.subtype)
+                assertNull(context,diagnostic.category)
+            } else {
+                assertEquals(context,DecoderFailureSubtype.PARTIAL_SOURCE_COVERAGE,diagnostic.subtype)
+                assertEquals(context,AutoMixFailure.INSUFFICIENT_AUDIO_DATA,diagnostic.category)
+                // Exercise the real pipeline with the ACTUAL codec result. No incomplete
+                // audio may reach musical analysis or the planner, even without codec EOS.
+                val engine=object:AnalysisEngine {
+                    override val backend=LegacyKotlinAnalysisEngine.BACKEND
+                    override fun analyze(window:DecodedWindow,detail:AnalysisDetail,control:AnalysisControl):AnalysisResult =
+                        throw AssertionError("Partial seek window reached musical analysis; "+context)
+                }
+                val pipeline=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(w)},engine,PcmPreprocessing.BANDLIMITED)
+                val result=pipeline.analyze(Unit,DecodeRequest(w.requested,w.identity),AnalysisDetail.SCAN,AnalysisControl())
+                assertTrue(context,result is AnalysisResult.Failed)
+                val failure=(result as AnalysisResult.Failed).failure
+                assertEquals(context,AnalysisFailureStage.INPUT_VALIDATION,failure.stage)
+                assertEquals(context,AutoMixFailure.INSUFFICIENT_AUDIO_DATA,failure.category)
+                assertEquals(context,"PARTIAL_SOURCE_COVERAGE",failure.code)
+            }
         }
     }
     @Test fun cancellationDuringActiveDecodeReleasesResourcesBeforeNextRequest() {

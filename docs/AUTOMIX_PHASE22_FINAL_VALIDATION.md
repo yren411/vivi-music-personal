@@ -4,48 +4,61 @@ PR: [#17](https://github.com/yren411/vivi-music-personal/pull/17).
 Reviewed starting head: `18d294428bf26282550d11ec63154319343412a5`.
 See [the PCM contract and measurements](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
 
-## Samsung seek-test failure: investigation in progress
+## Samsung seek-test failure: cause identified; device rerun pending
 
-The owner ran the connected GMS tests on the phone and reported
-`seekAndEndpointClampKeepPartialCoverageHonest` failing at the strict effective
-coverage assertion: expected `FULL`, actual `PARTIAL`, without observed codec EOS.
-This is actual device evidence of that assertion failing, not a cloud runtime
-result. The supplied stack trace does not contain accepted source intervals,
-first/last codec PTS, source-frame counts or the size/location of missing coverage.
-No conclusion about the other three test outcomes is inferred from this excerpt.
+The owner ran the connected GMS test through Android Studio against `SM-S938U`,
+Android 17. The updated failure message for
+`seekAndEndpointClampKeepPartialCoverageHonest` supplies actual device evidence:
 
-Code review confirms that `CorrectedPcmWindowCapture.reachedEnd` and codec EOS are
-independent of complete interval coverage. A late first accepted frame can leave a
-leading hole while capture reaches the requested endpoint without observing EOS.
-A new JVM regression exercises that case with explicitly **illustrative** 3.008 s
-first PTS and 7 s effective end; those values are not claimed as phone measurements.
-The pipeline regression also verifies that missing-head coverage is rejected.
+| Field | Reported value | Interpretation |
+| --- | --- | --- |
+| Requested / effective interval | 3..9 s / 3..7 s | Correct clamp to the generated file's 7 s duration |
+| First codec PTS / accepted source | 3.008 s / 3.008..7 s | 8 ms are missing at the head, not the tail |
+| Codec / accepted source frames | 192,512 / 191,616 at 48 kHz | PCM after the endpoint is correctly trimmed |
+| Materialized output | 88,023 frames; 3.008..6.999972 s | Floor-rounded 22,050-Hz sample count; 28 us remainder is not repeated |
+| Coverage subtype | `PARTIAL_SOURCE_COVERAGE` | Honest missing-head status |
+| Codec EOS / input end | false / `NATURAL_EOS` | Input EOF was observed; output capture reached the endpoint before observing codec EOS |
+| Repetition / synthesized timeline / internal gaps | 0 / 0 / 0 | No invented leading audio or internal gap filling |
+| Decode elapsed time | 479,979 us | This request did not hit the 25 s decoder deadline |
 
-This does **not** yet establish whether the actual phone failure is a leading
-hole, endpoint/timestamp rounding, or another codec/container discrepancy. The
-strict failing instrumentation assertion is retained. Its message now includes
-the typed, sanitized decoder report plus the materialized sample origin/interval,
-so the next run can identify the measured missing region. No production code,
-coverage threshold, preprocessing version or cache semantics changed in this
-diagnostic follow-up. Keep the PR unmerged pending diagnosis and rerun.
+**Confirmed test defect:** the assertion incorrectly inferred full effective
+coverage from lack of observed codec EOS. A late first output buffer can leave a
+leading hole while capture reaches the endpoint. `reachedEnd`, complete coverage,
+extractor EOF and codec EOS are different facts. The report does not establish
+whether extractor seek behavior or AAC decoder priming caused the late first
+output; no change to either is claimed. It is an automated test failure, not an
+observed music-playback crash or a musical-analysis result.
 
-For this follow-up, **195 GMS + 195 FOSS focused JVM tests executed and passed**
-(390 total, zero failures/errors/skips). Both Android test variants' Kotlin
-sources compiled; aggregate compile tasks reused other valid outputs. No Android
-runtime test was executed in the cloud. The prior 194-per-variant counts below
-describe the earlier review, before the new regression was added.
+The test now validates the actual contract: the original request and exact clamp,
+known contiguous source coverage reaching the fixture's endpoint, no synthetic
+frames or internal gaps, and correctly bounded materialized PCM. A late start
+must produce partial diagnostics and the **actual decoded window** must be
+rejected by `WindowAnalysisPipeline` at input validation, before the analysis
+engine can run. Full effective coverage still requires a clean diagnostic.
+Codec EOS remains independently checked. This corrects a disproven implication;
+it does not admit partial data to analysis or the planner.
 
-On the PR branch, update with `git pull --ff-only`, then run only the failing case
-from Android Studio's PowerShell terminal:
+The JVM regression replays the reported PTS/frame geometry with generated PCM,
+including endpoint trimming, the exact output sample count, zero padding and
+pipeline rejection. That replay is not another MediaCodec runtime test. No
+production code, preprocessing version, coverage threshold or cache semantics
+changed. The missing 8 ms have **not** been recovered; such a partial window still
+requires an existing bounded retry or safe fallback. Earlier codec preroll, if
+needed, is separate decoder work requiring source/runtime validation.
 
-```powershell
-.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest#seekAndEndpointClampKeepPartialCoverageHonest" --no-configuration-cache --no-daemon --stacktrace
-```
+The current correction passed **196 GMS + 196 FOSS focused JVM tests** (392 total,
+zero failures/errors/skips), including the exact generated PCM geometry and
+pre-analysis rejection regression. Both Android test variants' Kotlin sources
+compiled; aggregate tasks reused other valid outputs. No Android runtime test
+was executed in the cloud. The earlier 194/195-per-variant counts describe prior
+reviews. Neither a passing updated device run nor the other three test outcomes
+is inferred from the reported failure. Keep the PR unmerged until the full
+four-method device rerun succeeds.
 
-Copy the complete assertion message beginning `Seek coverage validation` from the
-HTML test report. It includes only controlled decoder metadata, not private URLs,
-music titles, credentials or raw PCM. Do not substitute an unrestricted logcat dump.
-After the cause is resolved, rerun all four methods using the commands below.
+On the PR branch, update with `git pull --ff-only`, then rerun **all four methods**
+using the full-class PowerShell command below. Keep the complete assertion message
+if any test fails; it includes typed decoder metadata, not private media URLs,
+titles, credentials or raw PCM. Do not substitute an unrestricted logcat dump.
 
 ## Runtime availability
 
@@ -70,10 +83,10 @@ Compilation and JVM checks are separate evidence, reported below.
    validation observer now cancels after actual nonempty PCM output is accepted.
    The test requires positive accepted-frame count and the PCM-conversion stage,
    then runs another decode to check continuation. Production uses no observer.
-3. **Window completion versus EOS:** the seek test no longer requires input EOF
-   merely because the requested/clamped interval is complete. If codec EOS was
-   observed, an input-end cause must be known; otherwise full effective coverage
-   is required. Natural EOF and requested-boundary EOS remain distinct. EOS flags
+3. **Window completion versus EOS:** the seek test no longer infers full interval
+   coverage from a completed endpoint without codec EOS. It checks actual coverage
+   and rejects any partial window before musical analysis. If codec EOS was
+   observed, an input-end cause must be known. Natural EOF and requested-boundary EOS remain distinct. EOS flags
    are recorded as soon as the output buffer is observed, even if conversion or
    cancellation subsequently fails.
 4. **Safe phone test installation:** ordinary debug and release builds share the
