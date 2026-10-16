@@ -130,3 +130,5 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Correct the Windows PowerShell instrumentation-test command to quote complete
   dotted Gradle properties, avoiding an Android-extension/protobuf configuration
   collision without changing toolchain or plugin versions.
+- Document restoring the existing local debug keystore before Android decoder
+  tests, without replacing permanent keys or changing signing configuration.

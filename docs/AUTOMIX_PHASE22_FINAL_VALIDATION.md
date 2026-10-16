@@ -93,8 +93,9 @@ Codex session cannot access the USB phone automatically.
 1. In Android Studio, get `yren411/vivi-music-personal` and select branch
    `codex/automix-pcm-resampling-diagnostics` (or updated `main` after merging).
    Select **JDK 21** for Gradle and install **Android SDK 37** using SDK Manager.
-   Let the project sync. Use the ordinary local debug signing setup; never copy
-   release secrets into the project or change any permanent keystore.
+   Let the project sync. Restore the existing local debug keystore as described
+   below if it is missing; never copy release secrets into the project or change
+   any permanent keystore.
 2. On the phone, open Settings → About phone → Software information, tap **Build
    number** seven times, then enable **USB debugging** in Developer options.
    Connect a data-capable USB cable, unlock the phone, and accept the computer's
@@ -119,6 +120,42 @@ bash gradlew :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true"
 
 The first retry disables configuration-cache reuse for a fresh configuration.
 It does not delete caches or change repository settings.
+
+### Missing local debug keystore
+
+`validateSigningArm64GmsDebug` failing with **"Keystore file ... not found for
+signing config 'debug'"** is a local prerequisite failure, before installation
+or test execution. It does not demonstrate a decoder failure. The current debug
+configuration explicitly reads `<Java user.home>/.android/debug.keystore`.
+Trusted cloud builds restore the persistent debug key from their existing secret;
+Android Studio on another computer does not automatically have that file.
+
+Reuse your **existing debug key**, not your release key. The Windows signing guide
+uses `%USERPROFILE%\TiniumSigning\tinium-debug.keystore` as its backup location.
+If that is where you kept it, this PowerShell block restores a copy without
+overwriting a destination or changing the backup:
+
+```powershell
+$DebugSource = Join-Path $env:USERPROFILE 'TiniumSigning\tinium-debug.keystore'
+$DebugDestination = Join-Path $env:USERPROFILE '.android\debug.keystore'
+if (-not (Test-Path -LiteralPath $DebugSource -PathType Leaf)) {
+    throw 'Existing debug-key backup not found. Locate your original debug keystore; do not generate a replacement or use the release key.'
+}
+if (Test-Path -LiteralPath $DebugDestination) {
+    throw 'Destination already exists. Leave it unchanged and investigate the current error.'
+}
+New-Item -ItemType Directory -Force -Path (Split-Path $DebugDestination) | Out-Null
+[System.IO.File]::Copy($DebugSource, $DebugDestination, $false)
+```
+
+Use the exact destination printed by Gradle if its Java home directory differs
+from `%USERPROFILE%`. If your original backup is elsewhere, change only
+`$DebugSource` to that existing local debug-key path. Do not upload the key or
+paste its contents/passwords into chat. If you cannot locate it, stop and recover
+the existing backup rather than following key-generation instructions. This step
+needs no repository, GitHub Secret, signing configuration or certificate change.
+Then rerun the fully quoted connected-test command above. An already-present key
+with an alias/password error is a different failure; do not overwrite it.
 
 The isolated target is `com.yren411.tinium.decodercheck`; the test package is
 `com.yren411.tinium.decodercheck.test`. Your installed `com.yren411.tinium` beta,
