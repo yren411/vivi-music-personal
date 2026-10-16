@@ -189,6 +189,13 @@ and already disappears on app/service restart. A steady backend/rendition/window
 continues hitting cache; canceled work cannot overwrite fresh results, and valid
 completed results remain reusable across invalidation.
 
+Completed cacheable futures are harvested under the worker lock during
+invalidation. `FutureTask.get()` can return before `done()` obtains that lock;
+clearing the in-flight map alone would lose an already completed result. Failed,
+canceled and non-cacheable tasks are excluded. A delayed callback publishes only
+while it still owns its in-flight entry, including during shutdown. Deterministic
+tests hold that lock across completion/invalidation without sleeps.
+
 Future engines must use distinct profiles and preserve qualified coverage through
 their own planning/cache adapter. They must not populate the optional internal
 legacy payload or masquerade as backend version5.
@@ -311,6 +318,13 @@ Subsequent Phase 2.2 changes are listed below; the silence-level gain policy rem
 Phase 3 work.
 
 ## Phase 2.2 extension
+
+Phase 2.3B subsequently versions corrected input as
+`sinc64-blackman-initial-preroll-mono-22050-v3` to preserve initial AAC priming
+packets rather than explicitly seeking to zero. Historical v2 and current v3
+profiles/cache keys remain distinct; a v2 window cannot enter a v3 pipeline.
+Legacy production selection is unchanged. See the
+[Android integration follow-up](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md).
 
 [PCM decoding and resampling](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md) adds the
 internally selectable `sinc64-blackman-mono-22050-v2` path, preparation metadata,

@@ -42,6 +42,13 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
 
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_static", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+                targets += "tinium_automix"
+            }
+        }
+
         // LastFM API keys from GitHub Secrets
 //        val lastFmKey = localProperties.getProperty("LASTFM_API_KEY") ?: System.getenv("LASTFM_API_KEY") ?: ""
 //        val lastFmSecret = localProperties.getProperty("LASTFM_SECRET") ?: System.getenv("LASTFM_SECRET") ?: ""
@@ -60,6 +67,16 @@ android {
     }
 
     flavorDimensions += listOf("abi", "variant")
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
+    }
+    sourceSets {
+        getByName("test").kotlin.directories += "src/nativeTestShared/kotlin"
+        getByName("androidTest").kotlin.directories += "src/nativeTestShared/kotlin"
+    }
     productFlavors {
         // FOSS variant (default) - F-Droid compatible, no Google Play Services
         create("foss") {
@@ -221,6 +238,40 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
         )
         suppressWarnings.set(false)
     }
+}
+
+// Optional genuine host-JNI tests. Android tests always load the packaged Android library.
+tasks.withType<Test>().configureEach {
+    providers.gradleProperty("automixNativeHostLibrary").orNull?.let {
+        val library = file(it).absoluteFile
+        systemProperty("tinium.hostNativeLibrary", library.path)
+        systemProperty("java.library.path", library.parent)
+        // A rebuilt .so at the same path must invalidate real-JNI test results.
+        inputs.file(library).withPropertyName("autoMixNativeHostLibrary").withPathSensitivity(PathSensitivity.NONE)
+    }
+}
+
+// Keep AGPL/runtime texts and source/modification notices with the native program.
+abstract class GenerateAutoMixNativeNotices : DefaultTask() {
+    @get:InputFiles abstract val upstreamNotices: ConfigurableFileCollection
+    @get:InputFile abstract val jniNotice: RegularFileProperty
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+    @TaskAction fun generate() {
+        val destination = outputDirectory.dir("licenses/bitchord-automix").get().asFile
+        destination.mkdirs()
+        upstreamNotices.files.forEach { it.copyTo(destination.resolve(it.name), overwrite = true) }
+        jniNotice.get().asFile.copyTo(destination.resolve("JNI-NOTICE.md"), overwrite = true)
+    }
+}
+val autoMixNativeNotices = tasks.register<GenerateAutoMixNativeNotices>("generateAutoMixNativeNotices") {
+    upstreamNotices.from(listOf("COPYING", "NOTICE.md", "provenance.json").map {
+        rootProject.file("experiments/bitchord-native-analysis/$it")
+    }, file("src/main/cpp/NDK-LIBCXX-NOTICE"))
+    jniNotice.set(layout.projectDirectory.file("src/main/cpp/NOTICE.md"))
+    outputDirectory.set(layout.buildDirectory.dir("generated/automixNativeNotices"))
+}
+androidComponents.onVariants { variant ->
+    variant.sources.assets?.addGeneratedSourceDirectory(autoMixNativeNotices, GenerateAutoMixNativeNotices::outputDirectory)
 }
 
 dependencies {

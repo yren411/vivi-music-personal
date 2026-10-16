@@ -4,7 +4,9 @@ Working standalone C++17 DSP, based on BitChord revision
 `fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f`. **AGPLv3-or-later**;
 read [NOTICE.md](NOTICE.md), [COPYING](COPYING) and
 [provenance.json](provenance.json). This directory can be built separately.
-Tinium's Android application does not build, load or enable it.
+Phase 2.3B reuses this authoritative source tree through an experimental Android
+JNI target; normal AutoMix still does not load or select it. See
+[`AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md`](../../docs/AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md).
 
 ## Build and test
 

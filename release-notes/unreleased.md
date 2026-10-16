@@ -146,3 +146,25 @@ This is an unversioned draft for review. No release version or tag is assigned.
   Production AutoMix, legacy preprocessing, playback and EQ behavior are unchanged.
   Confidence false positives and metrical ambiguity remain documented limitations;
   this phase does not claim improved audible transitions or Android runtime testing.
+
+## Experimental Android native analysis foundation
+
+- Add an internally selectable BitChord/Orchard native analysis backend through
+  bounded JNI, using corrected PCM, explicit beat timestamps, qualified evidence
+  and a separately identified legacy fallback. Preserve source and license notices.
+- Add real-JNI host tests, Android integration tests and native APK packaging checks.
+  Normal AutoMix still uses the existing Kotlin analyzer and legacy preprocessing;
+  no setting, playback transition, lyrics or EQ behavior changes. Android runtime
+  validation and musical-confidence calibration remain required before activation.
+- Preserve completed analysis cache entries across cancellation/invalidation even
+  when their completion callbacks are delayed, avoiding unnecessary decoding.
+  Keep canceled/failed work out of the cache and prevent late callbacks from
+  repopulating it after shutdown. Playback and backend defaults are unchanged.
+- Include controlled decoder coverage and timestamp details in native Android
+  codec-test failures, and attempt both generated AAC and FLAC fixtures without
+  weakening their assertions. Phone diagnostics identified a one-frame AAC head
+  loss before JNI. Preserve initial priming packets in corrected decoding with a
+  separately versioned v3 input/cache identity; keep legacy decoding unchanged.
+  The owner confirmed the targeted AAC/FLAC integration test passed on the S25
+  Ultra with Android 17; full regression and musical-quality validation remain
+  separate requirements before experimental production activation.

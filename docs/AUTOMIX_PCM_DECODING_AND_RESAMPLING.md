@@ -1,5 +1,14 @@
 # AutoMix PCM decoding and resampling — Phase 2.2
 
+**Subsequent Phase 2.3B correction:** the current internal corrected selector uses
+`sinc64-blackman-initial-preroll-mono-22050-v3`. It omits the unnecessary zero-start
+extractor seek so negative-PTS AAC priming packets remain available to the codec.
+The v2 contract below documents the original Phase 2.2 implementation; its ID is
+reserved and never relabeled as v3. Filter/downmix arithmetic, nonzero seeks, source
+budgets and the legacy production default are unchanged. See the
+[native integration device follow-up](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md)
+for observed phone geometry, regression tests and device validation status.
+
 Starting main: `3071ac58d57356246436c3e1c45b545dcc013ab4` (merged PR #16).
 References: [Phase 1 investigation](BITCHORD_AUTOMIX_PORT_FEASIBILITY.md) and
 [Phase 2.1 contracts](AUTOMIX_ANALYSIS_ENGINE_ARCHITECTURE.md).

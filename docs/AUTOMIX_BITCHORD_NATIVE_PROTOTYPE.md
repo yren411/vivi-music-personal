@@ -1,5 +1,10 @@
 # Phase 2.3A — standalone BitChord native DSP prototype
 
+This is the historical Phase 2.3A baseline report. The later, inactive-by-default
+Android/JNI integration is documented in
+[Phase 2.3B](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md); the prototype remains
+independently buildable and its benchmark source/results are preserved.
+
 ## Scope and source baseline
 
 This phase implements and executes the real BitChord native rhythm algorithm in

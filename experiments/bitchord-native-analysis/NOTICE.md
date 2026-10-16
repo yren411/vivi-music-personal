@@ -1,9 +1,10 @@
 # Standalone native rhythm-analysis experiment
 
-This directory is a separate AGPL-3.0-or-later program, distributed alongside
-Tinium for review. It is not linked into Tinium, does not use its Android build,
-and contains no lyrics implementation, network provider, player or model assets.
-It can be copied and built on its own. This notice does not change the licensing
+This directory is an independently buildable AGPL-3.0-or-later program. Phase
+2.3A distributed it separately; Phase 2.3B also links its static core through an
+experimental Tinium JNI adapter. Normal production AutoMix does not select it.
+It contains no lyrics implementation, network provider, player or model assets
+and can still be copied and built on its own. This notice does not change the licensing
 of Tinium's other files or establish permission to distribute a future combined
 Android application.
 
@@ -42,6 +43,9 @@ make drift fail at configure time. `src/analyzer.cpp` adds bounded validation,
 timing, error mapping, an exact-silence status and trailing-event validation.
 It does not replace BitChord's detector. `reference_cli` builds the original
 functions through the same public result-validation wrapper for comparison.
+Phase 2.3B additionally adds a synchronous, optional analysis-stage observer to
+`Control`/the wrapper for JNI cancellation tests, and optional standalone shared
+library generation. No upstream DSP file or numerical algorithm is changed.
 
 The optional `LegacyBaseline.java` tool communicates only with a separate JVM
 process running selected nonrestricted Tinium musical-analyzer classes. No
