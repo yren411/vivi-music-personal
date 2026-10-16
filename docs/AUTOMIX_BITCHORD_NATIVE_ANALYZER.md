@@ -2,12 +2,24 @@
 
 ## Delivery status
 
-**Blocked before code import; no optional native backend is implemented by this
-PR.** This is the hard-blocker outcome permitted by the Phase 2.3 task, not a
-finished native feature or a placeholder engine. See the dedicated
-[source/licensing evidence and inventory](AUTOMIX_BITCHORD_NATIVE_LICENSING.md).
-The selected AGPL files and Tinium's restricted lyrics module require a resolved
-permission/compatibility review before they can be combined in this project.
+**No optional native backend is implemented by this PR.** The revised
+[source/licensing reassessment](AUTOMIX_BITCHORD_NATIVE_LICENSING.md) recognizes
+`rules.md` as conditional public GPL reuse evidence, correcting the initial
+review's omission of a file already present in Tinium. Earlier valid GPL grants
+are not automatically revoked by a later header, and GPLv3 section 13 permits
+GPL/AGPL combinations; that combination is not itself a blanket blocker.
+
+The remaining question is whether the unchanged reuse rules cover all later
+module contributions despite the next-day explicit proprietary relicensing and
+retained conflicting notices. Current upstream also has later generic GPL headers
+above those notices; Tinium's actual module versions do not. The report identifies
+specific rights-holder clarification/provenance work and the exact source/UI
+credits needed. Neither document is automatically given precedence, and no
+module removal or license/header rewriting is performed.
+
+This revision is the requested **documentation-only reassessment**. Even a resolved
+permission interpretation would not authorize native import or app changes during
+this task. Phase 2.3 remains incomplete and production stays legacy.
 
 Inspected Tinium main: `e3f1fb2abb8d79f959ee55c687223c26067d53ca`, the merge of
 PR #17. Pinned BitChord main after a fresh fetch:
@@ -180,9 +192,14 @@ instrumentation, invalid output/array tests, availability/fallback, deadline and
 cancellation tests, repeated cleanup and all-ABI/16 KB packaging checks. Compare
 permitted local music separately without committing copyrighted recordings.
 
-## Validation performed for this documentation-only PR
+## Initial PR #18 baseline validation
 
-Executed on the cloud Linux/JDK 21 environment:
+The following baseline ran for the initial documentation-only PR #18, before the
+rules.md reassessment. It was **not rerun** for this documentation-only update.
+The new review validates Git ancestry/patches, source identities, license wording
+and document links; it does not compile, import or test a native implementation.
+
+Previously executed on the cloud Linux/JDK 21 environment:
 
 ```sh
 bash gradlew :app:testArm64GmsDebugUnitTest --rerun --tests 'com.music.vivi.playback.automix.*' --tests 'com.music.vivi.playback.effects.*' :app:testUniversalFossDebugUnitTest --rerun --tests 'com.music.vivi.playback.automix.*' --tests 'com.music.vivi.playback.effects.*' :app:compileArm64GmsDebugAndroidTestSources :app:compileUniversalFossDebugAndroidTestSources "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon
@@ -218,8 +235,11 @@ Do not use a hypothetical native class name and mistake a zero-test run for succ
 
 ## Continuation checkpoints
 
-1. **Rights gate:** review the permission evidence or separately authorized
-   restricted-module resolution, record the conclusion and retain required grants.
+1. **Current-version permission and attribution gate:** reconcile the public reuse
+   rules with the July-6 relicensing/later contributions, via clarification or
+   version-specific GPL provenance. Record applicable permissions and implement
+   required visible/source/documentation credits in a separately approved change;
+   do not assume module removal or a special GPL/AGPL exception is necessary.
 2. **Minimal host algorithm:** import only the cleared inventory with notices and
    source manifest; add cooperative cancellation and generated-corpus tests before
    adding app JNI. Stop if false positives, grid timing or metrical ambiguity cannot
