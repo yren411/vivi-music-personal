@@ -95,6 +95,7 @@ import com.music.vivi.constants.CrossfadeManualSkipKey
 import com.music.vivi.constants.AutoMixEnabledKey
 import com.music.vivi.constants.AutoMixPerformanceKey
 import com.music.vivi.playback.automix.*
+import androidx.media3.datasource.DataSpec
 import com.music.vivi.constants.DisableLoadMoreWhenRepeatAllKey
 import android.os.Handler
 import android.os.Looper
@@ -284,6 +285,18 @@ class MusicService :
     private var crossfadeManualSkipEnabled = false
     private var crossfadeCurve = CrossfadeCurve.EASE_OUT_QUAD
     private var crossfadeTriggerJob: Job? = null
+    @Volatile private var autoMixEngineMode = AutoMixEngineMode.LEGACY
+    private var nativeAutoMix:NativeAutoMixServiceController<AnalysisSource>?=null
+    private var nativePlayback:Media3NativeDjPlayback?=null
+    private var nativePromoting=false
+    private val analysisConcurrencyBudget=AnalysisConcurrencyBudget()
+    private var nativeForwardingPlayback=false
+    private var nativePerformance=AutoMixPerformance.BALANCED
+    private var nativeStartup:NativeDjStartupObservation?=null
+    private var nativeStartCommand:Triple<ExoPlayer,Long,Long>?=null
+    private var nativePairGeneration=0L
+    private var nativePairKey:NativeQueueBinding?=null
+    private val nativeSources=NativeRenditionRegistry<AnalysisSource>()
     private var autoMixRequested = false
     private var autoMixFocusGain = 1f
     val autoMixRecorder = com.music.vivi.playback.automix.AutoMixRecorder()
@@ -297,6 +310,8 @@ class MusicService :
     private var autoMixResolveNextId: String? = null
     private var autoMixResolveRetryAt = 0L
     private var intelligentAutoMix: AutoMixController? = null
+    private var legacyAutoMixEnabled=false
+    private var nativeFallbackReason:String?=null
     private var autoMixTicker: Job? = null
     private var autoMixQueueEpoch = 0L
     private val autoMixProcessors = HashMap<ExoPlayer, AutoMixAudioProcessor>()
@@ -313,6 +328,7 @@ class MusicService :
         val curve: CrossfadeCurve,
         val autoMix: Boolean,
         val performance: AutoMixPerformance,
+        val engineMode:AutoMixEngineMode,
     )
 
     /**
@@ -386,6 +402,7 @@ class MusicService :
         // Immediately update player volume to ensure it takes effect
         player.volume = if (newMutedState) 0f else playerVolume.value
         autoMixDecks.values.forEach { it.applyUserVolume() }
+        nativeAutoMix?.volumeChanged()
     }
 
     fun setMuted(muted: Boolean) {
@@ -394,9 +411,11 @@ class MusicService :
         // This handles cases where the player reference may have changed
         player.volume = if (muted) 0f else playerVolume.value
         autoMixDecks.values.forEach { it.applyUserVolume() }
+        nativeAutoMix?.volumeChanged()
     }
 
-    fun setPreferredAudioDevice(deviceId: Int?) { // this helps us to change between devices
+    fun setPreferredAudioDevice(deviceId: Int?) {
+        invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED) // this helps us to change between devices
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val deviceInfo = devices.find { it.id == deviceId }
@@ -528,10 +547,12 @@ class MusicService :
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
+            invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED)
             Timber.tag("TiniumAudioSession").i("event=route-removed types=%s", removedDevices?.map { it.type })
         }
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
             super.onAudioDevicesAdded(addedDevices)
+            invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED)
             Timber.tag("TiniumAudioSession").i("event=route-added types=%s", addedDevices?.map { it.type })
             val hasBluetooth = addedDevices?.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
@@ -718,6 +739,7 @@ class MusicService :
                         return@collect
                     }
 
+                    invalidateNative(NativeDjExecutionReason.SOURCE_MISMATCH);nativeSources.clear()
                     Timber.tag("MusicService").i("QUALITY CHANGED: $oldQuality -> $newQuality")
 
                     // Reload current song with new quality
@@ -793,6 +815,7 @@ class MusicService :
         }.collectLatest(scope) {
             player.volume = it
             autoMixDecks.values.forEach { deck -> deck.applyUserVolume() }
+            nativeAutoMix?.volumeChanged()
         }
 
         playerVolume.debounce(1000).collect(scope) { volume ->
@@ -832,6 +855,7 @@ class MusicService :
             .map { (it[SkipSilenceKey] ?: false) to (it[SkipSilenceInstantKey] ?: false) }
             .distinctUntilChanged()
             .collectLatest(scope) { (skipSilence, instantSkip) ->
+                if(skipSilence)invalidateNative(NativeDjExecutionReason.UNSUPPORTED_CAPABILITY)
                 player.skipSilenceEnabled = skipSilence
                 secondaryPlayer?.skipSilenceEnabled = skipSilence
 
@@ -1056,6 +1080,7 @@ class MusicService :
                     curve = prefs[CrossfadeCurveKey].toEnum(CrossfadeCurve.EASE_OUT_QUAD),
                     autoMix = autoMix.enabled,
                     performance = autoMix.performance,
+                    engineMode = autoMix.engineMode,
                 )
             },
             listenTogetherManager.roomState
@@ -1065,6 +1090,12 @@ class MusicService :
         }
             .distinctUntilChanged()
             .collect(scope) { settings ->
+                if(autoMixEngineMode!=settings.engineMode || autoMixRequested!=settings.autoMix)nativeSources.clear()
+                if(autoMixEngineMode!=settings.engineMode || nativePerformance!=settings.performance)
+                    invalidateNative(NativeDjExecutionReason.CANCELED)
+                autoMixEngineMode=settings.engineMode
+                nativePerformance=settings.performance
+                analysisConcurrencyBudget.configure(settings.performance)
                 autoMixRequested = settings.autoMix
                 crossfadeEnabled = settings.enabled
                 crossfadeDuration = settings.durationSeconds * 1000f // Convert to ms
@@ -1087,18 +1118,35 @@ class MusicService :
                         cleanupCrossfade()
                         player.volume = if (isMuted.value) 0f else playerVolume.value
                     }
-                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers(), onStatus = { _autoMixStatus.value = it }, recorder=autoMixRecorder)
+                    if (intelligentAutoMix == null) intelligentAutoMix = AutoMixController(AutoMixServiceHost(), AnalysisWorkers(budget=analysisConcurrencyBudget), onStatus = { if(legacyAutoMixEnabled || !autoMixRequested)_autoMixStatus.value = it.copy(nativeFallback=nativeFallbackReason) }, recorder=autoMixRecorder)
                 }
-                intelligentAutoMix?.configure(autoMixRequested, settings.performance)
+                if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && nativeAutoMix==null) {
+                    nativeAutoMix=NativeAutoMixServiceController(NativeServiceHost(),AndroidNativeAnalysis.createPlanningAnalysis(),
+                        AnalysisWorkers(settings.performance,analysisConcurrencyBudget),autoMixRecorder)
+                }
+                nativeAutoMix?.configure(autoMixRequested,autoMixEngineMode,settings.performance)
+                if(nativeAutoMix==null) {
+                    legacyAutoMixEnabled=autoMixRequested
+                    intelligentAutoMix?.configure(autoMixRequested,settings.performance)
+                }
                 if (playerInitialized.value) setupLoudnessEnhancer()
                 if (autoMixRequested && autoMixTicker?.isActive != true) {
                     autoMixTicker = scope.launch {
                         while (isActive && autoMixRequested) {
-                            try { intelligentAutoMix?.tick() } catch (_: Exception) {
+                            try {
+                                if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL) {
+                                    observeNativeStartup()
+                                    nativeAutoMix?.tick()
+                                }
+                                if(legacyAutoMixEnabled)intelligentAutoMix?.tick()
+                            } catch (_: Exception) {
+                                nativeAutoMix?.technicalFailure()
                                 intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.ANALYSIS_CANCELED)
                                 Timber.tag("AutoMix").w("Transition unavailable; retaining normal playback")
                             }
-                            delay(intelligentAutoMix?.nextTickDelayMs() ?: 1000)
+                            delay(if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL)
+                                minOf(100L,if(legacyAutoMixEnabled)intelligentAutoMix?.nextTickDelayMs() ?: 100L else 100L)
+                                else intelligentAutoMix?.nextTickDelayMs() ?: 1000)
                         }
                     }
                 } else if (!autoMixRequested) {
@@ -1215,7 +1263,7 @@ class MusicService :
         }
     }
 
-    private fun createExoPlayer(publish: Boolean = true, autoMixDeck: Boolean = false): ExoPlayer {
+    private fun createExoPlayer(publish: Boolean = true, autoMixDeck: Boolean = false, pinned:AnalysisSource?=null): ExoPlayer {
         val eqProcessor = CustomEqualizerAudioProcessor()
         equalizerService.addAudioProcessor(eqProcessor)
 
@@ -1230,7 +1278,7 @@ class MusicService :
         }
 
         val player = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(createMediaSourceFactory())
+            .setMediaSourceFactory(createMediaSourceFactory(pinned))
             .setRenderersFactory(createRenderersFactory(eqProcessor, silenceProcessor, mixProcessor, autoMixDeck))
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -1349,6 +1397,7 @@ class MusicService :
             }
         }
         autoMixDecks.values.forEach { it.applyUserVolume() }
+        nativeAutoMix?.volumeChanged()
         intelligentAutoMix?.syncPlaybackState()
     }
 
@@ -2414,6 +2463,7 @@ class MusicService :
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (reason == Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) {
+            if(!nativePromoting)nativeAutoMix?.validateQueue() // unrelated future additions retain the pair
             autoMixQueueEpoch++
             intelligentAutoMix?.playlistChanged(player.currentMediaItem?.mediaId)
         }
@@ -2427,6 +2477,7 @@ class MusicService :
             crossfadeJob?.cancel(); cleanupCrossfade()
             player.volume=if(isMuted.value) 0f else playerVolume.value
         }
+        if(!nativePromoting)invalidateNative(NativeDjExecutionReason.QUEUE_CHANGED)
         intelligentAutoMix?.trackChanged(mediaItem?.mediaId)
         _audioDiagnostics.value=outputFormats[player]?.takeIf { formatTrackIds[player]==mediaItem?.mediaId } ?: AudioDiagnostics()
         // Force Repeat One if the player ignored it and auto-advanced
@@ -2528,13 +2579,35 @@ class MusicService :
         val nextIndex = player.nextMediaItemIndex
         if (nextIndex == C.INDEX_UNSET) return  // no next track (end of queue / repeat-one)
 
-        val nextMediaId = player.getMediaItemAt(nextIndex).mediaId
+        val nativeEpoch=nativeSources.epoch
+        val nextItem=player.getMediaItemAt(nextIndex)
+        val nextMediaId = nextItem.mediaId
+        if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && nextItem.localConfiguration?.uri?.scheme=="file") {
+            val uri=nextItem.localConfiguration!!.uri;val file=java.io.File(requireNotNull(uri.path))
+            nativeSources.remember(nextMediaId,AnalysisSource(uri,nextMediaId,file.length(),"$nextMediaId|local|${file.length()}|${file.lastModified()}|$uri",analysisDataSourceFactory,true),nativeEpoch)
+            return
+        }
 
         // Nothing to do — URL is already cached and hasn't expired
         val cachedEntry = songUrlCache[nextMediaId]
-        if (cachedEntry != null && cachedEntry.second > System.currentTimeMillis()) return
+        if (cachedEntry != null && cachedEntry.second > System.currentTimeMillis() &&
+            (autoMixEngineMode!=AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL || !autoMixRequested || nativeSources.containsKey(nextMediaId))) return
 
         prefetchJob = scope.launch(Dispatchers.IO + SilentHandler) {
+            if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL) {
+                // Reuse already-authorized cache/URL metadata before making a network request.
+                val format=database.format(nextMediaId).first()
+                val length=format?.contentLength ?: 0L
+                if(format!=null && length>0) {
+                    val complete=downloadCache.isCached(nextMediaId,0,length) || playerCache.isCached(nextMediaId,0,length)
+                    val uri=if(complete)nextItem.localConfiguration?.uri else cachedEntry?.takeIf {it.second>System.currentTimeMillis()}?.first?.toUri()
+                    if(uri!=null && isActive) {
+                        nativeSources.remember(nextMediaId,AnalysisSource(uri,nextMediaId,length,
+                            "$nextMediaId|${format.itag}|$length|${format.codecs}|${format.sampleRate}|${if(complete)"cached" else uri}",analysisDataSourceFactory,complete),nativeEpoch)
+                        return@launch
+                    }
+                }
+            }
             Timber.tag(TAG).d("[Prefetch] Resolving stream URL for next track: $nextMediaId")
             val result = runCatching {
                 YTPlayerUtils.playerResponseForPlayback(
@@ -2553,6 +2626,9 @@ class MusicService :
                     Timber.tag(TAG).d("[Prefetch] Cached stream URL for $nextMediaId (expires in ${playbackData.streamExpiresInSeconds}s)")
 
                     playbackData.format?.let { format ->
+                        if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && (format.contentLength ?: 0L)>0)
+                            nativeSources.remember(nextMediaId,AnalysisSource(playbackData.streamUrl.toUri(),nextMediaId,format.contentLength!!,
+                                "$nextMediaId|${format.itag}|${format.contentLength}|${format.mimeType}|${format.audioSampleRate}|${playbackData.streamUrl}",analysisDataSourceFactory),nativeEpoch)
                         val loudnessDb = playbackData.audioConfig?.loudnessDb
                         val perceptualLoudnessDb = playbackData.audioConfig?.perceptualLoudnessDb
                         database.query {
@@ -2615,6 +2691,28 @@ class MusicService :
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        if(!nativeForwardingPlayback) {
+            nativeForwardingPlayback=true
+            try {
+                if(!playWhenReady && reason==Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && nativeAutoMix?.ownsPlayback==true) {
+                    val original=player;val index=player.currentMediaItemIndex
+                    nativePlayback?.outgoingItemReachedEnd();nativeAutoMix?.tick()
+                    if(player===original) {
+                        // A failed end-boundary attempt must not leave the full queue parked
+                        // at the native pause-at-end boundary. Release ownership before advancing.
+                        invalidateNative(NativeDjExecutionReason.UNEXPECTED_EOS)
+                        if(player.currentMediaItemIndex!=index || player.hasNextMediaItem()) {
+                            if(player.currentMediaItemIndex==index)player.seekToNextMediaItem()
+                            player.play()
+                        }
+                    }
+                } else nativeAutoMix?.playbackChanged(playWhenReady)
+            }finally {nativeForwardingPlayback=false}
+        }
+        if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && nativeAutoMix?.ownsPlayback!=true) {
+            if(playWhenReady)nativeStartCommand=Triple(player,System.nanoTime()/1000,player.currentPosition*1000)
+            else {nativeStartup=null;nativeStartCommand=null}
+        }
         intelligentAutoMix?.syncPlaybackState()
         if (isCrossfading) {
             if(playWhenReady) fadingPlayer?.play() else fadingPlayer?.pause()
@@ -2695,6 +2793,7 @@ class MusicService :
     }
 
     override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+        invalidateNative(NativeDjExecutionReason.QUEUE_CHANGED)
         intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.QUEUE_CHANGED)
         updateNotification()
         if (shuffleModeEnabled) {
@@ -2724,6 +2823,7 @@ class MusicService :
     }
 
     override fun onRepeatModeChanged(repeatMode: Int) {
+        invalidateNative(NativeDjExecutionReason.QUEUE_CHANGED)
         intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.QUEUE_CHANGED)
         updateNotification()
         scope.launch {
@@ -2825,6 +2925,7 @@ class MusicService :
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
         super.onPlaybackParametersChanged(playbackParameters)
+        if(playbackParameters.speed!=1f || playbackParameters.pitch!=1f)invalidateNative(NativeDjExecutionReason.UNSUPPORTED_RATE)
         if (playbackParameters.speed != lastPlaybackSpeed) {
             lastPlaybackSpeed = playbackParameters.speed
             discordUpdateJob?.cancel()
@@ -2938,6 +3039,7 @@ class MusicService :
     }
 
     override fun onPlayerError(error: PlaybackException) {
+        invalidateNative(NativeDjExecutionReason.PLAYER_FAILED)
         intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.DECODER_FAILED)
         super.onPlayerError(error)
 
@@ -3441,9 +3543,25 @@ class MusicService :
         }
     }
 
-    private fun createDataSourceFactory(): DataSource.Factory {
+    private fun createDataSourceFactory(pinned:AnalysisSource?=null): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
+            val nativeEpoch=nativeSources.epoch
             val mediaId = dataSpec.key ?: error("No media id")
+            if(pinned!=null && mediaId==pinned.cacheKey)return@Factory dataSpec.withUri(pinned.uri)
+            if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && dataSpec.uri.scheme=="file") {
+                val file=java.io.File(requireNotNull(dataSpec.uri.path))
+                val key="$mediaId|local|${file.length()}|${file.lastModified()}|${dataSpec.uri}"
+                nativeSources.remember(mediaId,AnalysisSource(dataSpec.uri,mediaId,file.length(),key,analysisDataSourceFactory,true),nativeEpoch)
+                return@Factory dataSpec
+            }
+            fun resolved(spec:DataSpec):DataSpec {
+                if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL) {
+                    val format=runBlocking(Dispatchers.IO){database.format(mediaId).first()}
+                    if(format!=null && format.contentLength>0)nativeSources.remember(mediaId,AnalysisSource(spec.uri,mediaId,format.contentLength,
+                        "$mediaId|${format.itag}|${format.contentLength}|${format.codecs}|${format.sampleRate}|${spec.uri}",analysisDataSourceFactory),nativeEpoch)
+                }
+                return spec
+            }
 
             // Check if we need to bypass cache for quality change
             val shouldBypassCache = bypassCacheForQualityChange.contains(mediaId)
@@ -3462,12 +3580,18 @@ class MusicService :
                     playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)
                 ) {
                     scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
+                    if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && contentLength!=null && contentLength>0 &&
+                        (downloadCache.isCached(mediaId,0,contentLength) || playerCache.isCached(mediaId,0,contentLength))) {
+                        val format=runBlocking(Dispatchers.IO){database.format(mediaId).first()}
+                        if(format!=null)nativeSources.remember(mediaId,AnalysisSource(dataSpec.uri,mediaId,contentLength,
+                            "$mediaId|${format.itag}|${format.contentLength}|${format.codecs}|${format.sampleRate}|cached",analysisDataSourceFactory,true),nativeEpoch)
+                    }
                     return@Factory dataSpec
                 }
 
                 songUrlCache[mediaId]?.takeIf { it.second > System.currentTimeMillis() }?.let {
                     scope.launch(Dispatchers.IO) { recoverSong(mediaId) }
-                    return@Factory dataSpec.withUri(it.first.toUri())
+                    return@Factory resolved(dataSpec.withUri(it.first.toUri()))
                 }
             } else {
                 Timber.tag("MusicService").i("BYPASSING CACHE for $mediaId due to quality change")
@@ -3549,16 +3673,18 @@ class MusicService :
 
                 songUrlCache[mediaId] =
                     streamUrl to System.currentTimeMillis() + (nonNullPlayback.streamExpiresInSeconds * 1000L)
-                return@Factory dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH)
+                return@Factory resolved(dataSpec.withUri(streamUrl.toUri()).subrange(dataSpec.uriPositionOffset, CHUNK_LENGTH))
             }
         }
     }
 
-    private fun createMediaSourceFactory() =
+    private fun createMediaSourceFactory(pinned:AnalysisSource?=null) =
         DefaultMediaSourceFactory(
-            createDataSourceFactory(),
+            createDataSourceFactory(pinned),
             ExtractorsFactory {
-                arrayOf(
+                if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL)
+                    androidx.media3.extractor.DefaultExtractorsFactory().createExtractors()
+                else arrayOf(
                     MatroskaExtractor(),        // .webm / Opus
                     FragmentedMp4Extractor(),   // fragmented .mp4 / AAC (YouTube)
                     Mp4Extractor(),             // regular .mp4 / AAC (JioSaavn)
@@ -3726,6 +3852,8 @@ class MusicService :
         serviceDestroyed = true
         isRunning = false
         autoMixTicker?.cancel()
+        nativeAutoMix?.close();nativeAutoMix=null
+        nativePlayback?.close();nativePlayback=null;nativeSources.clear()
         intelligentAutoMix?.close()
         intelligentAutoMix = null
         crossfadeTriggerJob?.cancel()
@@ -3911,6 +4039,7 @@ class MusicService :
         reason: Int
     ) {
         if (reason != Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
+            if(!nativePromoting)invalidateNative(NativeDjExecutionReason.USER_SEEK)
             intelligentAutoMix?.invalidate(com.music.vivi.playback.automix.AutoMixFailure.SEEK)
             if (isCrossfading) {
                 crossfadeJob?.cancel()
@@ -3920,6 +4049,147 @@ class MusicService :
         }
         if (reason == Player.DISCONTINUITY_REASON_SEEK) {
             scheduleCrossfade()
+        }
+    }
+
+    /** Read-only internal inspection used by actual-service instrumentation, never exported raw. */
+    internal fun nativeServiceInspection()=NativeServiceInspection(
+        autoMixEngineMode, nativeAutoMix?.nativeSelected==true,legacyAutoMixEnabled,
+        nativeAutoMix?.currentExecutor?.report(),outputIdentities.size,player.currentMediaItem?.mediaId,
+        player.volume,nativePlayback?.incomingVolume(),nativePlayback?.incomingPlaying(),
+        outputIdentities.values.map(effectSessions::session).filter {it>0}.toSet(),nativePlayback?.incomingSessionId())
+
+    private fun invalidateNative(reason:NativeDjExecutionReason) {
+        if(nativePromoting)return
+        nativeStartup=null;nativeStartCommand=null;nativePairKey=null;nativePairGeneration++
+        if(!nativePromoting)nativeAutoMix?.invalidate(reason)
+    }
+    private fun observeNativeStartup() {
+        val command=nativeStartCommand ?: return
+        if(command.first!==player || !player.isPlaying)return
+        val progress=player.currentPosition*1000-command.third
+        if(progress in 1..100_000) {
+            val source=nativeSources[player.currentMediaItem?.mediaId] ?: return
+            nativeStartup=NativeDjStartupObservation(AnalysisSourceIdentity(source.cacheKey,source.identity),nativePairGeneration,
+                command.second,command.third,System.nanoTime()/1000,player.currentPosition*1000)
+            nativeStartCommand=null
+        } else if(progress>100_000)nativeStartCommand=null // coarse/late observation: no guessed lead
+    }
+    /** Exact service source/queue boundary; no additional focus or output observers. */
+    private inner class NativeServiceHost:NativeAutoMixServiceHost<AnalysisSource> {
+        override fun pair():NativeServicePair<AnalysisSource>? {
+            if(!playerInitialized.value || serviceDestroyed || intelligentAutoMix?.mixing==true)return null
+            val current=player.currentMediaItem ?: return null
+            val nextIndex=player.nextMediaItemIndex
+            if(nextIndex==C.INDEX_UNSET || nextIndex==player.currentMediaItemIndex || player.duration<=0)return null
+            val next=player.getMediaItemAt(nextIndex)
+            if(current.localConfiguration?.drmConfiguration!=null || next.localConfiguration?.drmConfiguration!=null)return null
+            if(current.mediaId==next.mediaId)return null
+            val a=nativeSources[current.mediaId] ?: return null
+            if(!a.fullyCached && a.uri.scheme in listOf("http","https") && songUrlCache[current.mediaId]?.first!=a.uri.toString())return null
+            val currentUri=current.localConfiguration?.uri
+            if(currentUri?.scheme=="file" && a.uri!=currentUri)return null
+            val b=nativeSources[next.mediaId] ?: run {
+                if(prefetchJob?.isActive!=true && (autoMixResolveNextId!=next.mediaId || System.currentTimeMillis()>=autoMixResolveRetryAt)) {
+                    autoMixResolveNextId=next.mediaId;autoMixResolveRetryAt=System.currentTimeMillis()+30_000;prefetchNextTrack()
+                }
+                return null
+            }
+            val nextUri=next.localConfiguration?.uri
+            if(nextUri?.scheme=="file" && b.uri!=nextUri) {prefetchNextTrack();return null}
+            if(!b.fullyCached && nextUri?.scheme in listOf("http","https") && nextUri!=b.uri)return null
+            if(b.uri.scheme in listOf("http","https")) {
+                val resolved=songUrlCache[next.mediaId]
+                if(resolved==null || resolved.first!=b.uri.toString() || resolved.second<=System.currentTimeMillis()) {
+                    nativeSources.remove(next.mediaId);return null
+                }
+            }
+            for(source in listOf(a,b))if(source.uri.scheme=="file") {
+                val f=java.io.File(requireNotNull(source.uri.path))
+                if(source.identity!="${source.cacheKey}|local|${f.length()}|${f.lastModified()}|${source.uri}")return null
+            }
+            if(bypassCacheForQualityChange.contains(current.mediaId) || bypassCacheForQualityChange.contains(next.mediaId))return null
+            fun identity(source:AnalysisSource)=AnalysisSourceIdentity(source.cacheKey,source.identity)
+            fun binding(item:MediaItem,source:AnalysisSource)=NativeQueuedSource(identity(source),
+                item.localConfiguration?.uri?.toString(),item.localConfiguration?.customCacheKey,item.localConfiguration?.mimeType)
+            val key=NativeQueueBinding(binding(current,a),binding(next,b),player.repeatMode,player.shuffleModeEnabled)
+            if(nativePairKey!=key) {nativePairKey=key;nativePairGeneration++;nativeStartup=null}
+            val outDuration=player.duration*1000
+            val inDuration=(next.metadata?.duration ?: 0)*1_000_000L
+            if(inDuration<=0)return null
+            return NativeServicePair(NativeDjQueue(nativePairGeneration,identity(a),identity(b)),
+                PlanningTrack(identity(a),outDuration,AudioIntervalUs((outDuration-32_000_000).coerceAtLeast(0),outDuration)),
+                PlanningTrack(identity(b),inDuration,AudioIntervalUs(0,minOf(inDuration,32_000_000))),
+                a,b,player.currentPosition*1000,player.isPlaying,
+                a.fullyCached && a.uri.scheme!="file",b.fullyCached && b.uri.scheme!="file")
+        }
+        override fun incompatibility():String?=when {
+            !AutoMixServiceHost().allowed -> "UNSUPPORTED_PLAYER_CONFIGURATION"
+            player.playbackParameters.speed!=1f || player.playbackParameters.pitch!=1f -> "UNSUPPORTED_RATE"
+            isNextItemGapless() || player.repeatMode==Player.REPEAT_MODE_ONE -> "GAPLESS_OR_REPEAT_ONE"
+            isCrossfading || secondaryPlayer!=null || fadingPlayer!=null -> "OWNERSHIP_BUSY"
+            else -> null
+        }
+        override fun legacyEnabled(enabled:Boolean) {
+            legacyAutoMixEnabled=enabled
+            intelligentAutoMix?.configure(enabled,nativePerformance)
+        }
+        override fun execute(plan:NativeTransitionPlan,outgoingLevel:NativeDjLevel?,incomingLevel:NativeDjLevel?):NativeDjTransitionExecutor {
+            check(intelligentAutoMix?.mixing!=true)
+            val expected=pair() ?: error("No resolved pair")
+            require(expected.queue==NativeDjQueue(plan.generation,plan.outgoing.source,plan.incoming.source))
+            val original=player
+            val nextItem=player.getMediaItemAt(player.nextMediaItemIndex).buildUpon()
+                .setUri(expected.incomingSource.uri).setCustomCacheKey(expected.incomingSource.cacheKey).build()
+            val playback=Media3NativeDjPlayback(original,plan.outgoing,plan.incoming,nextItem,
+                currentQueue={pair()?.queue ?: NativeDjQueue(-1,plan.outgoing.source,plan.incoming.source)},
+                createIncoming={createExoPlayer(publish=false,autoMixDeck=true,pinned=expected.incomingSource)},
+                commitPromotion={queue,incoming -> promoteNative(queue,incoming,original)},releasePlayer=::releaseAudioOutput,
+                userVolume={if(isMuted.value)0f else playerVolume.value},focusGain={autoMixFocusGain},
+                exclusiveControlAvailable={intelligentAutoMix?.mixing!=true && secondaryPlayer==null && !isCrossfading},
+                startTiming={nativeStartup},allowServiceQueue=true)
+            nativePlayback=playback
+            return playback.execute(plan,outgoingLevel,incomingLevel)
+        }
+        private fun promoteNative(queue:NativeDjQueue,incoming:ExoPlayer,original:ExoPlayer):Boolean {
+            if(player!==original || pair()?.queue!=queue)return false
+            val items=(0 until original.mediaItemCount).map(original::getMediaItemAt)
+            val index=original.nextMediaItemIndex
+            if(index==C.INDEX_UNSET)return false
+            nativePromoting=true
+            try {
+                // addMediaItems preserves the already-playing item/position, no seek/restart.
+                if(index>0)incoming.addMediaItems(0,items.take(index))
+                if(index+1<items.size)incoming.addMediaItems(items.drop(index+1))
+                incoming.repeatMode=original.repeatMode;incoming.shuffleModeEnabled=original.shuffleModeEnabled
+                if(original.shuffleModeEnabled)getCurrentShuffleOrderIndices(original)?.let {
+                    incoming.setShuffleOrder(DefaultShuffleOrder(it,System.currentTimeMillis()))
+                }
+                releaseLoudnessEnhancer()
+                original.removeListener(this@MusicService);original.removeListener(sleepTimer)
+                player=incoming;promoteAudioOutput(incoming)
+                player.addListener(this@MusicService);player.addListener(sleepTimer)
+                sleepTimer.player=player;mediaSession.player=player;_playerFlow.value=player
+                currentMediaMetadata.value=player.currentMetadata
+                onMediaItemTransition(player.currentMediaItem,Player.MEDIA_ITEM_TRANSITION_REASON_SEEK)
+                sleepTimer.notifySongTransition();updateNotification();updateWidgetUI(player.isPlaying)
+                return true
+            } finally {nativePromoting=false;nativeStartup=null;nativeStartCommand=null}
+        }
+        override fun pause(){nativePlayback?.pauseForUserOrFocus()}
+        override fun resume(){
+            if(nativeAutoMix?.currentExecutor?.status?.stage==NativeDjExecutionStage.PAUSED) {
+                // The service callback arrives after the primary's playWhenReady changed.
+                // Restore the paired paused state before the executor resumes both decks.
+                player.pause();nativePlayback?.resumeAfterUserOrFocus()
+            }
+        }
+        override fun refreshVolume(){nativePlayback?.refreshUserVolume()}
+        override fun cancel(reason:NativeDjExecutionReason){nativePlayback?.invalidate(reason);nativePlayback?.close();nativePlayback=null}
+        override fun status(value:AutoMixStatus){
+            if(value.phase in setOf(AutoMixPhase.UNAVAILABLE,AutoMixPhase.WAITING_SOURCE))nativeFallbackReason=value.reason
+            else if(value.nativePlan!=null)nativeFallbackReason=null
+            _autoMixStatus.value=nativeServiceVisibleStatus(value,intelligentAutoMix?.status?.value,legacyAutoMixEnabled)
         }
     }
 
@@ -4648,3 +4918,7 @@ private data class SponsorBlockConfig(
     val skipPreviewFiller: Boolean,
     val showToast: Boolean,
 )
+
+internal data class NativeServiceInspection(val mode:AutoMixEngineMode,val nativeSelected:Boolean,val legacyEnabled:Boolean,
+    val execution:NativeDjExecutionReport?,val outputs:Int,val primaryId:String?,val primaryVolume:Float,
+    val incomingVolume:Float?,val incomingPlaying:Boolean?,val activeSessions:Set<Int>,val incomingSessionId:Int?)

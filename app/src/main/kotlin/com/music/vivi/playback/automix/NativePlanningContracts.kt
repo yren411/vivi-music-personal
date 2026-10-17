@@ -155,11 +155,13 @@ data class PlanningDiagnostics(
 
 sealed interface NativePlanningOutcome {
     val diagnostics: PlanningDiagnostics
-    data class Selected(val plan: NativeTransitionPlan, override val diagnostics: PlanningDiagnostics) : NativePlanningOutcome
+    data class Selected(val plan: NativeTransitionPlan, override val diagnostics: PlanningDiagnostics,
+                        val outgoingLevel:NativeDjLevel?=null,val incomingLevel:NativeDjLevel?=null) : NativePlanningOutcome
     /** Recommendation only: ordinary safe playback / independently sourced legacy planning. No fade is executed. */
     data class Fallback(val reason: PlanningRejection, override val diagnostics: PlanningDiagnostics,
                         val analysisFailure: AnalysisFailure? = null) : NativePlanningOutcome
 }
 
 /** Compact evidence only; never retains DecodedWindow or PCM. */
-data class PlanningWindowEvidence(val analysis: AnalysisResult, val signal: PlanningSignalObservation? = null)
+data class PlanningWindowEvidence(val analysis: AnalysisResult, val signal: PlanningSignalObservation? = null,
+                                  val level:NativeDjLevel?=null)

@@ -1,10 +1,12 @@
 package com.music.vivi.playback.automix
 
 import androidx.datastore.preferences.core.Preferences
+import com.music.vivi.constants.AutoMixEngineModeKey
 import com.music.vivi.constants.AutoMixEnabledKey
 import com.music.vivi.constants.AutoMixPerformanceKey
 
-data class AutoMixSettings(val enabled: Boolean = false, val performance: AutoMixPerformance = AutoMixPerformance.BALANCED) {
+data class AutoMixSettings(val enabled: Boolean = false, val performance: AutoMixPerformance = AutoMixPerformance.BALANCED,
+    val engineMode:AutoMixEngineMode=AutoMixEngineMode.LEGACY) {
     val showPerformance get() = enabled
     val crossfadeEditable get() = !enabled
 }
@@ -13,4 +15,5 @@ fun readAutoMixSettings(preferences: Preferences) = AutoMixSettings(
     preferences[AutoMixEnabledKey] ?: false,
     preferences[AutoMixPerformanceKey]?.let { runCatching { AutoMixPerformance.valueOf(it) }.getOrNull() }
         ?: AutoMixPerformance.BALANCED,
+    AutoMixEngineMode.read(preferences[AutoMixEngineModeKey]),
 )

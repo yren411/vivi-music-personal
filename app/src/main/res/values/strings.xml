@@ -510,4 +510,8 @@
     <string name="automix_log_failed">Could not save AutoMix log.</string>
     <string name="automix_recovered">Recovered from refinement</string>
 <string name="automix_log_saved_document">AutoMix log saved to the selected document.</string>
+    <string name="automix_engine">AutoMix engine</string>
+    <string name="automix_engine_legacy">Legacy AutoMix (default)</string>
+    <string name="automix_engine_native">Native DJ AutoMix (experimental)</string>
+    <string name="automix_engine_description">Attempts beat-synchronized transitions. Unsuitable tracks fall back to legacy AutoMix. Switch back at any time.</string>
 </resources>
