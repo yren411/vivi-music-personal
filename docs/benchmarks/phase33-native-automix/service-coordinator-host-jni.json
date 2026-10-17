@@ -1,0 +1,18 @@
+{
+    "schema": 1,
+    "evidence": "real corrected PCM capture -> host JNI -> actual native planner -> service coordinator -> virtual decks",
+    "androidRuntimeExecuted": false,
+    "outgoingCueUs": 148139320,
+    "incomingCueUs": 336689,
+    "plannedOverlapUs": 29991569,
+    "commonProgressUs": 30000000,
+    "outgoingBpm": 128.07925123625316,
+    "incomingBpm": 128.08461453080886,
+    "nativeProfile": "AnalysisProfile(backend=AnalysisBackend(id=bitchord-native-dsp, version=fe95bb60-controlled-v1-jni1-evidence1-internal11025), preprocessingVersion=sinc64-blackman-initial-preroll-mono-22050-v3)",
+    "executor": "tinium-native-dj-executor-v3-format-aware-clock-progress",
+    "promotions": 1,
+    "decodedWindows": 2,
+    "hostElapsedNanos": 192766638,
+    "outgoingContentGain": 0.9689734189209601,
+    "incomingContentGain": 1.0
+}

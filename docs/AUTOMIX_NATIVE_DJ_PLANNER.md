@@ -371,3 +371,18 @@ lyrics providers and Musixmatch are untouched. The owner's existing permission
 assumption remains a development assumption; public combined-APK redistribution
 clearance and source/license compliance remain separate release prerequisites.
 No new licensing investigation or public APK release is performed here.
+
+
+## Phase 3.3 caller
+
+The opt-in service caller is documented in [Phase 3.3 activation](AUTOMIX_NATIVE_DJ_ACTIVATION.md).
+Its planning session can use decoder-reported duration geometry and update the earliest
+feasible outgoing time before planning starts. Compact source-matched active-RMS observations
+accompany selected plans; session cache keys include that method version. These additions
+retain the musical gates, timestamp coordinates and confidence semantics described above.
+There is no native-to-legacy plan conversion. Original benchmark/device evidence remains
+historical and does not establish new service-connected runtime success.
+
+The service caller can observe compact completed analysis evidence before candidate rejection
+through `onEvidence`; this records honest BPM/backend evidence without retaining PCM or
+changing planner scoring.

@@ -607,3 +607,14 @@ all 14 v3 execution tests passing on the S25 Ultra / Android 17. This is owner-r
 player-level validation; Codex did not execute it or independently inspect raw test XML
 or the installed SHA. No production service, planner, DSP, gain policy, effect-session
 handling or analysis/preprocessing identity changed.
+
+
+## Phase 3.3 opt-in integration boundary
+
+[Phase 3.3](AUTOMIX_NATIVE_DJ_ACTIVATION.md) adds a separately gated MusicService caller.
+The default adapter still requires a single outgoing item; its explicit service queue
+option permits the service-owned playlist, pause-at-end and atomic queue transplantation
+without restarting the incoming player. Existing focus/output hooks remain authoritative.
+Normal AutoMix remains legacy unless the new engine preference is explicitly selected.
+Historical Phase 3.2 device passes do not validate the new service integration; see the
+Phase 3.3 evidence for its separate tests and outstanding runtime/listening requirements.
