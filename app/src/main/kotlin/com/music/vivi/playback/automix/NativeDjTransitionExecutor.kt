@@ -3,6 +3,7 @@ package com.music.vivi.playback.automix
 
 import kotlin.math.abs
 import kotlin.math.max
+import kotlin.math.roundToLong
 
 /** Explicitly invoked, serialized coordinator. No decoding, threads, timers, legacy-plan bridge or
  * production registration. tick() and host callbacks belong to the player's application thread.
@@ -94,12 +95,24 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             c.outgoingCueUs<Math.addExact(p.assumedEarliestOutgoingUs,p.assumedPreparationLeadUs) ||
             listOf(p.outgoingRawNativeConfidence,p.incomingRawNativeConfidence).any {!it.isFinite() || it !in 0.0..1.0} ||
             listOf(c.outgoingTransientSupport,c.incomingTransientSupport).any {it==null || !it.isFinite() || it !in .6..1.0} ||
-            alignment.matchedPulses !in 9..65 || alignment.initialPhaseOffsetUs!=0L ||
+            (alignment.matchedPulses-1) !in setOf(8,16,32,64) || alignment.initialPhaseOffsetUs!=0L ||
             alignment.medianResidualUs !in 0..25_000 || alignment.p95ResidualUs !in alignment.medianResidualUs..40_000 ||
             alignment.maxResidualUs !in alignment.p95ResidualUs..70_000 || alignment.signedEndDriftUs !in -70_000..70_000 ||
             alignment.predictedTempoDriftUs !in -70_000..70_000 ||
             h !in NativeTempoCompatibility.hypotheses(h.measuredOutgoingBpm,h.measuredIncomingBpm) ||
             h.relativeDifference>0.03 || alignment.outgoingStride!=h.outgoingStride || alignment.incomingStride!=h.incomingStride)
+            return NativeDjExecutionReason.INVALID_PLAN
+        // A copied plan must not retain a 32-pulse grid while claiming a half-second overlap,
+        // or change tempo without updating its own rate-1.0 drift model. The 2% duration
+        // tolerance follows the current native evidence tempo/grid-consistency allowance;
+        // it is not a beat-alignment tolerance and never adjusts the selected duration.
+        val pulses=alignment.matchedPulses-1
+        val expectedDuration=pulses*60_000_000.0/h.effectiveOutgoingBpm
+        val expectedDrift=(c.overlapUs*(h.effectiveOutgoingBpm/h.effectiveIncomingBpm-1)).roundToLong()
+        if(abs(c.overlapUs-expectedDuration)>max(70_000.0,expectedDuration*.02) ||
+            abs(alignment.predictedTempoDriftUs-expectedDrift)>1 ||
+            c.rank.supportedPulseIntervals!=pulses || c.rank.corroboratedTracks!=2 ||
+            c.rank.p95ResidualUs!=alignment.p95ResidualUs || c.rank.incomingSkipUs!=c.incomingCueUs)
             return NativeDjExecutionReason.INVALID_PLAN
         // Preparation must start with the lead time the planner explicitly assumed.
         if(out.positionUs<0 || out.positionUs>c.outgoingCueUs-p.assumedPreparationLeadUs)
