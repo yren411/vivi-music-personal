@@ -72,6 +72,7 @@ class AndroidWindowDecoder(
         var inputEnd = DecoderInputEnd.UNKNOWN
         var range = DecoderRangeStatus.UNKNOWN
         var fetched = 0L
+        var packets: DecoderPacketAccounting? = null
         var codecOutputFrames: Long? = null
         var firstCodecPtsUs: Long? = null
         var lastCodecFrameEndUs: Long? = null
@@ -83,7 +84,7 @@ class AndroidWindowDecoder(
                 window?.sourceFormats ?: corrected?.sourceFormats ?: legacyWindow?.sourceFormats ?: emptyList(),
                 duration, codecEos, inputEnd, fetched, cached, range, (System.nanoTime() - began) / 1000,
                 window?.preparation ?: corrected?.preparation, window?.repeatedOutputFrames ?: legacyWindow?.repeatedOutputFrames,
-                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs)
+                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot())
         }
     }
 
@@ -132,6 +133,13 @@ class AndroidWindowDecoder(
                      else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
             } ?: throw AnalysisUnavailable("software-decoder-unavailable")
             codec = MediaCodec.createByCodecName(software.name)
+            observation.packets = DecoderPacketAccounting(mime, software.name, PcmFormat(
+                format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
+                if (!format.containsKey(MediaFormat.KEY_PCM_ENCODING)) PcmEncoding.UNKNOWN else when (format.getInteger(MediaFormat.KEY_PCM_ENCODING)) {
+                    C.ENCODING_PCM_16BIT -> PcmEncoding.PCM16
+                    C.ENCODING_PCM_FLOAT -> PcmEncoding.FLOAT32
+                    else -> PcmEncoding.UNKNOWN
+                }))
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
@@ -159,10 +167,12 @@ class AndroidWindowDecoder(
                         if (size < 0 || extractor.sampleTime >= endUs) {
                             codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputEnded = true
+                            observation.packets?.inputEnd(extractor.sampleTime)
                             observation.inputEnd = if (size < 0) DecoderInputEnd.NATURAL_EOS else DecoderInputEnd.REQUEST_BOUNDARY
                         } else {
                             if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw AnalysisUnavailable("encrypted-source")
                             codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
+                            observation.packets?.input(size, extractor.sampleTime)
                             extractor.advance()
                         }
                     }
@@ -178,6 +188,7 @@ class AndroidWindowDecoder(
                 } else if (output >= 0) {
                     // This flag is already observed even if conversion/cancellation then fails.
                     observation.codecEos = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
+                    observation.packets?.output(info.size, info.presentationTimeUs, observation.codecEos == true)
                     try {
                         val buffer = DecoderPcmBuffers.readable(if (info.size == 0) null else codec.getOutputBuffer(output),
                             info.offset, info.size, corrected != null)
