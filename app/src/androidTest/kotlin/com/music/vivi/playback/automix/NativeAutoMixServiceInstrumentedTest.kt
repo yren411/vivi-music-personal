@@ -72,10 +72,19 @@ class NativeAutoMixServiceInstrumentedTest {
         assertEquals(1,h.completed())
     }
     @Test fun actualAacAndFlacSourcesUseThePinnedServiceNativePipeline()=withService(codec=true){h ->
-        h.play();h.mixing()
+        h.play()
+        h.await("actual AAC fixture format 48000Hz/stereo/30s",3000){
+            val format=h.service.player.audioFormat
+            format?.sampleRate==48000 && format.channelCount==2 && format.sampleMimeType=="audio/mp4a-latm" && h.service.player.duration in 29_900..30_100
+        }
+        h.mixing()
         h.await("codec pair advancing",3000){h.service.nativeServiceInspection().incomingPlaying==true}
         h.main {val e=requireNotNull(h.service.nativeServiceInspection().execution)
             assertEquals(PcmPreprocessing.BANDLIMITED,e.preprocessing)
+            val decoded=h.service.autoMixRecorder.snapshot().attempts.flatMap {it.records}.mapNotNull {it.decoder}
+                .filter {it.preprocessing==AnalysisPreprocessing.BANDLIMITED && it.stage==DecoderStage.COMPLETE}
+            for(rate in listOf(48000,44100))assertTrue("Actual codec source format $rate missing\n${h.report()}",
+                decoded.any {d->d.duration?.durationUs in 29_999_000L..30_001_000L && d.sourceFormats.any {it.format.sampleRateHz==rate}})
             assertEquals(0L,e.measurements.startupLeadUs)
             assertTrue(h.service.player.isPlaying);assertFalse(h.service.nativeServiceInspection().legacyEnabled)}
     }
@@ -149,6 +158,7 @@ class NativeAutoMixServiceInstrumentedTest {
         @Volatile private var phase="created"
         private val previous=preferences("snapshot preferences"){context.dataStore.data.first()}
         private val files=mutableListOf<File>()
+        private val fixtureIds=NativeServiceFixtureIds()
         private var bound=false
         private var selectedMode=if(native)AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL else AutoMixEngineMode.LEGACY
         lateinit var service:MusicService
@@ -179,8 +189,8 @@ class NativeAutoMixServiceInstrumentedTest {
                     le(22050,4);le(44100,4);le(2,2);le(16,2);out.write("data".toByteArray());le(pcm.size*2,4)
                     for(value in pcm)le((value*32767).toInt(),2)
                 }
-                MediaItem.Builder().setMediaId("phase33-generated-$index").setUri(Uri.fromFile(file)).setCustomCacheKey("phase33-generated-$index")
-                    .setTag(com.music.vivi.models.MediaMetadata("phase33-generated-$index","Generated fixture",emptyList(),seconds)).build()
+                MediaItem.Builder().setMediaId(fixtureIds[index]).setUri(Uri.fromFile(file)).setCustomCacheKey(fixtureIds[index])
+                    .setTag(com.music.vivi.models.MediaMetadata(fixtureIds[index],"Generated fixture",emptyList(),seconds)).build()
             }
             main {bound=context.bindService(Intent(context,MusicService::class.java),connection,Context.BIND_AUTO_CREATE);check(bound)}
             check(connected.await(15,TimeUnit.SECONDS)){"MusicService did not bind"}
@@ -272,6 +282,9 @@ class NativeAutoMixServiceInstrumentedTest {
             // A service can keep scheduling work; global queue idleness is not a lifecycle signal.
             // This bounded barrier drains callbacks already posted by the explicit stop/unbind.
             cleanup("cleanup main-thread barrier") {main {}}
+            if(::service.isInitialized)cleanup("remove owned fixture cache entries") {
+                fixtureIds.removeCachedResources {key->service.playerCache.removeResource(key);service.downloadCache.removeResource(key)}
+            }
             cleanup("restore preferences") {preferences("restore preference snapshot"){context.dataStore.updateData {previous}}}
             files.forEach {it.delete()}
             stage(if(failure==null)"cleanup finished" else "cleanup failed")
