@@ -66,6 +66,84 @@ class CorrectedPcmWindowCaptureTest {
         failed(DecoderFailureSubtype.SOURCE_GAP){gap.add(22050,500023,44100)}
         assertEquals(listOf(AudioIntervalUs(0,500000)),gap.coverage.intervals)
     }
+    @Test fun reportedFlacSubFrameOffsetDoesNotDropAFrameAndManufactureASourceGap() {
+        val c=capture(end=30_000_000)
+        val total=30*44100
+        var offset=0
+        while(offset<total) {
+            val frames=minOf(4608,total-offset)
+            // Device: 1,156,608 frames accepted; next 4,608-frame buffer ended at
+            // 26,331,422us, hence its PTS was 26,226,933us. Expected=26,226,938.7755us.
+            val pts=if(offset==1_156_608)26_226_933L else offset*1_000_000L/44100
+            c.add(frames,pts,44100,enc=PcmEncoding.PCM16)
+            offset+=frames
+        }
+        val w=c.finish(true,AnalysisControl())
+        assertEquals(CoverageStatus.FULL,w.coverageStatus)
+        assertEquals(1_323_000L,w.coverage.acceptedDecodedFrames)
+        assertEquals(661500,w.frameCount);assertEquals(AudioIntervalUs(0,30_000_000),w.sampleInterval)
+        assertEquals(0L,w.preparation!!.droppedOverlapFrames);assertEquals(0,w.preparation.gapCount)
+        assertEquals(6L,w.preparation.maximumJitterUs)
+        assertEquals(0L,w.preparation.synthesizedTimelineFrames);assertEquals(0L,w.repeatedOutputFrames)
+    }
+    @Test fun subFrameOffsetsUseTheNearestSourceFrameWithoutDroppingAudioAcrossRates() {
+        for(rate in listOf(8000,11025,16000,22050,32000,44100,48000,96000,192000))for(sign in listOf(-1,1)) {
+            val jitter=kotlin.math.floor(0.4*1_000_000/rate).toLong()*sign
+            val c=capture(end=2_000_000);c.add(rate,0,rate);c.add(rate,1_000_000+jitter,rate)
+            assertEquals(2L*rate,c.acceptedFrames)
+            assertEquals(CoverageStatus.FULL,c.coverage.status(AudioIntervalUs(0,2_000_000)))
+            assertEquals(0L,c.preparation.droppedOverlapFrames);assertEquals(0,c.preparation.gapCount)
+            assertEquals(kotlin.math.abs(jitter),c.preparation.maximumJitterUs)
+        }
+    }
+    @Test fun aWholeMissingFrameStillFailsEvenWithTimestampJitterAcrossRates() {
+        for(rate in listOf(8000,11025,16000,22050,32000,44100,48000,96000,192000))for(sign in listOf(-1,1)) {
+            val step=1_000_000.0/rate
+            val pts=1_000_000+kotlin.math.round(step).toLong()+kotlin.math.floor(0.4*step).toLong()*sign
+            val c=capture(end=2_000_000);c.add(rate,0,rate)
+            failed(DecoderFailureSubtype.SOURCE_GAP){c.add(rate,pts,rate)}
+            assertEquals(rate.toLong(),c.acceptedFrames)
+            assertEquals(listOf(AudioIntervalUs(0,1_000_000)),c.coverage.intervals)
+            assertEquals(0L,c.preparation.synthesizedTimelineFrames)
+        }
+    }
+    @Test fun aWholeDuplicateFrameIsTrimmedExactlyOnceDespiteSubFrameJitter() {
+        for(rate in listOf(8000,11025,16000,22050,32000,44100,48000,96000,192000))for(sign in listOf(-1,1)) {
+            val step=1_000_000.0/rate
+            val pts=1_000_000-kotlin.math.round(step).toLong()+kotlin.math.floor(0.4*step).toLong()*sign
+            val c=capture(end=2_000_000);c.add(rate,0,rate);c.add(rate+1,pts,rate)
+            assertEquals(2L*rate,c.acceptedFrames)
+            assertEquals(1L,c.preparation.droppedOverlapFrames)
+            assertEquals(CoverageStatus.FULL,c.coverage.status(AudioIntervalUs(0,2_000_000)))
+            assertEquals(0,c.preparation.gapCount)
+        }
+    }
+    @Test fun exactlyHalfFrameOffsetsAreAmbiguousAndCannotCreateCoverage() {
+        for(sign in listOf(-1,1)) {
+            val c=capture(end=2_000_000);c.add(10000,0,10000)
+            failed(if(sign>0)DecoderFailureSubtype.SOURCE_GAP else DecoderFailureSubtype.TIMESTAMP_REGRESSION) {
+                c.add(10000,1_000_000+sign*50L,10000)
+            }
+            assertEquals(10000L,c.acceptedFrames)
+            assertEquals(listOf(AudioIntervalUs(0,1_000_000)),c.coverage.intervals)
+        }
+    }
+    @Test fun subFrameTimestampQuantizationDoesNotChangeAnyResampledPcmValues() {
+        val exact=capture();val jittered=capture()
+        for(block in 0 until 8) {
+            val data=ByteBuffer.allocate(2000).order(ByteOrder.nativeOrder()).apply {
+                repeat(1000){putShort((12000*kotlin.math.sin((block*1000+it)*0.07)).toInt().toShort())};flip()
+            }
+            val pts=block*125_000L
+            exact.accept(data,pts,format(8000,1,PcmEncoding.PCM16),AnalysisControl())
+            jittered.accept(data,pts+if(block==0)0 else if(block%2==0)35 else -35,
+                format(8000,1,PcmEncoding.PCM16),AnalysisControl())
+        }
+        val a=exact.finish(true,AnalysisControl());val b=jittered.finish(true,AnalysisControl())
+        assertArrayEquals(a.samples,b.samples,0f)
+        assertEquals(a.sampleInterval,b.sampleInterval);assertEquals(a.coverage,b.coverage)
+        assertEquals(0L,b.preparation!!.droppedOverlapFrames);assertEquals(0L,b.repeatedOutputFrames)
+    }
     @Test fun duplicateAndOverlappingBuffersDoNotCreateCoverageOrRepeatedOutput() {
         val c=capture(end=2_000_000);c.add(8000,0);c.add(8000,0);c.add(8000,500000);c.add(4000,1500000)
         val w=c.finish(true,AnalysisControl())
