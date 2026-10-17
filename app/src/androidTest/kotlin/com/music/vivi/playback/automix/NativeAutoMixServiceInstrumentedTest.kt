@@ -14,8 +14,14 @@ import com.music.vivi.playback.MusicService
 import com.music.vivi.utils.dataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Rule
+import org.junit.rules.TestWatcher
+import org.junit.rules.Timeout
+import org.junit.runner.Description
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -25,6 +31,16 @@ import java.util.concurrent.atomic.AtomicReference
  * Run only in the existing isolated .decodercheck debug application. All audio is generated locally. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class NativeAutoMixServiceInstrumentedTest {
+    @Volatile private var testMethod="unknown"
+    @get:Rule val progress:TestWatcher=object:TestWatcher() {
+        override fun starting(description:Description) {testMethod=description.methodName;event("START")}
+        override fun failed(error:Throwable,description:Description) {event("FAILED type=${error.javaClass.simpleName}")}
+        override fun finished(description:Description) {event("FINISHED")}
+        private fun event(value:String) {android.util.Log.i("TiniumNativeDj","NATIVE_SERVICE_TEST test=$testMethod event=$value")}
+    }
+    // Includes the longest 150s progression assertion, setup and bounded cleanup.
+    @get:Rule val testDeadline:Timeout=Timeout.seconds(240)
+
     @Test fun legacyDefaultDoesNotConstructNativePipeline()=withService(native=false){h ->
         h.main {val s=h.service.nativeServiceInspection();assertEquals(AutoMixEngineMode.LEGACY,s.mode);assertFalse(s.nativeSelected);assertNull(s.execution)}
         h.disableAutoMix();h.await("legacy disable clears status",3000){h.service.autoMixStatus.value.phase==AutoMixPhase.DISABLED}
@@ -119,12 +135,19 @@ class NativeAutoMixServiceInstrumentedTest {
             assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f)}
     }
     private fun withService(native:Boolean=true,silentIncoming:Boolean=false,longIncoming:Boolean=false,codec:Boolean=false,block:(Harness)->Unit) {
-        Harness(native,silentIncoming,longIncoming,codec).use(block)
+        Harness(testMethod,native,silentIncoming,longIncoming,codec).use {h ->
+            try {block(h)}catch(error:Throwable){h.captureFailure(error);throw error}
+        }
     }
-    private class Harness(native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean):AutoCloseable {
+    private class Harness(private val testMethod:String,native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean):AutoCloseable {
         private val instrumentation=InstrumentationRegistry.getInstrumentation()
-        private val context=instrumentation.targetContext
-        private val previous=runBlocking {context.dataStore.data.first()}
+        private val context=instrumentation.targetContext.also {
+            check(it.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true; normal Tinium must not be touched"}
+        }
+        private val handler=Handler(Looper.getMainLooper())
+        private val runStartedMs=SystemClock.elapsedRealtime()
+        @Volatile private var phase="created"
+        private val previous=preferences("snapshot preferences"){context.dataStore.data.first()}
         private val files=mutableListOf<File>()
         private var bound=false
         private var selectedMode=if(native)AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL else AutoMixEngineMode.LEGACY
@@ -139,7 +162,7 @@ class NativeAutoMixServiceInstrumentedTest {
         }
         init {try {
             check(context.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true; normal Tinium must not be touched"}
-            runBlocking {context.dataStore.edit {
+            preferences("configure preferences") {context.dataStore.edit {
                 it[AutoMixEnabledKey]=true;it[AutoMixEngineModeKey]=(if(native)AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL else AutoMixEngineMode.LEGACY).name
                 it[AutoMixPerformanceKey]=AutoMixPerformance.PERFORMANCE.name;it[PersistentQueueKey]=false
                 it[SkipSilenceKey]=false;it[AudioOffload]=false;it[RepeatModeKey]=Player.REPEAT_MODE_OFF
@@ -162,10 +185,41 @@ class NativeAutoMixServiceInstrumentedTest {
             main {bound=context.bindService(Intent(context,MusicService::class.java),connection,Context.BIND_AUTO_CREATE);check(bound)}
             check(connected.await(15,TimeUnit.SECONDS)){"MusicService did not bind"}
             await("service initialized",10_000){service.isPlayerReady.value && service.nativeServiceInspection().mode==selectedMode}
-        }catch(error:Throwable){close();throw error}}
-        fun main(block:()->Unit)=instrumentation.runOnMainSync(block)
-        fun disableAutoMix()=runBlocking {context.dataStore.edit {it[AutoMixEnabledKey]=false}}
-        fun mode(value:AutoMixEngineMode)=runBlocking {context.dataStore.edit {it[AutoMixEngineModeKey]=value.name};selectedMode=value}
+        }catch(error:Throwable){captureFailure(error);try {close()}catch(cleanup:Throwable){error.addSuppressed(cleanup)};throw error}}
+        private fun stage(value:String) {
+            phase=value
+            val text="NATIVE_SERVICE_STAGE test=$testMethod phase=$value runStartedMs=$runStartedMs elapsedMs=${SystemClock.elapsedRealtime()}"
+            android.util.Log.i("TiniumNativeDj",text)
+            // Test-thread only; bounded last-stage file survives unavailable/truncated logcat.
+            try {File(context.filesDir,"phase33-service-progress.txt").writeText(text)}
+            catch(_:java.io.IOException){android.util.Log.w("TiniumNativeDj","NATIVE_SERVICE_PROGRESS_WRITE_FAILED")}
+        }
+        private fun stacks():String {
+            val text=Thread.getAllStackTraces().entries.filter {
+                it.key===Looper.getMainLooper().thread || it.key.name.startsWith("ExoPlayer") || it.key.name.startsWith("Tinium-AutoMix")
+            }.sortedBy {if(it.key===Looper.getMainLooper().thread)0 else 1}.take(8).joinToString("\n") {entry ->
+                "thread=${entry.key.name} state=${entry.key.state}\n"+entry.value.take(18).joinToString("\n") {"  at $it"}
+            }
+            try {File(context.filesDir,"phase33-service-threads.txt").writeText("test=$testMethod phase=$phase\n$text")}
+            catch(_:java.io.IOException){android.util.Log.w("TiniumNativeDj","NATIVE_SERVICE_STACK_WRITE_FAILED")}
+            return text
+        }
+        fun captureFailure(error:Throwable) {
+            val text="NATIVE_SERVICE_FAILURE test=$testMethod phase=$phase runStartedMs=$runStartedMs type=${error.javaClass.simpleName}\n${stacks()}"
+            try {File(context.filesDir,"phase33-service-failure.txt").writeText(text)}
+            catch(_:java.io.IOException){android.util.Log.w("TiniumNativeDj","NATIVE_SERVICE_FAILURE_WRITE_FAILED")}
+        }
+        private fun <T> preferences(label:String,block:suspend ()->T):T {
+            stage(label)
+            return try {runBlocking {withTimeout(10_000){block()}}}
+            catch(error:TimeoutCancellationException){throw AssertionError("NATIVE_SERVICE_ANDROID PREFERENCE_TIMEOUT test=$testMethod phase=$phase\n${stacks()}",error)}
+        }
+        fun main(block:()->Unit) {
+            val label=phase
+            BoundedTestCall.run("$testMethod/$label",7000,{handler.post(it);Unit},{handler.removeCallbacks(it)},::stacks,block)
+        }
+        fun disableAutoMix()=preferences("disable AutoMix"){context.dataStore.edit {it[AutoMixEnabledKey]=false}}
+        fun mode(value:AutoMixEngineMode)=preferences("select ${value.name}"){context.dataStore.edit {it[AutoMixEngineModeKey]=value.name};selectedMode=value}
         fun play() {
             main {service.playerVolume.value=.12f;service.player.setMediaItems(items);service.player.prepare()}
             await("primary ready",10_000){service.player.playbackState==Player.STATE_READY}
@@ -177,34 +231,51 @@ class NativeAutoMixServiceInstrumentedTest {
             android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,true,AutoMixPerformance.PERFORMANCE,engineMode=selectedMode))
         fun focus(value:Int)=main {MusicService::class.java.getDeclaredMethod("handleAudioFocusChange",Int::class.javaPrimitiveType).apply {isAccessible=true}.invoke(service,value)}
         fun await(label:String,timeoutMs:Long,condition:()->Boolean) {
-            val handler=Handler(Looper.getMainLooper());val finished=CountDownLatch(1);val error=AtomicReference<Throwable?>()
+            stage("await $label")
+            val finished=CountDownLatch(1);val error=AtomicReference<Throwable?>()
             val deadline=SystemClock.uptimeMillis()+timeoutMs
+            var nextProgress=SystemClock.uptimeMillis()+5000
             val check=object:Runnable {override fun run(){try {
                 if(condition()){finished.countDown();return}
+                if(SystemClock.uptimeMillis()>=nextProgress) {
+                    val s=service.nativeServiceInspection()
+                    android.util.Log.i("TiniumNativeDj","NATIVE_SERVICE_PROGRESS test=$testMethod phase=$phase stage=${s.execution?.status} outputs=${s.outputs} positionMs=${service.player.currentPosition}")
+                    nextProgress=SystemClock.uptimeMillis()+5000
+                }
                 if(SystemClock.uptimeMillis()>=deadline)throw AssertionError("NATIVE_SERVICE_ANDROID $label\n"+report())
                 handler.postDelayed(this,10)
             }catch(t:Throwable){error.set(t);finished.countDown()}}}
             handler.post(check)
-            try {assertTrue("Main-looper timeout $label",finished.await(timeoutMs+3000,TimeUnit.MILLISECONDS));error.get()?.let {throw it}}
+            try {if(!finished.await(timeoutMs+3000,TimeUnit.MILLISECONDS))throw AssertionError("NATIVE_SERVICE_ANDROID MAIN_LOOPER_TIMEOUT test=$testMethod phase=$phase\n${stacks()}")
+                error.get()?.let {throw it}
+                stage("completed $label")}
             finally {handler.removeCallbacks(check)}
         }
         override fun close() {
-            try {
-                if(::service.isInitialized) {
+            var failure:Throwable?=null
+            fun cleanup(label:String,action:()->Unit) {
+                stage(label)
+                try {action()}catch(error:Throwable) {if(failure==null)failure=error else failure!!.addSuppressed(error)}
+            }
+            if(::service.isInitialized) {
+                cleanup("save diagnostic report") {
                     val text=report()
                     File(context.filesDir,"phase33-service-last.txt").writeText(text)
                     android.util.Log.i("TiniumNativeDj","NATIVE_SERVICE_ANDROID\n"+text)
-                    runBlocking {context.dataStore.edit {it[AutoMixEnabledKey]=false}}
-                    main {service.player.pause();service.player.stop()}
                 }
-                if(bound)main {
-                    context.unbindService(connection);context.stopService(Intent(context,MusicService::class.java));bound=false
-                }
-                instrumentation.waitForIdleSync()
-            }finally {
-                if(context.packageName.endsWith(".decodercheck"))runBlocking {context.dataStore.updateData {previous}}
-                files.forEach {it.delete()}
+                cleanup("disable experiment") {preferences("disable experiment preferences"){context.dataStore.edit {it[AutoMixEnabledKey]=false}}}
+                cleanup("stop players") {main {service.player.pause();service.player.stop()}}
             }
+            if(bound)cleanup("unbind service") {main {
+                context.unbindService(connection);context.stopService(Intent(context,MusicService::class.java));bound=false
+            }}
+            // A service can keep scheduling work; global queue idleness is not a lifecycle signal.
+            // This bounded barrier drains callbacks already posted by the explicit stop/unbind.
+            cleanup("cleanup main-thread barrier") {main {}}
+            cleanup("restore preferences") {preferences("restore preference snapshot"){context.dataStore.updateData {previous}}}
+            files.forEach {it.delete()}
+            stage(if(failure==null)"cleanup finished" else "cleanup failed")
+            failure?.let {throw it}
         }
     }
 }
