@@ -496,3 +496,63 @@ version semantics are in [the PCM document](AUTOMIX_PCM_DECODING_AND_RESAMPLING.
 This fixes a reproduced PCM conversion defect; a new owner device run is needed to establish
 Android success. No acoustic alignment, crackle repair or completed native service mix is
 claimed. See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for evidence.
+
+### Unresolved full-window FLAC EOS: diagnostic follow-up
+
+The owner's next v4 run did not report SOURCE_GAP and again analyzed outgoing AAC at
+128.0922879 BPM. Incoming FLAC instead reached actual codec EOS with only 1,317,888
+output source frames. Capture retained 1,317,887 after one overlap drop; coverage ended
+at 29,884,058us of the requested 30,000,000us. The strict pipeline correctly rejected
+PARTIAL_SOURCE_COVERAGE, then prepared genuine legacy fallback. No native plan/mix or
+completed fallback handoff is established by this report.
+
+Independent host ffprobe reads all 1,323,000 samples from the original generated FLAC:
+287 blocks of 4,608 samples plus a 504-sample tail (288 frames total). The phone codec
+output is exactly 286 blocks, 5,112 frames short before the separate one-frame capture
+drop. The v4 replay verified the previously reported ~5.8us anomaly, not the phone's
+entire unknown packet/PTS sequence. It did not establish full-window codec correctness;
+its favorable JVM result must not be substituted for this unfavorable device evidence.
+
+Do not widen the timestamp policy again, change the coverage requirement, shorten the
+fixture/window, pad missing audio or label this attempt successful. It is not yet known
+whether loss occurs in extraction, the MediaDataSource bridge, queued input, codec EOS,
+or a source-format-specific path. Platform extractors may expose FLAC as compressed
+frames or already-decoded raw PCM; the actual device MIME/codec must be measured.
+
+Decoder diagnostics now append `codecProgressSchema=1`: sanitized extractor MIME and
+codec name, declared extractor format, successfully queued data-buffer/byte counts and
+first/last PTS/last size, observed extractor end sampleTime, codec data-buffer/byte counts,
+first/last output PTS and EOS size/PTS. EOF's negative sampleTime is a sentinel, not a
+track position. Counters count different stages independently; encoded bytes are never
+presented as PCM frames. No PCM, packet history, paths, source identities or headers are
+stored; null means unknown. Existing schema-2 fields/export workflow are retained.
+These counters do not change decoding, seek policy, PCM arithmetic or preprocessing v4.
+
+A separate **silent** Android diagnostic executes direct extractor reads with and without
+zero seek, then both actual decoder paths on the same generated 30s local FLAC. It starts
+no players/service transition and bypasses no service safety gate. It is a decoder probe,
+not service end-to-end acceptance. Work is capped (90s overall; per-read/decode deadlines,
+1MiB direct packet scratch and at most 1,024 packets / 8MiB read in each extractor probe).
+It keeps the full 1,323,000 source-frame / 661,500 output-sample / zero-dropped-frame
+requirement, so an assertion failure can be the expected useful reproduction. There is
+one test; paste the entire `NATIVE_FLAC_EOS` message whether it passes or fails.
+
+```powershell
+git fetch origin
+git switch codex/automix-native-dj-service
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeFlacEosInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+If Gradle truncates the diagnostic, read the bounded generated-fixture-only report:
+
+```powershell
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase33-flac-eos-diagnostic.txt
+```
+
+No uninstall/data clearing is required. The eleven service tests and previous 38 Android
+regressions remain intact and required. New probe compilation is not a device pass.
+See `benchmarks/phase33-native-automix/flac-eos-diagnostic-followup.json` for actual host
+validation and pending phone evidence. Keep the PR draft and legacy production default;
+full-window FLAC/native service acceptance remains unresolved.

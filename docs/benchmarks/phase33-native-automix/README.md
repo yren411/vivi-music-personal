@@ -191,3 +191,13 @@ counts and codec end timestamp reproduce a ~5.8us negative PTS offset being conv
 an artificial whole-frame drop. `flac-frameclock-followup.json` records the failing pre-fix
 PCM replay, the v4 frame mapping repair, version/cache safeguards and actual validation.
 No native plan, mix or successful service end-to-end execution is counted from that report.
+
+### Subsequent unfavorable device evidence: v4 full-window EOS
+
+The owner's next v4 attempt still failed. Outgoing AAC reached native analysis, while
+FLAC output ended 5,112 source frames short of the original file, followed by one capture
+overlap drop. No native plan/mix started. The earlier one-anomaly PCM replay was useful
+but did not verify the complete device PTS stream or EOS behavior. See
+`flac-eos-diagnostic-followup.json` for exact counts, independent ffprobe frame inspection,
+new input/output counters and the pending silent physical-device diagnostic. No claimed
+full-window fix, acoustic improvement or service Android pass is made from host tests.

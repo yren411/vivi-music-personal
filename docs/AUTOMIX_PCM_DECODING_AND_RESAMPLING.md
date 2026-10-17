@@ -461,3 +461,14 @@ cache assertions are retained with explicit historical profiles; planner/executo
 rejection cases now include v3. Existing single-frame gap and all prior tests remain.
 See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for actual outcomes.
 A new phone codec test and full regression run remain required before runtime acceptance.
+
+### Subsequent v4 device limitation: full-window EOS remains unresolved
+
+The next owner run advanced beyond SOURCE_GAP but returned only 1,317,888 codec source
+frames and 1,317,887 accepted frames from the 1,323,000-frame generated FLAC. EOS and
+file duration do not establish complete coverage. The original one-anomaly v4 PCM replay
+was not a replay of the entire actual codec stream. No further timestamp tolerance or
+window shortening is applied. Added packet-accounting diagnostics and the silent
+`NativeFlacEosInstrumentedTest` compare extraction/queue/output/EOS without altering
+preprocessing. The native service test still fails until complete valid PCM is established.
+See [the activation guide's EOS investigation](AUTOMIX_NATIVE_DJ_ACTIVATION.md).

@@ -222,3 +222,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Fix corrected experimental PCM capture discarding a source frame for tiny FLAC timestamp
   offsets. The new v4 preprocessing profile keeps cache results isolated; missing audio
   still fails safely, and normal legacy AutoMix remains unchanged.
+
+- Add privacy-safe decoder input/output accounting and a silent generated-FLAC Android
+  diagnostic for unresolved experimental full-window EOS failures. Incomplete audio
+  continues to fall back; this diagnostic does not enable native mode or relax coverage.
