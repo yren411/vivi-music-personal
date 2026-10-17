@@ -1,23 +1,23 @@
 {
   "schema": 1,
   "baseCommit": "a87611de2188436b7cc951afe4999199210b9d40",
-  "applicationImplementationCommit": "b4b8d03db957e0eb8d73612b6e5fe92b0f15057a",
-  "instrumentationSourceSha256": "b72e13a5ae6ca4e68632ea3c259d3254b240218a28f0a1749da5953c3128a6dc",
+  "applicationImplementationCommit": "f1e10472763e6c5e5cd6951e16a1a7a0f8dfefd5",
+  "instrumentationSourceSha256": "b3a8147252b23ee4177d9b65135d9afe34e14c7d2a82cadce528d3f37cbbbfca",
   "fullJvmSuites": {
     "Arm64GmsDebug": {
-      "tests": 406,
+      "tests": 418,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
     "UniversalFossDebug": {
-      "tests": 406,
+      "tests": 418,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     }
   },
-  "newJvmTestsPerVariant": 53,
+  "newJvmTestsPerVariant": 65,
   "realHostJniTestMethodsPerVariant": 16,
   "unitTestTasksRestoredFromGradleCache": false,
   "nativeCtest": {
@@ -94,9 +94,10 @@
         "maximumObservedDriftUs": 139163
       }
     ],
-    "diagnosis": "Startup player-clock separation exceeds the unchanged 120ms limit; persistent output latency versus transient clock estimation remains unresolved.",
+    "diagnosis": "Owner speaker probe confirms persistent 111163\u2013130004us player-clock separation after startup; command-at-anchor does not reliably meet the existing drift bound.",
     "repairVerified": false,
-    "mergeRecommendation": "Hold pending measured synchronization repair and original device regression passes."
+    "mergeRecommendation": "Hold pending measured synchronization repair and original device regression passes.",
+    "repairImplemented": "v2 measured per-attempt outgoing startup prediction; no cue rebasing, rate adjustment or threshold relaxation"
   },
   "startupDeviceDiagnostic": {
     "class": "com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest",
@@ -106,5 +107,22 @@
     "execution": "Not executed in cloud; awaiting owner probe",
     "acceptanceMeaning": "Observation/progression/cleanup only; does not approve synchronization",
     "productionOrThresholdChanges": false
+  },
+  "measuredStartCorrection": {
+    "executorVersion": "tinium-native-dj-executor-v2-measured-start-lead",
+    "newJvmTestMethods": 12,
+    "strictDriftLimitUs": 120000,
+    "maximumPredictionUs": 250000,
+    "maximumObservationAgeUs": 10000000,
+    "fixedDeviceOffsetUsed": false,
+    "originalAndroidAssertionsRetained": true,
+    "additionalAndroidAssertions": [
+      "maximum observed drift <=120000us",
+      "command dispatch within 40000us of predicted command target"
+    ],
+    "androidVerification": "Pending owner rerun; no Android runtime available in cloud",
+    "nativeCtestsRerunForThisKotlinOnlyChange": false,
+    "priorNativeResultsRemainApplicableToUnchangedDsp": true,
+    "deviceProbeEvidence": "device-startup-observations.json"
   }
 }
