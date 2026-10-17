@@ -181,3 +181,13 @@ This is an unversioned draft for review. No release version or tag is assigned.
   cancellation/cache regressions and six new Android planner instrumentation tests.
   Normal AutoMix, playback gains, effects sessions, settings and UI stay unchanged;
   the experimental planner is not connected to production playback.
+
+## Experimental AutoMix execution — developer validation
+
+- Add an internally invoked native-plan executor with prepared incoming cues,
+  two-player overlap, bounded gain envelopes and explicit cancellation/handoff.
+- Prevent quiet or unrelated outgoing level measurements from severely attenuating
+  incoming music in this experimental path; normal AutoMix gains remain unchanged.
+- Add deterministic signal/state tests and isolated Android playback tests with
+  timing/session diagnostics. Normal playback still uses legacy AutoMix; device
+  execution and real-song listening remain separate validation requirements.

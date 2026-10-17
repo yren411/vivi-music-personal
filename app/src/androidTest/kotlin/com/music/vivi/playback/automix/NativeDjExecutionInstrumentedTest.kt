@@ -45,6 +45,12 @@ class NativeDjExecutionInstrumentedTest {
             assertTrue(h.outgoingAtReleaseUs!!<h.plan.outgoing.durationUs)
             h.executor.tick();assertEquals(1,h.promotions)
         }
+        var atPromotion=0L
+        h.main {atPromotion=h.incoming!!.currentPosition}
+        h.until("incoming continues after handoff",3000,allowTerminal=true) {
+            h.incoming!!.isPlaying && h.incoming!!.currentPosition>atPromotion+300
+        }
+        h.main {assertEquals(1,h.promotions);assertSame(h.incoming,h.primary);assertEquals(h.volume,h.incoming!!.volume,.0001f)}
     }
     @Test fun aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback()=withPair(codec=true){h ->
         h.start();h.mixing();h.until("both advance",5000){h.incoming!!.currentPosition*1000>h.plan.candidate.incomingCueUs+500_000}
@@ -202,13 +208,13 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
         instrumentation.runOnMainSync {try{block()}catch(t:Throwable){error.set(t)}}
         error.get()?.let {throw it}
     }
-    fun until(label:String,timeoutMs:Long,condition:()->Boolean) {
+    fun until(label:String,timeoutMs:Long,allowTerminal:Boolean=false,condition:()->Boolean) {
         val done=CountDownLatch(1);val handler=Handler(Looper.getMainLooper());val error=AtomicReference<Throwable?>()
         val deadline=SystemClock.uptimeMillis()+timeoutMs
         val task=object:Runnable {
             override fun run(){try {
                 if(condition()){done.countDown();return}
-                if(::executor.isInitialized && executor.terminal)throw AssertionError("$label; "+failure())
+                if(!allowTerminal && ::executor.isInitialized && executor.terminal)throw AssertionError("$label; "+failure())
                 if(SystemClock.uptimeMillis()>=deadline)throw AssertionError("Timed out: $label; "+if(::executor.isInitialized)failure() else "outgoing state=${outgoing.playbackState}")
                 handler.postDelayed(this,10)
             }catch(t:Throwable){error.set(t);done.countDown()}}

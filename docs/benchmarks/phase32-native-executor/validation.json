@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "baseCommit": "a87611de2188436b7cc951afe4999199210b9d40",
+  "applicationImplementationCommit": "6a20bdb71284bb872c2c79dec170796cec8b42a7",
+  "instrumentationSourceSha256": "b72e13a5ae6ca4e68632ea3c259d3254b240218a28f0a1749da5953c3128a6dc",
+  "fullJvmSuites": {
+    "Arm64GmsDebug": {
+      "tests": 405,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 405,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "newJvmTestsPerVariant": 52,
+  "realHostJniTestMethodsPerVariant": 16,
+  "unitTestTasksRestoredFromGradleCache": false,
+  "nativeCtest": {
+    "passed": 10,
+    "failed": 0
+  },
+  "nativeSanitizerCtest": {
+    "passed": 10,
+    "failed": 0
+  },
+  "appApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "instrumentationApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "newGeneratedAndroidTestsCompiledAndPackaged": 14,
+  "optionalLocalListeningAndroidTestsCompiled": 1,
+  "previousAndroidTestsUnchanged": 24,
+  "newAndroidRuntimeTestsExecuted": 0,
+  "capturedAudioMeasurements": 0,
+  "subjectiveListeningTests": 0,
+  "androidLimitations": [
+    "No KVM device",
+    "No emulator system images",
+    "No connected Android device provisioned"
+  ],
+  "nativePayloadSha256UnchangedFromPhase31": true,
+  "productionAnalyzer": "tinium-legacy-kotlin",
+  "productionPreprocessing": "nearest-time-mono-22050-v1",
+  "productionExecutor": "Existing AutoMixController, unchanged",
+  "existingAssertionsWeakened": false,
+  "normalServiceFocusRoutingAndMediaSessionIntegration": "Not activated; caller-owned isolated session only",
+  "androidFocusAndRouteTests": "Explicit forwarding policy; not system-focus arbitration or automatic route observation",
+  "signing": "Existing debug signing only; no distribution/release signing changes"
+}
