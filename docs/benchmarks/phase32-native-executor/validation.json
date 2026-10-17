@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseCommit": "a87611de2188436b7cc951afe4999199210b9d40",
-  "applicationImplementationCommit": "6a20bdb71284bb872c2c79dec170796cec8b42a7",
+  "applicationImplementationCommit": "b4b8d03db957e0eb8d73612b6e5fe92b0f15057a",
   "instrumentationSourceSha256": "b72e13a5ae6ca4e68632ea3c259d3254b240218a28f0a1749da5953c3128a6dc",
   "fullJvmSuites": {
     "Arm64GmsDebug": {
@@ -54,5 +54,16 @@
   "existingAssertionsWeakened": false,
   "normalServiceFocusRoutingAndMediaSessionIntegration": "Not activated; caller-owned isolated session only",
   "androidFocusAndRouteTests": "Explicit forwarding policy; not system-focus arbitration or automatic route observation",
-  "signing": "Existing debug signing only; no distribution/release signing changes"
+  "signing": "Existing debug signing only; no distribution/release signing changes",
+  "malformedPlanRegression": {
+    "beforeFixTests": 1,
+    "beforeFixFailures": 1,
+    "afterFixFullGmsPassed": 405,
+    "afterFixFullFossPassed": 405,
+    "checks": [
+      "pulse-count/overlap duration consistency",
+      "predicted drift recomputation",
+      "rank/alignment summary consistency"
+    ]
+  }
 }

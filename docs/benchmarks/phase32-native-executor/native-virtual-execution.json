@@ -16,7 +16,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 28401999,
+        "hostExecutionNanos": 28535141,
         "acousticTimingMeasured": false
     },
     {
@@ -36,7 +36,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2636029,
+        "hostExecutionNanos": 3150897,
         "acousticTimingMeasured": false
     },
     {
@@ -56,7 +56,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2424676,
+        "hostExecutionNanos": 3059111,
         "acousticTimingMeasured": false
     },
     {
@@ -76,7 +76,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2156361,
+        "hostExecutionNanos": 2442332,
         "acousticTimingMeasured": false
     },
     {
@@ -96,7 +96,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2986025,
+        "hostExecutionNanos": 2979474,
         "acousticTimingMeasured": false
     },
     {
@@ -116,7 +116,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2055733,
+        "hostExecutionNanos": 2208206,
         "acousticTimingMeasured": false
     },
     {
@@ -136,7 +136,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 1939231,
+        "hostExecutionNanos": 1891760,
         "acousticTimingMeasured": false
     },
     {
@@ -156,7 +156,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 2353953,
+        "hostExecutionNanos": 2019258,
         "acousticTimingMeasured": false
     },
     {
@@ -176,7 +176,7 @@
         "status": "COMPLETED",
         "promotions": 1,
         "virtualUnderruns": 0,
-        "hostExecutionNanos": 1875696,
+        "hostExecutionNanos": 1928874,
         "acousticTimingMeasured": false
     }
 ]

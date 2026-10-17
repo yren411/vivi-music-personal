@@ -68,7 +68,11 @@ installed here.** The controlled isolated path is the current executable integra
 Admission checks planner version, native backend/profile, corrected preprocessing
 `sinc64-blackman-initial-preroll-mono-22050-v3`, required capability, rate 1.0, generation,
 recording/rendition identities, durations, seekability, cue regions, analyzed intervals,
-remaining track time, bounded overlap and timing residuals. It rejects nonfinite values and
+remaining track time, bounded overlap and timing residuals. Pulse counts must be 8/16/32/64
+intervals; overlap length, rank summary and predicted rate-1.0 drift must be consistent with
+the tempo/alignment fields. A tampered short overlap cannot retain a longer beat grid. Duration
+consistency uses the native evidence contract's 2% allowance (at least 70ms); it never changes
+a selected cue/duration or relaxes the separate 40/70ms musical residual gates. It rejects nonfinite values and
 arithmetic overflow. Native confidence is retained as uncalibrated evidence, never reinterpreted
 as the legacy 0.65 confidence scale. Only `TIMING_AND_TRANSIENT_SUPPORTED` proposals are admitted;
 `TIMING_ONLY_SIGNAL_UNVERIFIED` receives an explicit rejection.

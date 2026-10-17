@@ -42,7 +42,7 @@ Quiet-tail regression: the legacy reference ratio 0.005 / 0.2 is approximately 0
 
 ## Host execution performance / resources
 
-Twenty complete 16-second virtual transitions (about 1600 10ms ticks each): median 4.397 ms elapsed desktop wall time, maximum 4.830 ms. These exclude analysis, decoding, actual scheduler waits and Android playback. Shared-cloud contention/JIT affect the sample; these are not device CPU/battery measurements.
+Twenty complete 16-second virtual transitions (about 1600 10ms ticks each): median 4.086 ms elapsed desktop wall time, maximum 5.683 ms. These exclude analysis, decoding, actual scheduler waits and Android playback. Shared-cloud contention/JIT affect the sample; these are not device CPU/battery measurements.
 
 The executor retains no PCM. At most two players per explicit session and 128 compact event records; scratch work is bounded. PCM analysis and two-player buffering retain their existing budgets. No new analysis pool, native threads, persistent PCM cache or always-on task exists. Peak/live heap, allocation counts, Android RSS, thermals, real decoder preparation latency and acoustic jitter were **not measured**. The mathematical gain loops are not an audio renderer.
 
@@ -53,7 +53,7 @@ The executor retains no PCM. At most two players per explicit session and 128 co
 - Debug GMS/FOSS app APKs and test APKs assembled. **14 generated playback tests plus one separately selected optional listening test compiled**; 14 actual runtime JUnit annotations verified in the GMS test APK. Earlier 24 instrumentation tests are unchanged.
 - No emulator/system image/KVM/connected device was provisioned. New Android runtime execution: **zero**. The owner's earlier 24 passes remain historical, not evidence for this executor.
 - AutoMix JNI libraries in both app APKs pass ELF LOAD and native ZIP offset/uncompressed packaging checks; whole-APK zipalign -P16, ABI/JNI symbol and license-asset checks also pass. All four ABIs are present. Native payload hashes match Phase 3.1 exactly.
-- Debug APK archive bytes: app-arm64-gms-debug.apk: 72990981, app-universal-foss-debug.apk: 70152934. These are archive sizes, not a controlled per-feature size delta; ZIP alignment/compression affect comparisons. New executor classes were inspected in GMS DEX.
+- Debug APK archive bytes: app-arm64-gms-debug.apk: 72990981, app-universal-foss-debug.apk: 70153346. These are archive sizes, not a controlled per-feature size delta; ZIP alignment/compression affect comparisons. New executor classes were inspected in GMS DEX.
 - No existing assertions/tests were weakened. Early development failures were new-test numerical precision, a clock fixture representing a discontinuity, compilation while contracts were being completed, and watchdog stage classification. They were resolved before the final successful run. Preparation timeout and ready-clock stalls remain distinct.
 
 ## Commands actually executed
@@ -62,9 +62,9 @@ Cloud tool paths are environment-specific. Activate JDK21 / the existing Android
 
 ```bash
 source /workspace/onboarding/activate.sh
-export TINIUM_PHASE32_REPORT_DIR=/tmp/phase32-complete-report
+export TINIUM_PHASE32_REPORT_DIR=/tmp/phase32-admission-final-report
 bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest "-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so" "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --max-workers=4 --console=plain
-# A later test-only handoff-continuation assertion/harness change was compiled with:
+# During development the handoff-continuation assertion was also separately compiled with:
 bash gradlew :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --max-workers=4 --console=plain
 /workspace/toolchains/native-host/cmake/data/bin/ctest --test-dir /tmp/tinium-native-build --output-on-failure
 ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 /workspace/toolchains/native-host/cmake/data/bin/ctest --test-dir /tmp/tinium-native-sanitized --output-on-failure
@@ -76,3 +76,5 @@ The JVM test tasks actually executed and were not restored FROM-CACHE. Unchanged
 ## Device and Phase 3.3 gates
 
 See [AUTOMIX_NATIVE_DJ_EXECUTOR.md](../../AUTOMIX_NATIVE_DJ_EXECUTOR.md) for exact 14-test and previous-24 PowerShell commands, private local listening, safe logs, cleanup and optional acoustic measurements. Production remains legacy. Source/runtime reports never imply device success, post-EQ clipping safety or perceptual quality. Real service focus/routing/MediaSession handoff and real-song listening require deliberate integration/validation before activation. No public APK release or automatic merge is authorized.
+
+A final malformed-plan regression failed before repair: changing a valid 32-pulse plan to a 0.5s overlap was wrongly admitted. Admission now verifies supported pulse counts, overlap/tempo consistency, the recomputed drift model and matching rank summary. The full 405+405 suites pass after repair; the earlier failure is not hidden or counted as a passing test. Valid native/virtual numerical results remain identical across the saved completed runs, excluding elapsed host execution times.
