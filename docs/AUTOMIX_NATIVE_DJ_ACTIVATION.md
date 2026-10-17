@@ -683,3 +683,60 @@ nonblocking policy; this is not a clean-lint or Android runtime claim. Structure
 reproduction, command and test evidence: `benchmarks/phase33-native-automix/service-suite-callback-followup.json`.
 The repaired eleven-test Android suite remains **unexecuted in the cloud**; the PR stays
 draft pending phone regression. The earlier v5 targeted owner passes are retained above.
+
+
+### Successive-transition completion boundary
+
+After the callback/history repair (`2e9755e8`), the owner reported that only
+`successiveAttemptsPreserveQueueAndReleaseOldPlayers` failed in the full service class:
+it saw two outputs immediately after the third queue item became current. The other
+previous failures, including AAC/FLAC and pause/resume, were not reported again.
+
+The original wait permitted the second transition to use legacy fallback (it requires
+at least one native completion across successive pairs). **Legacy queue promotion occurs
+at fade start** in `AutoMixController.drivePreparation`; outgoing release occurs later
+in `driveBlend`, followed by bounded level/rate recovery. Native promotion occurs at the
+end. Consequently, a queue item change plus an earlier native completion is not a common
+completion boundary. Seeing two outputs during that legitimate fallback fade alone does
+not prove a leak.
+
+The test now waits for actual transition ownership to become idle, using read-only
+`NativeServiceInspection.transitionActive` (native ownership, legacy blend/recovery,
+or standard crossfade). It then independently retains the strict one-output, queue,
+playing and volume assertions. **It does not wait for outputs to equal one**, increase
+the 150-second deadline, release a deck early, disable fallback, or change production
+promotion/release behavior. If an unowned output survives completion, the same assertion
+still fails and now includes current scoped history/status.
+
+`AutoMixControllerTest.legacyQueuePromotionPrecedesFadeCompletionAndOutgoingRelease`
+exercises the real legacy controller with virtual media time: the incoming item is
+current while two decks remain owned, then the outgoing deck is released once and only
+the continuing incoming deck remains after fade/recovery. This characterizes the
+previously incorrect test assumption; it is not a claim of an Android resource-leak fix.
+The revised single service test and then the full suite still require owner execution.
+
+
+Completion-boundary repair source: `3d667e368d950fdd52d995a0299b0f5b5e199f22`.
+Both complete JVM tasks executed again: **497 GMS + 497 FOSS = 994 passed**, zero
+failures/errors/skips, including the new real legacy-controller regression and 17 actual
+host-JNI/comparison tests per variant. Both app/test APKs built (3m44s; 52 executed and
+345 up-to-date tasks). The actual app APKs passed four-ABI JNI/ELF/ZIP16KB/license checks;
+native hashes are unchanged. Local lint was not rerun for this read-only/test follow-up;
+the preceding head's two GitHub workflows and nonblocking lint passed, and latest-head
+CI must pass again. No Android tests were executed by Codex. Source/commands/evidence:
+`benchmarks/phase33-native-automix/successive-completion-followup.json`.
+
+Run the remaining case after updating the PR branch (it uses roughly two minutes of
+generated-media playback; its existing wait limit is unchanged):
+
+```powershell
+git fetch origin
+git switch codex/automix-native-dj-service
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#successiveAttemptsPreserveQueueAndReleaseOldPlayers" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Expect one executed test, no failure/skip, then rerun the full eleven and prior 38
+regressions. A persistent extra output after ownership is idle is still a failure;
+report the expanded `Successive handoffs` message. No uninstall/data clearing or change
+to the normal Tinium installation/signing is needed.
