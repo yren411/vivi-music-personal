@@ -76,4 +76,21 @@ class NativeDjTransitionExecutorTest {
 
     @Test fun readyButFrozenMediaClocksCannotLeaveAnOverlapRunningForever(){val (h,e)=run();h.toStart(e);h.advance(e,100_000);h.now+=2_000_001;e.tick();assertEquals(NativeDjExecutionReason.PLAYBACK_STALLED,e.status.reason);assertEquals(0,h.promotions);assertTrue(h.b.released);assertTrue(h.a.playing)}
 
+    @Test fun reportedAndroidColdStartOffsetsCannotBeRelabeledAsAlignedMixes() {
+        // Owner-observed offsets from the three failing S25 Ultra tests. isPlaying/READY
+        // alone does not prove that the incoming clock has advanced with the outgoing one.
+        for (offsetUs in listOf(125_004L,129_004L,139_163L)) {
+            val (h,e)=run();h.toStart(e)
+            h.now+=offsetUs+1_000
+            h.a.position+=offsetUs+1_000
+            h.b.position+=1_000
+            e.tick()
+            assertEquals(NativeDjExecutionStage.FALLBACK,e.status.stage)
+            assertEquals(NativeDjExecutionReason.EXCESSIVE_DRIFT,e.status.reason)
+            assertEquals(offsetUs,e.measurements().estimatedStartOffsetUs)
+            assertEquals(0,h.promotions);assertEquals(1,h.b.releaseCount)
+            assertTrue(h.a.playing);assertEquals(1.0,h.a.applied,0.0)
+        }
+    }
+
 }

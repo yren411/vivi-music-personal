@@ -48,7 +48,7 @@ The executor retains no PCM. At most two players per explicit session and 128 co
 
 ## Executed checks
 
-- Full GMS: **405 passed**, zero failures/errors/skips. Full FOSS: **405 passed**, zero failures/errors/skips. Includes 16 real host-JNI test methods per variant; without the optional configured host library those methods explicitly skip, while pure execution tests run.
+- Full GMS: **406 passed**, zero failures/errors/skips. Full FOSS: **406 passed**, zero failures/errors/skips. Includes 16 real host-JNI test methods per variant; without the optional configured host library those methods explicitly skip, while pure execution tests run.
 - Existing native CTest **10/10**, and ASan/UBSan/LSan CTest **10/10**. DSP sources were not changed.
 - Debug GMS/FOSS app APKs and test APKs assembled. **14 generated playback tests plus one separately selected optional listening test compiled**; 14 actual runtime JUnit annotations verified in the GMS test APK. Earlier 24 instrumentation tests are unchanged.
 - No emulator/system image/KVM/connected device was provisioned. New Android runtime execution: **zero**. The owner's earlier 24 passes remain historical, not evidence for this executor.
@@ -77,4 +77,36 @@ The JVM test tasks actually executed and were not restored FROM-CACHE. Unchanged
 
 See [AUTOMIX_NATIVE_DJ_EXECUTOR.md](../../AUTOMIX_NATIVE_DJ_EXECUTOR.md) for exact 14-test and previous-24 PowerShell commands, private local listening, safe logs, cleanup and optional acoustic measurements. Production remains legacy. Source/runtime reports never imply device success, post-EQ clipping safety or perceptual quality. Real service focus/routing/MediaSession handoff and real-song listening require deliberate integration/validation before activation. No public APK release or automatic merge is authorized.
 
-A final malformed-plan regression failed before repair: changing a valid 32-pulse plan to a 0.5s overlap was wrongly admitted. Admission now verifies supported pulse counts, overlap/tempo consistency, the recomputed drift model and matching rank summary. The full 405+405 suites pass after repair; the earlier failure is not hidden or counted as a passing test. Valid native/virtual numerical results remain identical across the saved completed runs, excluding elapsed host execution times.
+A final malformed-plan regression failed before repair: changing a valid 32-pulse plan to a 0.5s overlap was wrongly admitted. Admission now verifies supported pulse counts, overlap/tempo consistency, the recomputed drift model and matching rank summary. The earlier full 405+405 suites passed after repair; the earlier failure is not hidden or counted as a passing test. Valid native/virtual numerical results remain identical across the saved completed runs, excluding elapsed host execution times.
+
+
+## Owner-reported Android startup failures — unresolved
+
+The owner supplied three failures from the new execution suite: quiet-reference gain,
+pause/resume and extended handoff all terminated in `EXCESSIVE_DRIFT` before their main
+assertions. First/maximum player-clock offsets were 125004/125004, 119004/129004 and
+139163/139163 microseconds respectively. Command lateness was only 3741, 7741 and
+6474 microseconds. Exact tested commit/full XML totals were not supplied. These reports
+are real device evidence and supersede any suggestion that cloud success proves execution
+correctness. Production remains legacy; **hold merge pending a measured repair and device
+regression passes**.
+
+A new JVM characterization reproduces all three offsets and requires safe rejection,
+without changing the 120ms limit or the existing 14 Android tests. Both full JVM tasks
+actually reran: **406+406 passed, zero failures/errors/skips**, including the host JNI tests.
+Both instrumentation APK variants compiled the additional separate one-test startup probe;
+this probe measures two seconds per fixture with incoming muted and does not approve a mix.
+Persistent startup delay versus transient clock-estimate settling remains unresolved.
+There is no claimed synchronization repair or new successful Android runtime result.
+See the architecture document for the exact probe/report retrieval commands.
+
+Latest commands (in addition to the earlier unchanged native/packaging checks above):
+
+```bash
+source /workspace/onboarding/activate.sh
+bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest "-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so" "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --max-workers=4 --console=plain
+```
+
+The final diagnostic source was separately recompiled after simplifying its local nullability;
+no production/native source changed, so unchanged native CTests and APK payload checks
+were not redundantly rerun for this test-only addition.

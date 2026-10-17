@@ -5,6 +5,11 @@ This phase adds an **explicitly invoked experimental executor**, not production 
 `MusicService`, its legacy planner/controller, PCM selection, gains, filters, equalizers,
 settings, notifications and queue remain unchanged. No release version is allocated.
 
+**Device validation is currently blocked.** The owner supplied three S25 Ultra failure
+reports: all reached `FALLBACK / EXCESSIVE_DRIFT` shortly after incoming `play()`. A passing
+cloud build does not supersede those results. Do not treat Phase 3.2 as device-validated or
+activate/merge it on that basis. See the startup investigation below.
+
 ## Implemented path
 
 ```mermaid
@@ -40,6 +45,8 @@ No DSP/JNI/native build source was copied or changed. The actual existing backen
   signal/performance reports. Existing tests/assertions remain unchanged.
 - `NativeDjExecutionInstrumentedTest.kt`: 14 generated-media Android tests.
 - `NativeDjLocalListeningInstrumentedTest.kt`: separately selected optional private-file evaluation.
+- `NativeDjStartupClockInstrumentedTest.kt`: separately selected, bounded device diagnostic;
+  records two seconds of muted incoming playback without approving a transition.
 
 ## Production and ownership boundary
 
@@ -289,6 +296,80 @@ BPMs, cues, gains, state/reason, estimated media timing and the last six bounded
 names, URLs or local paths. Detailed history is bounded at 128 events per explicit attempt.
 The existing Stats for Nerds export UI/schema is unchanged and does not automatically collect
 this isolated session.
+
+### Owner-reported startup failures and bounded diagnostic
+
+Three supplied reports share the same terminal reason, `EXCESSIVE_DRIFT`:
+
+| Test | Dispatch lateness relative to planned anchor | First measured offset | Maximum measured offset before abort |
+| --- | ---: | ---: | ---: |
+| Quiet-reference midpoint gain | 3,741 us | 125,004 us | 125,004 us |
+| Pause/resume | 7,741 us | 119,004 us | 129,004 us |
+| Extended overlap/handoff | 6,474 us | 139,163 us | 139,163 us |
+
+The commands were within the 40 ms scheduling limit. These are **player-clock offsets**,
+not acoustic measurements. All failures preceded the intended gain, pause or completion
+assertions. In the quiet-reference case, both content gains were exactly 1.0; this report
+does not identify a level-matching failure. The native pair's predicted tempo drift was
+under 1.3 ms, much smaller than the observed startup separation. The failure reports do
+not establish whether that separation persists after startup, nor prove native beat
+accuracy or synchronized long playback. No complete connected-test XML/counts or exact
+owner-tested commit were supplied with the three reports.
+
+The executor currently treats the first advancing incoming player position as usable
+alignment evidence. Media3 1.7.1's `audio/AudioTrackPositionTracker.java`,
+`getCurrentPositionUs()`, can initially use a latency-adjusted playback-head estimate,
+then switch to an advancing AudioTimestamp and smooth that mode switch over one second.
+`DefaultAudioSink.play()` starts its AudioTrack asynchronously relative to the caller's
+player command. These source facts support **two still-distinct hypotheses**: a real
+independent-output startup delay, or an unstable early clock estimate. The supplied
+reports end too early to distinguish them. Neither is repaired by changing the native
+detector, cue, gain curve, confidence gate, or merely increasing the allowed drift.
+
+Source references match the repository's pinned Media3 1.7.1:
+[AudioTrackPositionTracker](https://github.com/androidx/media/blob/1.7.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/AudioTrackPositionTracker.java)
+and [DefaultAudioSink](https://github.com/androidx/media/blob/1.7.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java).
+
+The new passing JVM characterization explicitly reproduces all three reported offset
+magnitudes and requires fallback, no promotion, incoming release and outgoing continuity.
+**The 120 ms limit, timing assertions, production code and original 14 Android tests remain
+unchanged. No startup repair is claimed yet.**
+
+Run the separately selected probe after updating this branch:
+
+```powershell
+git fetch origin
+git switch codex/automix-native-dj-executor
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase32-startup-clock.txt | Set-Content -Encoding utf8 .\phase32-startup-clock.txt
+```
+
+If your SDK is elsewhere, use its `platform-tools\adb.exe` path (Android Studio's SDK
+Manager shows the SDK location). Keep the existing signing setup and isolated package;
+do not uninstall the main app. Expect **one diagnostic test**, which probes both standard
+and extended fixtures. Its pass only confirms observation/progression/cleanup, **not a
+successful mix**. Share `phase32-startup-clock.txt` even if the probe passes; an absent or
+empty report is not usable evidence. The fixed private test report is overwritten on
+each explicit run; it does not alter Stats for Nerds export. It contains at most 128
+position samples and 32 controlled callbacks per fixture, no media identities or audio.
+
+The probe prepares the same selected cue and issues play at the original outgoing anchor,
+keeps incoming volume zero for two seconds, and records positions/readiness, command
+timing, AudioTrack configuration, advancing-position callbacks and underruns. It never
+seeks after prepare, changes rate, promotes or labels a transition aligned. It deliberately
+does not use the executor's early-abort policy, solely to observe the clocks after the
+point where the failing tests stop. Sampling uses bounded main-looper callbacks with a
+deadline; no sleeps block the player thread. This is diagnostic infrastructure, not a
+replacement executor or a relaxation of acceptance tests.
+
+If offsets remain above 120 ms after startup, the existing scheme cannot meet its stated
+bound on that route; a measured preparation/scheduling correction must precede merge.
+If offsets settle inside the bound, validate which clock evidence is usable before
+changing admission/observation policy; do not silently rebase the incoming cue or declare
+the early samples accurate. After any repair, rerun the original 14 plus prior 24 tests.
+Actual output capture remains necessary for claims about acoustic beat alignment.
 
 ### Optional permitted private music
 
