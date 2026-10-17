@@ -48,7 +48,7 @@ The executor retains no PCM. At most two players per explicit session and 128 co
 
 ## Executed checks
 
-- Full GMS: **418 passed**, zero failures/errors/skips. Full FOSS: **418 passed**, zero failures/errors/skips. Includes 16 real host-JNI test methods per variant; without the optional configured host library those methods explicitly skip, while pure execution tests run.
+- Full GMS: **421 passed**, zero failures/errors/skips. Full FOSS: **421 passed**, zero failures/errors/skips. Includes 16 real host-JNI test methods per variant; without the optional configured host library those methods explicitly skip, while pure execution tests run.
 - Existing native CTest **10/10**, and ASan/UBSan/LSan CTest **10/10**. DSP sources were not changed.
 - Debug GMS/FOSS app APKs and test APKs assembled. **14 generated playback tests plus one separately selected optional listening test compiled**; 14 actual runtime JUnit annotations verified in the GMS test APK. Earlier 24 instrumentation tests are unchanged.
 - No emulator/system image/KVM/connected device was provisioned. New Android runtime execution: **zero**. The owner's earlier 24 passes remain historical, not evidence for this executor.
@@ -148,7 +148,7 @@ of an unpresented early start: resume now continues outgoing and explicitly canc
 STARTUP_INTERRUPTED, rather than fabricate retained alignment. Observed pre-anchor playback
 can pause/resume with its measured original relationship intact.
 
-Both **full suites actually reran: 418 GMS + 418 FOSS passed, zero failures/errors/skips**,
+For the prior v2 repair, both **full suites actually reran: 418 GMS + 418 FOSS passed, zero failures/errors/skips**,
 including 16 actual host-JNI methods per variant. Both app/test APK variants assembled;
 14 runtime test annotations and the new stricter maximum-drift/dispatch assertions were
 inspected in GMS test DEX. All four native ABIs, ELF/ZIP16K alignment, symbols and notices
@@ -157,7 +157,7 @@ Nine native-plan/virtual results and all 36 signal rows match the earlier run ex
 excluding elapsed host runtime; updated raw reports are committed. Native CTests were
 not redundantly rerun for this Kotlin-only correction. No device repair pass is claimed.
 
-Latest full command:
+Prior v2 full command:
 
 ```bash
 source /workspace/onboarding/activate.sh
@@ -170,3 +170,45 @@ drift and prediction-relative command checks. The harness measures actual outgoi
 startup each attempt, never copies virtual delays into real playback. Awaiting the
 owner's full execution regression on the speaker route; the prior 24 device regressions
 and acoustic/listening/output-route evaluations remain required before activation.
+
+
+## Format-aware startup and independent clock progression (v3)
+
+The next owner run reported two failures. AAC -> FLAC borrowed a 140,873us outgoing
+startup estimate and produced a -196,286us observed offset, correctly rejected by
+`EXCESSIVE_DRIFT`. The extended-overlap test reached `COMPLETED`, then failed its
+progress assertion; its actual numeric deficit was not supplied. These do not establish
+that the other 12 methods passed; complete device totals were not supplied.
+
+Three new deterministic regressions failed against v2 before repair:
+
+1. A mismatched-format pair borrowed a 140ms estimate despite zero incoming delay.
+2. Alternating 20ms clock snapshots (10ms apart) caused a false `PLAYBACK_STALLED`
+   and zero accumulated progress despite continuous underlying playback.
+3. With 20ms/30ms snapshots, the executor completed a 16,000,000us overlap but counted
+   only 5,320,000us of common progression; the full-progress assertion failed.
+
+Version `tinium-native-dj-executor-v3-format-aware-clock-progress` restricts prediction
+to known matching prepared audio formats, counts common cumulative progression from
+the original two cues and monitors each player's progress independently. It keeps the
+original 120ms drift, 40ms command-lateness and 150ms Android overlap-progress bounds.
+The new regressions pass; the AAC/FLAC Android test additionally requires zero lead.
+Original Android assertions retain their limits and now include failure diagnostics.
+
+Actual final run: **421 GMS + 421 FOSS tests passed**, zero failures/errors/skips,
+including 16 real host-JNI methods per variant and all 68 Phase 3.2 JVM methods.
+Both app and instrumentation APK variants assembled. Actual packaging checks passed
+for arm64-v8a, armeabi-v7a, x86 and x86_64, including ELF/ZIP16K alignment and notices.
+Native payload hashes match Phase 3.1. All nine native/virtual rows and 36 signal rows
+match the prior v2 report numerically, excluding host runtimes and executor version.
+Native DSP tests were not repeated for this Kotlin-only change.
+
+```bash
+source /workspace/onboarding/activate.sh
+export TINIUM_PHASE32_REPORT_DIR=/tmp/phase32-v3-final-report
+bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest "-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so" "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --max-workers=4 --console=plain
+```
+
+The cloud has no Android runtime. The repaired 14-test playback suite and prior 24
+Android regressions remain owner-device validation requirements. No production
+activation, gain/planner change, or acoustic/subjective listening claim is made.

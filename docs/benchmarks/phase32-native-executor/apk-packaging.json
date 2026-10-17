@@ -104,7 +104,7 @@
     },
     {
       "apk": "app-universal-foss-debug.apk",
-      "apk_bytes": 70156022,
+      "apk_bytes": 70156455,
       "zipalign_16k": true,
       "abis": [
         {

@@ -1,23 +1,23 @@
 {
   "schema": 1,
   "baseCommit": "a87611de2188436b7cc951afe4999199210b9d40",
-  "applicationImplementationCommit": "f1e10472763e6c5e5cd6951e16a1a7a0f8dfefd5",
-  "instrumentationSourceSha256": "b3a8147252b23ee4177d9b65135d9afe34e14c7d2a82cadce528d3f37cbbbfca",
+  "applicationImplementationCommit": "8d076f9fca597c11cb3b80e01869022d7febe54b",
+  "instrumentationSourceSha256": "94f043eb250d7dadc2ab9cfc29832904721bc62f0f233754610ae63fc426cf64",
   "fullJvmSuites": {
     "Arm64GmsDebug": {
-      "tests": 418,
+      "tests": 421,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     },
     "UniversalFossDebug": {
-      "tests": 418,
+      "tests": 421,
       "failures": 0,
       "errors": 0,
       "skipped": 0
     }
   },
-  "newJvmTestsPerVariant": 65,
+  "newJvmTestsPerVariant": 68,
   "realHostJniTestMethodsPerVariant": 16,
   "unitTestTasksRestoredFromGradleCache": false,
   "nativeCtest": {
@@ -104,7 +104,7 @@
     "sourceSha256": "5803815d7b08cb91b863f2d64a6420a9abbe1a65485d52080dd1ba6a9f65a7fe",
     "testMethods": 1,
     "fixturesPerMethod": 2,
-    "execution": "Not executed in cloud; awaiting owner probe",
+    "execution": "Owner supplied phone-speaker standard/extended summaries; not executed in cloud",
     "acceptanceMeaning": "Observation/progression/cleanup only; does not approve synchronization",
     "productionOrThresholdChanges": false
   },
@@ -123,6 +123,68 @@
     "androidVerification": "Pending owner rerun; no Android runtime available in cloud",
     "nativeCtestsRerunForThisKotlinOnlyChange": false,
     "priorNativeResultsRemainApplicableToUnchangedDsp": true,
-    "deviceProbeEvidence": "device-startup-observations.json"
+    "deviceProbeEvidence": "device-startup-observations.json",
+    "supersededBy": "formatAndClockSamplingCorrection; v2 device repair was incomplete"
+  },
+  "ownerFollowupDeviceFailures": {
+    "executorVersion": "tinium-native-dj-executor-v2-measured-start-lead",
+    "testedCommit": "Not supplied",
+    "reportedFailingMethods": 2,
+    "completeTestTotals": "Not supplied",
+    "rows": [
+      {
+        "method": "aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback",
+        "stage": "FALLBACK",
+        "reason": "EXCESSIVE_DRIFT",
+        "plannedOutgoingUs": 4349606,
+        "plannedIncomingUs": 139320,
+        "plannedOverlapUs": 15000023,
+        "commandOutgoingUs": 4212000,
+        "startupLeadUs": 140873,
+        "firstObservedOffsetUs": -196286,
+        "maximumObservedDriftUs": 196286
+      },
+      {
+        "method": "nativePlanExecutesExtendedOverlapAndPromotesExactlyOnce",
+        "stage": "COMPLETED",
+        "failingAssertion": "concurrentProgressUs >= plannedOverlapUs - 150000",
+        "actualProgressValue": "Not supplied; original assertion lacked diagnostic text"
+      }
+    ],
+    "repairAndroidVerified": false
+  },
+  "formatAndClockSamplingCorrection": {
+    "executorVersion": "tinium-native-dj-executor-v3-format-aware-clock-progress",
+    "newRegressionMethods": 3,
+    "beforeFixExpectedFailures": 3,
+    "priorExecutorCompletedCounterReproduction": {
+      "plannedOverlapUs": 16000000,
+      "reportedProgressUs": 5320000,
+      "stage": "COMPLETED",
+      "clockSnapshotPeriodsUs": [
+        20000,
+        30000
+      ]
+    },
+    "strictDriftLimitUs": 120000,
+    "strictCommandLatenessUs": 40000,
+    "predictionPolicy": "Known matching prepared audio formats only; unknown/mismatch means zero lead",
+    "progressMetric": "Maximum common cumulative media-clock progression from original cue anchors",
+    "progressWatchdogs": "Independent per deck; unchanged two-second timeout",
+    "androidVerification": "Pending owner rerun; no Android runtime provisioned in cloud",
+    "fullBuild": "BUILD SUCCESSFUL in 3m 8s; 397 actionable tasks: 57 executed, 340 up-to-date",
+    "fullTestTasksActuallyExecuted": true,
+    "nativeDspUnchanged": true,
+    "beforeFixReproductionRuns": [
+      {
+        "tests": 2,
+        "expectedFailures": 2
+      },
+      {
+        "tests": 1,
+        "expectedFailures": 1
+      }
+    ],
+    "afterFixFullSuites": "421 GMS + 421 FOSS; zero failures/errors/skips"
   }
 }
