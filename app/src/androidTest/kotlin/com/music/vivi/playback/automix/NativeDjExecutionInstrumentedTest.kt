@@ -30,12 +30,12 @@ class NativeDjExecutionInstrumentedTest {
         h.main {
             assertEquals(h.failure(),NativeDjExecutionStage.COMPLETED,h.executor.status.stage)
             val m=h.executor.measurements()
-            assertTrue(m.plannedOverlapUs>=29_000_000)
-            assertTrue(m.concurrentProgressUs>=m.plannedOverlapUs-150_000)
-            assertTrue(abs(m.estimatedStartOffsetUs!!)<=120_000)
-            assertTrue(m.maximumObservedDriftUs<=120_000)
-            assertTrue(m.startupLeadUs in 0..250_000)
-            assertTrue(m.commandOutgoingUs!! in (m.plannedStartUs-m.startupLeadUs)..(m.plannedStartUs-m.startupLeadUs+40_000))
+            assertTrue(h.failure(),m.plannedOverlapUs>=29_000_000)
+            assertTrue(h.failure(),m.concurrentProgressUs>=m.plannedOverlapUs-150_000)
+            assertTrue(h.failure(),abs(m.estimatedStartOffsetUs!!)<=120_000)
+            assertTrue(h.failure(),m.maximumObservedDriftUs<=120_000)
+            assertTrue(h.failure(),m.startupLeadUs in 0..250_000)
+            assertTrue(h.failure(),m.commandOutgoingUs!! in (m.plannedStartUs-m.startupLeadUs)..(m.plannedStartUs-m.startupLeadUs+40_000))
             assertEquals(1,h.promotions);assertSame(h.incoming,h.primary);assertTrue(h.incoming!!.isPlaying)
             assertTrue(h.incoming!!.currentPosition*1000>h.plan.candidate.incomingCueUs)
             assertEquals(h.volume,h.incoming!!.volume,.0001f)
@@ -57,7 +57,11 @@ class NativeDjExecutionInstrumentedTest {
     }
     @Test fun aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback()=withPair(codec=true){h ->
         h.start();h.mixing();h.until("both advance",5000){h.incoming!!.currentPosition*1000>h.plan.candidate.incomingCueUs+500_000}
-        h.main {assertTrue(h.outgoing.isPlaying && h.incoming!!.isPlaying);assertTrue(h.incoming!!.volume>0);assertTrue(h.outgoing.volume>0)}
+        h.main {
+            assertEquals(h.failure(),0L,h.executor.measurements().startupLeadUs)
+            assertTrue(h.failure(),h.outgoing.isPlaying && h.incoming!!.isPlaying)
+            assertTrue(h.failure(),h.incoming!!.volume>0);assertTrue(h.failure(),h.outgoing.volume>0)
+        }
     }
     @Test fun incomingIsPreparedPausedAtTheSelectedCue()=withPair {h ->
         h.start();h.until("armed",3000){h.executor.status.stage==NativeDjExecutionStage.ARMED}

@@ -36,7 +36,7 @@ No DSP/JNI/native build source was copied or changed. The actual existing backen
 - `NativeDjExecutionContracts.kt`: deck/queue/host contracts, states, controlled reasons,
   config and privacy-safe reports. Positions are absolute **track-relative microseconds**.
 - `NativeDjTransitionExecutor.kt`: serialized single-attempt coordinator, version
-  `tinium-native-dj-executor-v2-measured-start-lead`. No threads, timers, analysis or raw PCM cache.
+  `tinium-native-dj-executor-v3-format-aware-clock-progress`. No threads, timers, analysis or raw PCM cache.
 - `NativeDjGain.kt`: comparable active-block RMS measurements, bounded content adjustment,
   four curve implementations and correlated-signal sum guard.
 - `Media3NativeDjPlayback.kt`: actual ExoPlayer adapter, exclusive ownership leases,
@@ -110,7 +110,8 @@ and `RECOVERED`. One executor handles one attempt; terminal ticks cannot promote
    disable repeat/shuffle for this isolated item and prepare asynchronously.
 3. Require actual READY, a known compatible duration, seekability, paused state and a position
    within 15 ms of the cue before arming. Millisecond seek quantization is explicit.
-4. If the caller supplied a fresh outgoing startup observation, predict a bounded command
+4. If the caller supplied a fresh outgoing startup observation **and both prepared audio
+   formats are known and compatible**, predict a bounded command
    lead and dispatch incoming `play()` at `outgoingCueUs - startupLeadUs`. Otherwise dispatch
    at the original anchor. The source still starts at the exact selected incoming cue;
    no extra seek, speed adjustment, cue rebasing or synthetic PCM is used. Incoming gain
@@ -139,9 +140,13 @@ Estimated start offset remains `(outPos - outCue) - (inPos - inCue)` at first ob
 incoming progression, using the **signed original outgoing anchor**, including pre-anchor
 presentation. The lead is never subtracted from measured drift or used to rebase either cue.
 Subsequent separation uses the same reference and unchanged 120 ms rejection limit.
-Only position progress at/after the original fade anchor accumulates `concurrentProgressUs`;
-muted early preparation is excluded. This is a sampled
-player-level measurement, not acoustic overlap or a hardware presentation timestamp.
+`concurrentProgressUs` is the maximum observed common cumulative progression:
+`max(previous, min(max(0, outPos-outCue), max(0, inPos-inCue)))`. It uses both
+original anchors and excludes pre-anchor muted time. Independently sampled clocks need
+not advance on the same polling tick. Each deck has its own unchanged two-second
+progress watchdog; first incoming startup retains its separate 1.5-second deadline.
+This is a sampled player-level progression proxy, not measured simultaneous rendering,
+acoustic overlap or a hardware presentation timestamp.
 
 Maximum tick gap includes the slower paused polling cadence; it is not an audio-render jitter measurement.
 The report includes maximum tick gap, preparation elapsed monotonic time, drift, actual command
@@ -170,6 +175,12 @@ and predicted lead 0–250 ms. Checked subtraction rejects overflow. A reference
 the current outgoing position is ignored. These are resource/validity caps, not a Samsung
 constant or a calibrated latency distribution. The reference is rechecked while preparing
 and armed; absent, malformed, expired or invalidated observations supply zero lead.
+`NativeDjHost.startupTimingCompatible()` defaults to false. The Media3 adapter permits
+prediction only when both actual `audioFormat` values are present, with positive matching
+sample rate/channel count, a non-null matching sample MIME type, and matching PCM
+encoding, codecs, encoder delay and encoder padding. Unknown or mismatched formats
+use zero lead and original-anchor dispatch. Equal format fields do not prove equal
+hardware startup latency; actual drift validation remains mandatory.
 Callers must forward route/seek/queue changes and must not reuse observations after them.
 No automatic route-specific cache or device model table is added.
 
@@ -527,3 +538,36 @@ Existing Orchard/BitChord notices and AGPLv3-or-later source obligations are pre
 experimental native-planning glue follows that provenance; root terms are unchanged. The owner's
 Musixmatch permission working assumption is not public redistribution clearance. No lyrics change,
 new code import, distribution signing or public APK/release publication is part of this phase.
+
+
+## Follow-up device failures: format transfer and independently sampled clocks
+
+The owner supplied two failures from executor v2 after the measured-start change:
+
+- `aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback`: the AAC outgoing cue was
+  4,349,606us; incoming FLAC cue 139,320us, overlap 15,000,023us. The outgoing startup
+  estimate supplied 140,873us lead; incoming was commanded at 4,212,000us. Actual
+  first observed offset was -196,286us, triggering the unchanged `EXCESSIVE_DRIFT`
+  guard. Reusing a different prepared format's startup estimate was unjustified.
+  Version 3 gates this prediction using the known format compatibility check above.
+  The AAC/FLAC test additionally requires zero startup lead; no cue/drift limit changed.
+- `nativePlanExecutesExtendedOverlapAndPromotesExactlyOnce`: the `COMPLETED` assertion
+  passed, then the existing `concurrentProgressUs >= plannedOverlapUs - 150,000`
+  assertion failed. No numeric progress report accompanied that assertion, so the
+  exact device deficit is unknown. Source inspection confirmed that summing only
+  the minimum per-tick deltas undercounts asynchronous clock updates. The same
+  simultaneous-update assumption could also falsely expire the progress watchdog.
+  Version 3 measures common cumulative progression and monitors each clock separately.
+  Existing timing/progress assertions retain their bounds and now include the full
+  bounded `NATIVE_DJ_ANDROID` diagnostic on failure.
+
+Deterministic regressions reproduced both defects against v2 before repair: an incompatible
+format borrowing a 140ms hint dispatched early; alternating 20ms clock updates (10ms
+apart) produced zero accumulated common progress and a false `PLAYBACK_STALLED`,
+despite both decks continuously running. A second reproduction, with 20ms/30ms
+updates and occasional coincident ticks, reached `COMPLETED` after a 16,000,000us
+overlap but recorded only 5,320,000us of concurrent progress. Its existing full-progress
+assertion failed before the correction. These are virtual-clock reproductions, not
+a measurement of the owner's clock sampling cadence. Device verification of v3 remains
+pending. No production service, planner, DSP, gain policy, effect-session handling or
+analysis/preprocessing identity changed.

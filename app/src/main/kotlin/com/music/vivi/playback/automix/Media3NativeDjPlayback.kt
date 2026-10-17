@@ -56,6 +56,19 @@ class Media3NativeDjPlayback(
     private fun thread() {check(Looper.myLooper()==looper) {"Use the player application looper"}}
     override fun queue():NativeDjQueue {thread();return currentQueue()}
     override fun startupObservation():NativeDjStartupObservation? {thread();return startTiming()}
+    override fun startupTimingCompatible():Boolean {
+        thread()
+        val a=outgoingDeck.player.audioFormat ?: return false
+        val b=incomingDeck?.player?.audioFormat ?: return false
+        // One decoder/output format's startup measurement is not transferable to a
+        // different format (e.g. AAC -> FLAC). Unknown formats retain anchor dispatch.
+        // A match permits prediction, never relaxes the actual position/drift guards.
+        return a.sampleMimeType!=null && a.sampleMimeType==b.sampleMimeType &&
+            a.sampleRate>0 && a.sampleRate==b.sampleRate &&
+            a.channelCount>0 && a.channelCount==b.channelCount &&
+            a.pcmEncoding==b.pcmEncoding && a.codecs==b.codecs &&
+            a.encoderDelay==b.encoderDelay && a.encoderPadding==b.encoderPadding
+    }
     override fun claim():Boolean {
         thread()
         if(closed || claimed || !exclusiveControlAvailable())return false

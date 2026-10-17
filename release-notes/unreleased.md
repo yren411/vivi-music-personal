@@ -192,5 +192,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
   timing/session diagnostics. Normal playback still uses legacy AutoMix; device
   execution and real-song listening remain separate validation requirements.
 - In the experimental executor, predict incoming command timing from a fresh outgoing
-  startup observation while retaining the selected cues, full overlap and drift limits.
+  startup observation only for compatible prepared audio formats, while retaining the
+  selected cues, full overlap and drift limits.
   Continue outgoing playback safely if an unverified early start is interrupted.
+- Track experimental overlap progress and stalls independently for each player clock,
+  avoiding undercounts or false stalls when position snapshots update on different ticks.

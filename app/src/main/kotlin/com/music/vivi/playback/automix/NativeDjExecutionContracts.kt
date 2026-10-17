@@ -35,6 +35,8 @@ interface NativeDjHost {
     fun queue(): NativeDjQueue
     /** Optional fresh observation, sampled once per attempt. Absent/invalid means no early start. */
     fun startupObservation():NativeDjStartupObservation?=null
+    /** True only for known compatible prepared audio formats. Unknown means no prediction. */
+    fun startupTimingCompatible():Boolean=false
     /** Atomic exclusive ownership; must exclude legacy fade controllers. */
     fun claim(): Boolean
     /** Prepare paused at the exact planned cue, nonblocking. No queue promotion here. */
@@ -67,7 +69,9 @@ data class NativeDjExecutionStatus(val stage: NativeDjExecutionStage = NativeDjE
 data class NativeDjExecutionMetric(val monotonicUs: Long, val stage: NativeDjExecutionStage,
     val outgoingPositionUs: Long?, val incomingPositionUs: Long?, val outgoingGain: Double,
     val incomingGain: Double, val reason: NativeDjExecutionReason?)
-/** Observations of media clocks, NOT rendered/acoustic timestamps. No raw identities or URLs. */
+/** Observations of media clocks, NOT rendered/acoustic timestamps. No raw identities or URLs.
+ * concurrentProgressUs is the common cumulative progression from the two original cue anchors;
+ * it does not require both independently sampled clocks to change on the same polling tick. */
 data class NativeDjExecutionMeasurements(val plannedStartUs: Long, val plannedIncomingCueUs: Long,
     val plannedOverlapUs: Long, val commandOutgoingUs: Long?, val estimatedStartOffsetUs: Long?,
     val concurrentProgressUs: Long, val maximumObservedDriftUs: Long, val maximumTickGapUs: Long,

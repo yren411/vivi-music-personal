@@ -13,6 +13,7 @@ internal class VirtualNativeDjHost(val plan:NativeTransitionPlan):NativeDjHost {
     var promoteAllowed=true
     var incomingReady=true
     var startup:NativeDjStartupObservation?=null
+    var startupFormatsMatch=true
     val a=Deck(plan.outgoing.source,plan.outgoing.durationUs,plan.candidate.outgoingCueUs-plan.assumedPreparationLeadUs-1_000_000,true)
     val b=Deck(plan.incoming.source,plan.incoming.durationUs,plan.candidate.incomingCueUs,false)
     override val outgoing:NativeDjDeck get()=a
@@ -29,6 +30,7 @@ internal class VirtualNativeDjHost(val plan:NativeTransitionPlan):NativeDjHost {
     }
     override fun queue()=NativeDjQueue(generation,plan.outgoing.source,plan.incoming.source)
     override fun startupObservation()=startup
+    override fun startupTimingCompatible()=startupFormatsMatch
     override fun claim():Boolean {if(claimed || !canClaim)return false;claimed=true;return true}
     override fun prepare(plan:NativeTransitionPlan):NativeDjDeck {check(!prepareFailure);b.ready=incomingReady;return b}
     override fun promote(expected:NativeDjQueue,incoming:NativeDjDeck):Boolean {

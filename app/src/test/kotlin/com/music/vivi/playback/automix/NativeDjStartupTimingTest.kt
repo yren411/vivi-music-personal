@@ -54,6 +54,17 @@ class NativeDjStartupTimingTest {
         assertEquals(0L,e.measurements().startupLeadUs);assertEquals(0,h.promotions)
         assertTrue(h.b.released);assertTrue(h.a.playing)
     }
+    @Test fun incompatiblePreparedFormatsCannotBorrowTheOutgoingStartupDelay() {
+        val h=host(delay=140_000,actualDelay=0);h.startupFormatsMatch=false
+        val e=execute(h);dispatch(h,e,140_000)
+        assertEquals(NativeDjExecutionStage.ARMED,e.status.stage)
+        assertFalse(h.b.playing);assertEquals(0L,e.measurements().startupLeadUs)
+        dispatch(h,e,0);h.finish(e)
+        assertEquals(NativeDjExecutionStage.COMPLETED,e.status.stage)
+        assertEquals(0L,e.measurements().estimatedStartOffsetUs)
+        assertEquals(16_000_000L,e.measurements().concurrentProgressUs)
+        assertEquals(1,h.promotions)
+    }
     @Test fun incorrectPredictionsStillRejectExcessiveEarlyOrLateAlignment() {
         for((predicted,actual) in listOf(250_000L to 0L,20_000L to 170_000L)) {
             val h=host(predicted,actual);val e=execute(h);dispatch(h,e,predicted);h.finish(e)
