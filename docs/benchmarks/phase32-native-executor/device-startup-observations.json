@@ -27,5 +27,5 @@
     }
   ],
   "interpretation": "Persistent clock separation can exceed the unchanged 120000us bound after startup. A settling-only grace period is insufficient.",
-  "repairAndroidVerification": "Pending; do not treat these uncompensated measurements as evidence of a successful corrected transition."
+  "repairAndroidVerification": "These historical uncompensated probe measurements do not validate a repair. Separately, the owner subsequently reported all 14 v3 execution tests passed on S25 Ultra / Android 17; see validation.json ownerReportedV3DeviceValidation. No acoustic claim."
 }

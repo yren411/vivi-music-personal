@@ -1,6 +1,15 @@
 # Phase 3.2 execution evidence
 
-All audio is generated. **Real host JNI / virtual players**, **offline PCM sums**, **Android compilation**, and **device playback** are separate evidence levels. No Android runtime, acoustic capture or real-song listening was performed here.
+All audio in these benchmarks is generated. **Real host JNI / virtual players**, **offline PCM sums**, **Android compilation**, and **owner-run device playback** are separate evidence levels. Codex performed no Android runtime, acoustic capture or real-song listening in the cloud.
+
+**Current device status:** the owner reports all 14 v3 `NativeDjExecutionInstrumentedTest`
+tests passed on the Samsung Galaxy S25 Ultra running Android 17 after the requested
+`b798d833` branch update. Raw XML and an independently verified installed SHA were not
+supplied. Both substantive GitHub checks passed at that reviewed commit:
+[Universal GMS](https://github.com/yren411/vivi-music-personal/actions/runs/39032420799)
+and [Build PR / FOSS](https://github.com/yren411/vivi-music-personal/actions/runs/39032420803).
+These results do not establish acoustic synchronization, real-song quality, Bluetooth/EQ
+processing or production readiness; normal AutoMix remains legacy.
 
 ## Native-plan-to-virtual-executor results
 
@@ -51,7 +60,7 @@ The executor retains no PCM. At most two players per explicit session and 128 co
 - Full GMS: **421 passed**, zero failures/errors/skips. Full FOSS: **421 passed**, zero failures/errors/skips. Includes 16 real host-JNI test methods per variant; without the optional configured host library those methods explicitly skip, while pure execution tests run.
 - Existing native CTest **10/10**, and ASan/UBSan/LSan CTest **10/10**. DSP sources were not changed.
 - Debug GMS/FOSS app APKs and test APKs assembled. **14 generated playback tests plus one separately selected optional listening test compiled**; 14 actual runtime JUnit annotations verified in the GMS test APK. Earlier 24 instrumentation tests are unchanged.
-- No emulator/system image/KVM/connected device was provisioned. New Android runtime execution: **zero**. The owner's earlier 24 passes remain historical, not evidence for this executor.
+- No emulator/system image/KVM/connected device was provisioned. Cloud Android runtime execution: **zero**. Separately, the owner reports the 14 v3 playback tests passed on the S25 Ultra / Android 17. The owner's earlier 24 passes remain historical; the new report does not confirm a rerun of that separate selection.
 - AutoMix JNI libraries in both app APKs pass ELF LOAD and native ZIP offset/uncompressed packaging checks; whole-APK zipalign -P16, ABI/JNI symbol and license-asset checks also pass. All four ABIs are present. Native payload hashes match Phase 3.1 exactly.
 - Debug APK archive bytes: app-arm64-gms-debug.apk: 72990981, app-universal-foss-debug.apk: 70156022. These are archive sizes, not a controlled per-feature size delta; ZIP alignment/compression affect comparisons. New executor classes were inspected in GMS DEX.
 - No existing assertions/tests were weakened. Early development failures were new-test numerical precision, a clock fixture representing a discontinuity, compilation while contracts were being completed, and watchdog stage classification. They were resolved before the final successful run. Preparation timeout and ready-clock stalls remain distinct.
@@ -80,7 +89,7 @@ See [AUTOMIX_NATIVE_DJ_EXECUTOR.md](../../AUTOMIX_NATIVE_DJ_EXECUTOR.md) for exa
 A final malformed-plan regression failed before repair: changing a valid 32-pulse plan to a 0.5s overlap was wrongly admitted. Admission now verifies supported pulse counts, overlap/tempo consistency, the recomputed drift model and matching rank summary. The earlier full 405+405 suites passed after repair; the earlier failure is not hidden or counted as a passing test. Valid native/virtual numerical results remain identical across the saved completed runs, excluding elapsed host execution times.
 
 
-## Owner-reported Android startup failures — device repair pending
+## Historical initial Android startup failures
 
 The owner supplied three failures from the new execution suite: quiet-reference gain,
 pause/resume and extended handoff all terminated in `EXCESSIVE_DRIFT` before their main
@@ -88,19 +97,20 @@ assertions. First/maximum player-clock offsets were 125004/125004, 119004/129004
 139163/139163 microseconds respectively. Command lateness was only 3741, 7741 and
 6474 microseconds. Exact tested commit/full XML totals were not supplied. These reports
 are real device evidence and supersede any suggestion that cloud success proves execution
-correctness. Production remains legacy; **hold merge pending a measured repair and device
-regression passes**.
+correctness. At that stage, merge was held pending a measured repair and device regression
+passes. The subsequent v3 14-test pass is recorded above; production remains legacy.
 
 A new JVM characterization reproduces all three offsets and requires safe rejection,
 without changing the 120ms limit or the existing 14 Android tests. Both full JVM tasks
 actually reran: **406+406 passed, zero failures/errors/skips**, including the host JNI tests.
 Both instrumentation APK variants compiled the additional separate one-test startup probe;
 this probe measures two seconds per fixture with incoming muted and does not approve a mix.
-The subsequent owner speaker probe (below) shows the offset persists past one second; the measured-lead repair still needs device verification.
-There is no claimed synchronization repair or new successful Android runtime result.
+The subsequent owner speaker probe (below) showed the offset persisted past one second;
+at that historical stage the measured-lead repair still needed device verification.
+The v3 pass reported later is distinct from this baseline probe and is not acoustic evidence.
 See the architecture document for the exact probe/report retrieval commands.
 
-Latest commands (in addition to the earlier unchanged native/packaging checks above):
+Commands for that historical diagnostic revision (in addition to the unchanged native/packaging checks above):
 
 ```bash
 source /workspace/onboarding/activate.sh
@@ -112,7 +122,7 @@ no production/native source changed, so unchanged native CTests and APK payload 
 were not redundantly rerun for this test-only addition.
 
 
-## Measured-start correction — implementation f1e10472
+## Historical v2 measured-start correction — implementation f1e10472
 
 The owner supplied two additional speaker probe summaries with 97 samples each. Standard
 startup first advanced at 147883us and had 116004–130004us offsets during seconds 1–2;
@@ -155,7 +165,8 @@ inspected in GMS test DEX. All four native ABIs, ELF/ZIP16K alignment, symbols a
 pass on the newly assembled APKs; native payload hashes are identical to Phase 3.1.
 Nine native-plan/virtual results and all 36 signal rows match the earlier run exactly,
 excluding elapsed host runtime; updated raw reports are committed. Native CTests were
-not redundantly rerun for this Kotlin-only correction. No device repair pass is claimed.
+not redundantly rerun for that Kotlin-only correction. No device repair pass had been
+reported at the v2 stage; the later v3 pass is separate evidence.
 
 Prior v2 full command:
 
@@ -167,14 +178,16 @@ bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest 
 
 The original 14 execution tests retain all assertions; the extended test adds maximum
 drift and prediction-relative command checks. The harness measures actual outgoing
-startup each attempt, never copies virtual delays into real playback. Awaiting the
-owner's full execution regression on the speaker route; the prior 24 device regressions
-and acoustic/listening/output-route evaluations remain required before activation.
+startup each attempt, never copies virtual delays into real playback. At this v2 stage,
+the owner's full execution regression was pending; the next run exposed the two failures
+below. The owner subsequently reported the repaired v3 suite passing. Further service
+regressions and acoustic/listening/output-route evaluation remain activation requirements.
 
 
 ## Format-aware startup and independent clock progression (v3)
 
-The next owner run reported two failures. AAC -> FLAC borrowed a 140,873us outgoing
+The next owner run, still on v2 and before the eventual v3 pass, reported two failures.
+AAC -> FLAC borrowed a 140,873us outgoing
 startup estimate and produced a -196,286us observed offset, correctly rejected by
 `EXCESSIVE_DRIFT`. The extended-overlap test reached `COMPLETED`, then failed its
 progress assertion; its actual numeric deficit was not supplied. These do not establish
@@ -209,6 +222,10 @@ export TINIUM_PHASE32_REPORT_DIR=/tmp/phase32-v3-final-report
 bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest "-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so" "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --max-workers=4 --console=plain
 ```
 
-The cloud has no Android runtime. The repaired 14-test playback suite and prior 24
-Android regressions remain owner-device validation requirements. No production
-activation, gain/planner change, or acoustic/subjective listening claim is made.
+The cloud has no Android runtime. Separately, the owner reports the repaired 14-test v3
+playback suite passed on the S25 Ultra / Android 17; raw XML and the installed SHA were
+not independently supplied. Expected reproducible result: 14 executed, zero failures,
+zero skips. The latest report does not confirm a fresh run of the prior 24 regressions.
+Phase 3.3 still requires real-song listening, acoustic/output timing where claimed,
+Bluetooth/external-EQ and long-term service validation before controlled activation.
+No production activation, gain/planner change, or acoustic/subjective listening claim is made.

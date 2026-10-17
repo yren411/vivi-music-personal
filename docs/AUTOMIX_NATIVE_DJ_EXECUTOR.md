@@ -5,11 +5,28 @@ This phase adds an **explicitly invoked experimental executor**, not production 
 `MusicService`, its legacy planner/controller, PCM selection, gains, filters, equalizers,
 settings, notifications and queue remain unchanged. No release version is allocated.
 
-**Device validation is currently blocked.** Three S25 Ultra reports reached
-`FALLBACK / EXCESSIVE_DRIFT` shortly after incoming `play()`. A subsequent owner-run
-speaker probe shows persistent 111–130 ms player-clock separation after one second.
-The measured-lead correction described below is implemented and needs device retesting;
-a passing cloud build does not supersede those failures. Do not activate/merge on that basis.
+**Owner-reported Android validation passed.** After earlier excessive player-clock drift
+and follow-up startup/progress-accounting failures, targeted repairs produced executor
+`tinium-native-dj-executor-v3-format-aware-clock-progress`: format-aware startup timing
+prediction and independent player-clock progression handling. The owner subsequently
+reported that **all 14 `NativeDjExecutionInstrumentedTest` tests passed on the Samsung
+Galaxy S25 Ultra running Android 17** after the requested branch update to `b798d833`.
+Codex did not execute those Android tests; raw test XML and an independently verified
+installed commit SHA were not supplied.
+
+Both substantive GitHub Actions checks passed at reviewed commit
+`b798d833da1ea96cb994240e0d3eb8b6ab109677`:
+[Universal GMS](https://github.com/yren411/vivi-music-personal/actions/runs/39032420799)
+and [Build PR / FOSS](https://github.com/yren411/vivi-music-personal/actions/runs/39032420803).
+The duplicate push GMS job was skipped by the existing workflow condition. These are
+results for the reviewed implementation, not a claim about future documentation commits.
+
+This validates the reported generated-media player-level tests, **not production listening
+readiness**. Acoustic/sample-accurate alignment, comprehensive real-song listening,
+Bluetooth/output latency, Poweramp/external-EQ processing and long-term reliability
+remain unverified. Normal `MusicService` AutoMix still uses the legacy path. Phase 3.3
+owns further real-song validation and separately authorized controlled integration/activation.
+The historical failures and probe measurements below remain part of the investigation.
 
 ## Implemented path
 
@@ -317,14 +334,18 @@ covers deadline misses, long overlaps, state transitions, generation changes, ca
 concurrent control, rate/position changes, EOS and exact-once promotion.
 
 Host JNI comparisons execute actual corrected capture -> actual native DSP -> real planner ->
-virtual executor. They do **not** establish Android playback. Fourteen Android tests are separately
-compiled/packaged: initialization/isolation; admission; cue preparation; actual two-player progress;
+virtual executor. They do **not** establish Android playback. Fourteen Android tests were separately
+compiled/packaged and subsequently reported passing by the owner on the S25 Ultra:
+initialization/isolation; admission; cue preparation; actual two-player progress;
 start timing; envelopes/volume; ~30s overlap; quiet-reference stress; handoff; cancellation; queue
 invalidation; pause/resume; focus/route forwarding; real session lifecycle. One optional local
-listening test is outside that generated suite. Prior owner-run 24 passes are historical.
+listening test is outside that generated suite. Prior owner-run 24 passes are historical;
+the latest 14-test pass report does not establish a fresh run of that separate selection.
 
-Cloud has no KVM, system image or connected Android device. Compilation cannot validate the new
-player-level assertions. Device timing tolerances are explicit engineering limits: failed starts
+Cloud has no KVM, system image or connected Android device; no Android runtime tests were
+executed there. The successful physical-device run is owner-reported evidence, separate from
+cloud compilation/JVM tests. Compilation alone cannot validate player-level assertions.
+Device timing tolerances are explicit engineering limits: failed starts
 are reported, not relabeled aligned or fixed by lowering musical thresholds.
 
 ## S25 Ultra / Windows PowerShell
@@ -334,13 +355,16 @@ retains the isolated `.decodercheck` package; no uninstall or normal-app data de
 Set a comfortable phone media volume, pause normal playback, and keep the phone connected and
 awake for the first run. Generated tests play low-volume synthetic music; allow several minutes.
 
-**14 new generated-media tests**, expected zero failures/skips:
+**14 generated-media tests — owner-reported passing.** Retain this command for reproduction.
+Expected result: **14 tests executed, zero failures, zero skips**. The owner's report confirms
+all 14 passed; raw XML was not supplied for independent count/skip verification:
 
 ```powershell
-.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
 
-**Previous 24 tests** afterward (or add the new class to run 38 together):
+**Previous 24 regression tests**, retained for further regression validation (or add the
+execution class to run 38 together). The latest pass report covers the 14-test suite only:
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
@@ -360,9 +384,10 @@ names, URLs or local paths. Detailed history is bounded at 128 events per explic
 The existing Stats for Nerds export UI/schema is unchanged and does not automatically collect
 this isolated session.
 
-### Owner-reported startup failures and bounded diagnostic
+### Historical initial startup failures and bounded diagnostic
 
-Three supplied reports share the same terminal reason, `EXCESSIVE_DRIFT`:
+Earlier device validation revealed three reports with the same terminal reason,
+`EXCESSIVE_DRIFT`. These predate the subsequent v3 pass:
 
 | Test | Dispatch lateness relative to planned anchor | First measured offset | Maximum measured offset before abort |
 | --- | ---: | ---: | ---: |
@@ -384,7 +409,7 @@ alignment evidence. Media3 1.7.1's `audio/AudioTrackPositionTracker.java`,
 `getCurrentPositionUs()`, can initially use a latency-adjusted playback-head estimate,
 then switch to an advancing AudioTimestamp and smooth that mode switch over one second.
 `DefaultAudioSink.play()` starts its AudioTrack asynchronously relative to the caller's
-player command. These source facts support **two still-distinct hypotheses**: a real
+player command. At that stage, these source facts supported **two distinct hypotheses**: a real
 independent-output startup delay, or an unstable early clock estimate. The initial
 failure reports ended too early to distinguish them. Neither is repaired by changing the native
 detector, cue, gain curve, confidence gate, or merely increasing the allowed drift.
@@ -397,7 +422,8 @@ The passing JVM characterization still reproduces all three reported offset magn
 **without a startup observation** and requires fallback, no promotion, incoming release and
 outgoing continuity. The original timing/gain/pause/handoff assertions are retained; the
 extended Android test additionally checks maximum drift and the early-command deadline.
-Production selection is unchanged. A device repair is **not verified** until those tests pass.
+Production selection is unchanged. At this historical stage, device repair verification
+was outstanding; the owner subsequently reported the complete v3 suite passing.
 
 The owner subsequently ran the separate two-second probe on the **phone speaker**:
 
@@ -415,13 +441,14 @@ clock-estimation bias or measure acoustic beat alignment. The measured-lead corr
 uses a fresh observation in each test session rather than copying any of these numbers
 into production or treating one device's delay as a universal constant.
 
-For the repair, update the branch and rerun the original 14-test command above. The first
-completion report includes `startupLeadUs`; if a test fails, preserve its complete
-`NATIVE_DJ_ANDROID` report. A missing/invalid reference supplies zero, never an invented lead.
-Run the prior 24 regressions after the execution suite passes. The uncompensated probe
-below remains useful for comparison and deliberately never applies the prediction.
+The owner subsequently reported the original 14-test suite passing after the v3 repair.
+For future regressions, reproduce with the command above and preserve the complete
+`NATIVE_DJ_ANDROID` failure report, including `startupLeadUs`. A missing/invalid reference
+supplies zero, never an invented lead. The prior 24-test regression command remains available.
+The uncompensated probe below remains useful for comparison, deliberately never applies
+the prediction, and is not required to reconfirm the already-reported 14-test pass.
 
-Run the separately selected probe after updating this branch:
+For a future startup investigation, run the separately selected probe after updating this branch:
 
 ```powershell
 git fetch origin
@@ -469,11 +496,13 @@ point where the failing tests stop. Sampling uses bounded main-looper callbacks 
 deadline; no sleeps block the player thread. This is diagnostic infrastructure, not a
 replacement executor or a relaxation of acceptance tests.
 
-The measured-lead implementation must demonstrate that its **actual** incoming/outgoing
-clock separation meets the original bound on this route before merge. An early API command
-alone is not success. Do not silently rebase the incoming cue or declare early samples
-acoustically accurate. After any repair, rerun the original 14 plus prior 24 tests.
-Actual output capture remains necessary for claims about acoustic beat alignment.
+Earlier acceptance required the measured-lead repair to demonstrate actual incoming/outgoing
+player-clock separation within the original bound, not merely an early API command.
+The owner's subsequent 14-test v3 pass satisfies the reported generated-suite checks;
+it does not supply captured-output timing. Do not silently rebase the incoming cue or
+declare early samples acoustically accurate. Future timing changes should rerun the
+14 execution tests and prior 24 regressions. Actual output capture remains necessary
+for claims about acoustic beat alignment.
 
 ### Optional permitted private music
 
@@ -526,7 +555,11 @@ pause/resume and Poweramp/internal-EQ enabled/disabled separately, recording rou
 
 ## Phase 3.3 gate and licensing
 
-Before any real production activation: run the 14 new tests plus previous 24 on the S25; evaluate
+The owner-reported 14-test v3 pass completes the reported generated-execution check;
+it does not authorize production activation. Comprehensive real-song listening and
+long-term normal-listening reliability remain unverified. Phase 3.3 must validate the
+controlled service integration before any separately authorized activation: retain/rerun
+the 14 execution tests and previous 24 regressions on the candidate integration; evaluate
 allowed real-song pairs, gain/timing/rollback listening, focus/session integration through the
 existing service and external EQ on actual routes; consider captured-output timing; resolve
 source duration discrepancies; validate startup/drift limits and longer overlaps under load.
@@ -540,9 +573,10 @@ Musixmatch permission working assumption is not public redistribution clearance.
 new code import, distribution signing or public APK/release publication is part of this phase.
 
 
-## Follow-up device failures: format transfer and independently sampled clocks
+## Historical v2 follow-up failures and v3 repairs
 
-The owner supplied two failures from executor v2 after the measured-start change:
+Before the successful v3 run, the owner supplied two failures from executor v2 after
+the first measured-start correction:
 
 - `aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback`: the AAC outgoing cue was
   4,349,606us; incoming FLAC cue 139,320us, overlap 15,000,023us. The outgoing startup
@@ -568,6 +602,8 @@ despite both decks continuously running. A second reproduction, with 20ms/30ms
 updates and occasional coincident ticks, reached `COMPLETED` after a 16,000,000us
 overlap but recorded only 5,320,000us of concurrent progress. Its existing full-progress
 assertion failed before the correction. These are virtual-clock reproductions, not
-a measurement of the owner's clock sampling cadence. Device verification of v3 remains
-pending. No production service, planner, DSP, gain policy, effect-session handling or
-analysis/preprocessing identity changed.
+a measurement of the owner's clock sampling cadence. The owner subsequently reported
+all 14 v3 execution tests passing on the S25 Ultra / Android 17. This is owner-reported
+player-level validation; Codex did not execute it or independently inspect raw test XML
+or the installed SHA. No production service, planner, DSP, gain policy, effect-session
+handling or analysis/preprocessing identity changed.

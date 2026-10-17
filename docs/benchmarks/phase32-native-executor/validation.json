@@ -66,7 +66,7 @@
       "rank/alignment summary consistency"
     ]
   },
-  "runtimeExecutionScope": "Cloud runtime counts only; owner-supplied device failures are listed separately below.",
+  "runtimeExecutionScope": "Cloud runtime counts only; historical owner failures and the later owner-reported v3 device pass are separate evidence below.",
   "ownerReportedDeviceFailures": {
     "device": "Samsung Galaxy S25 Ultra",
     "testedCommit": "Not supplied",
@@ -96,8 +96,9 @@
     ],
     "diagnosis": "Owner speaker probe confirms persistent 111163\u2013130004us player-clock separation after startup; command-at-anchor does not reliably meet the existing drift bound.",
     "repairVerified": false,
-    "mergeRecommendation": "Hold pending measured synchronization repair and original device regression passes.",
-    "repairImplemented": "v2 measured per-attempt outgoing startup prediction; no cue rebasing, rate adjustment or threshold relaxation"
+    "mergeRecommendation": "Historical: held at that stage pending a measured repair and device regressions; subsequent owner-reported v3 pass is recorded separately.",
+    "repairImplemented": "v2 measured per-attempt outgoing startup prediction; no cue rebasing, rate adjustment or threshold relaxation",
+    "recordScope": "Historical initial failures, before v2/v3 repairs; see ownerReportedV3DeviceValidation for the subsequent pass."
   },
   "startupDeviceDiagnostic": {
     "class": "com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest",
@@ -120,7 +121,7 @@
       "maximum observed drift <=120000us",
       "command dispatch within 40000us of predicted command target"
     ],
-    "androidVerification": "Pending owner rerun; no Android runtime available in cloud",
+    "androidVerification": "Historical v2: the subsequent owner run exposed the two failures in ownerFollowupDeviceFailures; superseded by v3.",
     "nativeCtestsRerunForThisKotlinOnlyChange": false,
     "priorNativeResultsRemainApplicableToUnchangedDsp": true,
     "deviceProbeEvidence": "device-startup-observations.json",
@@ -151,7 +152,8 @@
         "actualProgressValue": "Not supplied; original assertion lacked diagnostic text"
       }
     ],
-    "repairAndroidVerified": false
+    "repairAndroidVerified": false,
+    "recordScope": "Historical v2 failures, before the subsequent v3 pass; raw values retained."
   },
   "formatAndClockSamplingCorrection": {
     "executorVersion": "tinium-native-dj-executor-v3-format-aware-clock-progress",
@@ -171,7 +173,7 @@
     "predictionPolicy": "Known matching prepared audio formats only; unknown/mismatch means zero lead",
     "progressMetric": "Maximum common cumulative media-clock progression from original cue anchors",
     "progressWatchdogs": "Independent per deck; unchanged two-second timeout",
-    "androidVerification": "Pending owner rerun; no Android runtime provisioned in cloud",
+    "androidVerification": "Owner reports all 14 v3 execution tests passed on S25 Ultra / Android 17; no Android runtime in cloud; raw XML and installed SHA not independently supplied.",
     "fullBuild": "BUILD SUCCESSFUL in 3m 8s; 397 actionable tasks: 57 executed, 340 up-to-date",
     "fullTestTasksActuallyExecuted": true,
     "nativeDspUnchanged": true,
@@ -186,5 +188,40 @@
       }
     ],
     "afterFixFullSuites": "421 GMS + 421 FOSS; zero failures/errors/skips"
+  },
+  "ownerReportedV3DeviceValidation": {
+    "source": "Owner report in this task; reconfirmed in documentation-correction request",
+    "device": "Samsung Galaxy S25 Ultra",
+    "androidVersion": "17",
+    "executorVersion": "tinium-native-dj-executor-v3-format-aware-clock-progress",
+    "testClass": "com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest",
+    "reportedResult": "All 14 tests passed",
+    "requestedBranchCommit": "b798d833da1ea96cb994240e0d3eb8b6ab109677",
+    "installedCommitIndependentlyVerified": false,
+    "rawTestXmlSupplied": false,
+    "executedByCodex": false,
+    "expectedResult": {
+      "executed": 14,
+      "failures": 0,
+      "skipped": 0
+    },
+    "prior24RegressionRerunConfirmed": false,
+    "acousticSynchronizationValidated": false,
+    "comprehensiveRealSongListeningValidated": false,
+    "bluetoothAndExternalEqListeningValidated": false,
+    "longTermNormalListeningValidated": false,
+    "productionActivated": false
+  },
+  "reviewedCommitGithubChecks": {
+    "commit": "b798d833da1ea96cb994240e0d3eb8b6ab109677",
+    "universalGms": {
+      "conclusion": "success",
+      "url": "https://github.com/yren411/vivi-music-personal/actions/runs/39032420799"
+    },
+    "buildPrFoss": {
+      "conclusion": "success",
+      "url": "https://github.com/yren411/vivi-music-personal/actions/runs/39032420803"
+    },
+    "duplicatePushGms": "Skipped by existing workflow condition; not a test pass"
   }
 }
