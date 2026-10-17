@@ -14,6 +14,7 @@ This is engineering evidence for an **opt-in experiment**, not production readin
 | Complete Universal FOSS Debug JVM suite | 454 passed; 0 failed/errors/skipped | Actual executed task; includes existing updater, effects and AutoMix tests |
 | Real host-JNI tests | 17 per variant, included above | Linux native library; not Android JNI/device playback |
 | New JVM service/contracts/source tests | 33 per variant, included above | Deterministic virtual-player boundary, generated PCM, shared worker budget |
+| Universal FOSS Debug lint task | Completed successfully in 3m57s | Existing nonblocking findings remain; details below |
 | Native CTest | 10/10 passed, 21.61s | Existing unchanged DSP and provenance tests rerun |
 | ASan/UBSan/LSan native CTest | 10/10 passed, 75.81s | Host memory-safety checks; no Android memory measurement |
 | Arm64 GMS + Universal FOSS debug app and test APKs | Built successfully | Incremental intermediates reused; not installed/executed |
@@ -26,6 +27,14 @@ This is engineering evidence for an **opt-in experiment**, not production readin
 The full validation command completed in **4m23s**, with **52 tasks executed and
 470 up-to-date**. JVM test tasks executed. Intermediate compilation/package reuse is
 explicit in `validation.json`; it does not imply tests ran on Android.
+
+`lintUniversalFossDebug` completed under the repository's unchanged `abortOnError=false`
+policy. Its report contains 79 error-severity findings, 777 warnings and 5 hints; this is not
+a clean lint report. Every primary error source line is present in the starting baseline
+(including the existing resource lookup in PlayerDiagnostics); no baseline lint rerun is
+claimed. No suppression or lint/workflow configuration was changed to obtain success.
+Command: `bash gradlew :app:lintUniversalFossDebug "-PautomixDecoderTests=true"
+--no-configuration-cache --no-daemon --max-workers=4 --console=plain`.
 
 ## Reproduction
 

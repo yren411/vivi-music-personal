@@ -60,5 +60,16 @@
   "realMusicTested": false,
   "acousticMeasurements": false,
   "ownerPhase33Feedback": null,
-  "phoneMemoryCpuBatteryMeasurements": null
+  "phoneMemoryCpuBatteryMeasurements": null,
+  "lint": {
+    "task": "lintUniversalFossDebug",
+    "outcome": "BUILD SUCCESSFUL",
+    "elapsedSeconds": 237,
+    "errorSeverityFindings": 79,
+    "warnings": 777,
+    "hints": 5,
+    "policy": "Existing abortOnError=false unchanged",
+    "errorPrimarySourceLinesAllPresentAtBaseline": true,
+    "baselineLintRerun": false
+  }
 }
