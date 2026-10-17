@@ -26,6 +26,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private var maxTickGap=0L
     private var preparationElapsed:Long?=null
     private var lastTick:Long?=null
+    private var lastProgressAtUs=0L
     private var lastOut:Long?=null
     private var lastIn:Long?=null
     private var outGain=1.0
@@ -134,6 +135,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             if(!a.playing && !expectedEnd)return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.UNEXPECTED_PAUSE)
             if(status.stage==NativeDjExecutionStage.ARMED && (b.playing || abs(b.positionUs-c.incomingCueUs)>config.cueToleranceUs))
                 return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.SEEK_FAILED)
+            if(lastOut==null || (a.positionUs>lastOut!! && (status.stage!=NativeDjExecutionStage.MIXING || b.positionUs>(lastIn ?: b.positionUs))))
+                lastProgressAtUs=now
+            if(now-lastProgressAtUs>config.progressTimeoutUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.PLAYBACK_STALLED)
             if(lastOut!=null && (a.positionUs<lastOut!!-2000 || a.positionUs-lastOut!!>gap+250_000 ||
                 b.positionUs<lastIn!!-2000 || (status.stage==NativeDjExecutionStage.MIXING && b.positionUs-lastIn!!>gap+250_000)))
                 return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.POSITION_DISCONTINUITY)
@@ -196,7 +200,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             if(pausedStage==NativeDjExecutionStage.PREPARING)preparedAt+=pauseDuration
             dispatchedAt+=pauseDuration
             host.outgoing.play();if(pausedStage==NativeDjExecutionStage.MIXING)incoming?.play()
-            lastTick=now;stage(pausedStage)
+            lastTick=now;lastProgressAtUs=now;stage(pausedStage)
         }catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
     }
     @Synchronized fun cancel(reason:NativeDjExecutionReason=NativeDjExecutionReason.CANCELED):NativeDjExecutionStatus =

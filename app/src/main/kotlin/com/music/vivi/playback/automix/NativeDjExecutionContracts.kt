@@ -31,15 +31,16 @@ enum class NativeDjExecutionReason {
     INVALID_PLAN, UNSUPPORTED_CAPABILITY, UNVERIFIED_SIGNAL, STALE_QUEUE, OWNERSHIP_BUSY,
     SOURCE_MISMATCH, DURATION_MISMATCH, UNSUPPORTED_RATE, NOT_SEEKABLE, PREPARATION_FAILED,
     PREPARATION_TIMEOUT, SEEK_FAILED, START_MISSED, START_FAILED, PLAYER_FAILED, UNEXPECTED_EOS,
-    BUFFERING, UNEXPECTED_PAUSE, POSITION_DISCONTINUITY, EXCESSIVE_DRIFT, USER_SEEK, USER_SKIP,
+    BUFFERING, PLAYBACK_STALLED, UNEXPECTED_PAUSE, POSITION_DISCONTINUITY, EXCESSIVE_DRIFT, USER_SEEK, USER_SKIP,
     QUEUE_CHANGED, ROUTE_CHANGED, FOCUS_LOST, CANCELED, SHUTDOWN, HOST_FAILURE,
 }
 data class NativeDjExecutionConfig(val curve: NativeDjCurve = NativeDjCurve.RESTRAINED_DJ,
     val maxStartLatenessUs: Long = 40_000, val maxObservedDriftUs: Long = 120_000,
     val cueToleranceUs: Long = 15_000, val preparationTimeoutUs: Long = 10_000_000,
-    val startTimeoutUs: Long = 1_500_000) {
+    val startTimeoutUs: Long = 1_500_000, val progressTimeoutUs:Long = 2_000_000) {
     init {
         require(maxStartLatenessUs in 0..40_000 && maxObservedDriftUs in 1..120_000)
+        require(progressTimeoutUs in 1..2_000_000)
         require(cueToleranceUs in 0..15_000 && preparationTimeoutUs in 1..10_000_000 && startTimeoutUs in 1..1_500_000)
     }
 }

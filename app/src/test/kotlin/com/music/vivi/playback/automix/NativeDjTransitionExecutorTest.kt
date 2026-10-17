@@ -74,4 +74,6 @@ class NativeDjTransitionExecutorTest {
     }
     @Test fun runtimeRateChangeCancelsWithoutRetiming(){val (h,e)=run();h.toStart(e);h.b.speed=1.02;e.tick();assertEquals(NativeDjExecutionReason.UNSUPPORTED_RATE,e.status.reason);assertEquals(0,h.promotions)}
 
+    @Test fun readyButFrozenMediaClocksCannotLeaveAnOverlapRunningForever(){val (h,e)=run();h.toStart(e);h.advance(e,100_000);h.now+=2_000_001;e.tick();assertEquals(NativeDjExecutionReason.PLAYBACK_STALLED,e.status.reason);assertEquals(0,h.promotions);assertTrue(h.b.released);assertTrue(h.a.playing)}
+
 }
