@@ -341,10 +341,29 @@ Run the separately selected probe after updating this branch:
 git fetch origin
 git switch codex/automix-native-dj-executor
 git pull --ff-only
-.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase32-startup-clock.txt | Set-Content -Encoding utf8 .\phase32-startup-clock.txt
+$report = @(& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase32-startup-clock.txt)
+if ($LASTEXITCODE -ne 0 -or -not ($report -match '^Phase 3\.2 cold-start observation;')) {
+    $report
+    throw 'Startup report was not retrieved. Do not treat this as a valid diagnostic file.'
+}
+$report | Set-Content -Encoding utf8 .\phase32-startup-clock.txt
+Select-String -Path .\phase32-startup-clock.txt -Pattern 'summary'
 ```
+
+The retention property is required for this **post-test private-file retrieval**.
+AGP 9.1.1 defaults `ANDROID_TEST_LEAVE_APKS_INSTALLED_AFTER_RUN` to false;
+`DeviceProviderInstrumentTestTask.TestRunnerFactory` negates that property into
+`UtpTestRunner.uninstallApksAfterTest`. The original command omitted the override,
+so a completed connected test could uninstall the isolated app and its report before
+`run-as`, yielding `unknown package`. Cloud configuration probes of the actual task
+verified `keepInstalledApks=false` without the property and `true` with it; these were
+configuration checks, not Android runtime tests. `--rerun` forces just the selected
+test task to execute again rather than accepting an up-to-date connected-test result;
+it does not force every build dependency to rebuild. Keep the S25 Ultra as the only
+selected/connected test target, or consistently select its serial for both Gradle and ADB.
+The retrieval guard prevents an ADB error string replacing a valid local report.
 
 If your SDK is elsewhere, use its `platform-tools\adb.exe` path (Android Studio's SDK
 Manager shows the SDK location). Keep the existing signing setup and isolated package;
@@ -373,17 +392,19 @@ Actual output capture remains necessary for claims about acoustic beat alignment
 
 ### Optional permitted private music
 
-After the isolated package is installed by the generated suite, use only files you may play and
-analyze. The harness reads two fixed **app-private** filenames; it does not access normal downloads,
+Install the isolated debug package first using the existing working debug key; the connected
+generated suite can remove it during cleanup unless retention was explicitly selected.
+Use only files you may play and analyze. The harness reads two fixed **app-private** filenames; it does not access normal downloads,
 request storage permissions or upload anything. Example (replace only the two local input paths):
 
 ```powershell
+.\gradlew.bat :app:installArm64GmsDebug "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --stacktrace
 adb shell run-as com.yren411.tinium.decodercheck mkdir -p files
 adb push "C:\Music\permitted-out.flac" /data/local/tmp/phase32-out.audio
 adb push "C:\Music\permitted-in.flac" /data/local/tmp/phase32-in.audio
 adb shell run-as com.yren411.tinium.decodercheck cp /data/local/tmp/phase32-out.audio files/phase32-out.audio
 adb shell run-as com.yren411.tinium.decodercheck cp /data/local/tmp/phase32-in.audio files/phase32-in.audio
-.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest "-PautomixDecoderTests=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjLocalListeningInstrumentedTest" "-Pandroid.testInstrumentationRunnerArguments.phase32Listen=true" "-Pandroid.testInstrumentationRunnerArguments.phase32OutgoingStartMs=150000" --no-configuration-cache --no-daemon --stacktrace
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeDjLocalListeningInstrumentedTest" "-Pandroid.testInstrumentationRunnerArguments.phase32Listen=true" "-Pandroid.testInstrumentationRunnerArguments.phase32OutgoingStartMs=150000" --no-configuration-cache --no-daemon --stacktrace
 ```
 
 If this Android build denies the temporary-file copy, use Android Studio Device Explorer to
