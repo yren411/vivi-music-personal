@@ -36,6 +36,9 @@ class Media3NativeDjPlayback(
     /** true only after the caller excluded its legacy controller/fade timer. Never infer this. */
     private val exclusiveControlAvailable: () -> Boolean,
     private val outputs: NativeDjOutputHooks = NativeDjOutputHooks.NONE,
+    /** Caller records the real outgoing cold start before constructing/executing the attempt.
+     * A prediction only; executor still checks incoming positions against the original plan. */
+    private val startTiming: () -> NativeDjStartupObservation? = {null},
 ) : NativeDjHost, AutoCloseable {
     companion object {
         // Ownership across caller loopers is synchronized; player operations stay on their own looper.
@@ -52,6 +55,7 @@ class Media3NativeDjPlayback(
     override val outgoing:NativeDjDeck get()=outgoingDeck
     private fun thread() {check(Looper.myLooper()==looper) {"Use the player application looper"}}
     override fun queue():NativeDjQueue {thread();return currentQueue()}
+    override fun startupObservation():NativeDjStartupObservation? {thread();return startTiming()}
     override fun claim():Boolean {
         thread()
         if(closed || claimed || !exclusiveControlAvailable())return false

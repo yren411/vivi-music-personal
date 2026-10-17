@@ -5,10 +5,11 @@ This phase adds an **explicitly invoked experimental executor**, not production 
 `MusicService`, its legacy planner/controller, PCM selection, gains, filters, equalizers,
 settings, notifications and queue remain unchanged. No release version is allocated.
 
-**Device validation is currently blocked.** The owner supplied three S25 Ultra failure
-reports: all reached `FALLBACK / EXCESSIVE_DRIFT` shortly after incoming `play()`. A passing
-cloud build does not supersede those results. Do not treat Phase 3.2 as device-validated or
-activate/merge it on that basis. See the startup investigation below.
+**Device validation is currently blocked.** Three S25 Ultra reports reached
+`FALLBACK / EXCESSIVE_DRIFT` shortly after incoming `play()`. A subsequent owner-run
+speaker probe shows persistent 111–130 ms player-clock separation after one second.
+The measured-lead correction described below is implemented and needs device retesting;
+a passing cloud build does not supersede those failures. Do not activate/merge on that basis.
 
 ## Implemented path
 
@@ -35,7 +36,7 @@ No DSP/JNI/native build source was copied or changed. The actual existing backen
 - `NativeDjExecutionContracts.kt`: deck/queue/host contracts, states, controlled reasons,
   config and privacy-safe reports. Positions are absolute **track-relative microseconds**.
 - `NativeDjTransitionExecutor.kt`: serialized single-attempt coordinator, version
-  `tinium-native-dj-executor-v1`. No threads, timers, analysis or raw PCM cache.
+  `tinium-native-dj-executor-v2-measured-start-lead`. No threads, timers, analysis or raw PCM cache.
 - `NativeDjGain.kt`: comparable active-block RMS measurements, bounded content adjustment,
   four curve implementations and correlated-signal sum guard.
 - `Media3NativeDjPlayback.kt`: actual ExoPlayer adapter, exclusive ownership leases,
@@ -43,6 +44,8 @@ No DSP/JNI/native build source was copied or changed. The actual existing backen
 - `NativeDjExecutionFixtures.kt`: virtual media clocks used only in tests.
 - New JVM tests: execution state machine, gain/PCM corpus, real-JNI-to-virtual execution,
   signal/performance reports. Existing tests/assertions remain unchanged.
+- `NativeDjStartupTimingTest.kt`: delayed-start predictions, original-anchor drift checks,
+  reference validity, expiry, pause and pre-anchor cleanup regressions.
 - `NativeDjExecutionInstrumentedTest.kt`: 14 generated-media Android tests.
 - `NativeDjLocalListeningInstrumentedTest.kt`: separately selected optional private-file evaluation.
 - `NativeDjStartupClockInstrumentedTest.kt`: separately selected, bounded device diagnostic;
@@ -97,7 +100,8 @@ duration disagreement on real sources remains a device-validation concern.
 
 ## State machine and scheduling
 
-`IDLE -> VALIDATING -> PREPARING -> ARMED -> MIXING -> COMPLETING -> COMPLETED`.
+`IDLE -> VALIDATING -> PREPARING -> ARMED -> [STARTING] -> MIXING -> COMPLETING -> COMPLETED`.
+`STARTING` is optional early command dispatch with incoming gain zero before the fade anchor.
 Pause remembers its previous state. Terminal alternatives are `CANCELED`, `FALLBACK`, `FAILED`
 and `RECOVERED`. One executor handles one attempt; terminal ticks cannot promote/release again.
 
@@ -106,8 +110,13 @@ and `RECOVERED`. One executor handles one attempt; terminal ticks cannot promote
    disable repeat/shuffle for this isolated item and prepare asynchronously.
 3. Require actual READY, a known compatible duration, seekability, paused state and a position
    within 15 ms of the cue before arming. Millisecond seek quantization is explicit.
-4. Dispatch incoming `play()` when the outgoing media position reaches the planned anchor.
-   Polling interval is 10 ms (250 ms while paused, immediate rescheduling on resume); a command more than 40 ms late is rejected as `START_MISSED`.
+4. If the caller supplied a fresh outgoing startup observation, predict a bounded command
+   lead and dispatch incoming `play()` at `outgoingCueUs - startupLeadUs`. Otherwise dispatch
+   at the original anchor. The source still starts at the exact selected incoming cue;
+   no extra seek, speed adjustment, cue rebasing or synthetic PCM is used. Incoming gain
+   remains zero until the original outgoing fade anchor. Polling is 10 ms (250 ms paused,
+   immediate rescheduling on resume); more than 40 ms lateness relative to the **command
+   target** is rejected as `START_MISSED`, including early commands.
 5. Progress the fade using outgoing **media position**, not wall-clock elapsed time. Both player
    positions must progress. Watch for buffering, unexpected pause/EOS, rate changes and jumps.
 6. Revalidate generation immediately before the compare-and-promote callback. Promote once,
@@ -115,7 +124,7 @@ and `RECOVERED`. One executor handles one attempt; terminal ticks cannot promote
    relative gain. Incoming is never sought to zero during promotion.
 
 Preparation timeout is 10 seconds; preparation must also start with the plan's assumed lead time.
-A prepared-but-late deck is not called synchronized. Incoming startup has a 1.5-second ceiling;
+A deck not ready by its command target is not called synchronized. Incoming startup has a 1.5-second ceiling;
 observed running media-clock separation must remain within 120 ms. A READY player pair whose
 media clocks stop progressing for two seconds returns `PLAYBACK_STALLED`, rather than leaving
 a fade/ownership lease alive indefinitely. No speed correction, repeated
@@ -125,9 +134,13 @@ as an explicit capability rather than inferred from a good BPM estimate.
 ### What timing measurements mean
 
 Reports distinguish command dispatch outgoing position from the first advancing incoming
-media-clock estimate. Estimated start offset is `(outPos - outCue) - (inPos - inCue)` at first
-observed incoming progression. Subsequent separation is monitored with the same reference.
-Position progress common to both decks accumulates `concurrentProgressUs`. This is a sampled
+media-clock estimate. `startupLeadUs` identifies the actual prediction used for dispatch.
+Estimated start offset remains `(outPos - outCue) - (inPos - inCue)` at first observed
+incoming progression, using the **signed original outgoing anchor**, including pre-anchor
+presentation. The lead is never subtracted from measured drift or used to rebase either cue.
+Subsequent separation uses the same reference and unchanged 120 ms rejection limit.
+Only position progress at/after the original fade anchor accumulates `concurrentProgressUs`;
+muted early preparation is excluded. This is a sampled
 player-level measurement, not acoustic overlap or a hardware presentation timestamp.
 
 Maximum tick gap includes the slower paused polling cadence; it is not an audio-render jitter measurement.
@@ -136,6 +149,45 @@ position and completion/promotions. The 10 ms driver can finish up to one update
 scheduling; a paused process or busy looper can do worse and is observable. Callback/volume calls
 are **not sample accurate**. Independent AudioTrack output latency, Bluetooth buffering and
 route changes remain important. No acoustic capture was performed in the cloud.
+
+### Measured command lead and its limits
+
+`NativeDjStartupObservation` carries source/generation, monotonic play-command/observation
+times, and the actual track positions sampled at those two times. It predicts:
+
+`leadUs = (observedMonotonicUs - commandMonotonicUs) - (observedPositionUs - commandPositionUs)`.
+
+The caller must measure the real outgoing start on the current route using the same configured
+player factory. `Media3NativeDjPlayback.startTiming` is an optional input, **absent by default**;
+the coordinator samples it once per attempt and retains no cross-session calibration. The
+isolated Android harness records the actual outgoing play command, waits for >30 ms of real
+player-position progress, then supplies the observation. This is an execution prediction,
+not analyzer confidence, measured acoustic latency, or proof that incoming output matches it.
+
+The pure contract requires matching source/generation, nonnegative source position,
+1–100 ms observed media progress, 1–500 ms observation elapsed time, age <=10 seconds,
+and predicted lead 0–250 ms. Checked subtraction rejects overflow. A reference ahead of
+the current outgoing position is ignored. These are resource/validity caps, not a Samsung
+constant or a calibrated latency distribution. The reference is rechecked while preparing
+and armed; absent, malformed, expired or invalidated observations supply zero lead.
+Callers must forward route/seek/queue changes and must not reuse observations after them.
+No automatic route-specific cache or device model table is added.
+
+Both the cue and planned overlap remain unchanged. A wrong prediction can cause early or
+late source presentation; the executor checks **both signs** against the same 120 ms bound
+as soon as incoming progression is observed, even while muted before the fade anchor.
+An unavailable reference does not silently get a 120/130 ms guess. Technical readiness,
+deadline and progress watchdogs still apply. Confidence gates, analysis/preprocessing cache
+identities and production selection are unaffected.
+
+Pause before dispatch discards the unused prediction. Pause during `STARTING` before any
+incoming presentation is observed cannot safely preserve pending startup timing: on resume
+the executor resumes outgoing music, releases incoming and reports `CANCELED /
+STARTUP_INTERRUPTED`, rather than restarting an unverifiable cue. If presentation was already
+observed, normal paired pause/resume retains the original clock relationship and drift guards.
+The existing Android pause test operates during an established overlap and retains its exact
+position/gain freeze assertions. These policies deliberately favor playback continuity over
+forcing completion after an ambiguous interruption.
 
 ## Gain architecture and quiet-tail correction
 
@@ -316,24 +368,47 @@ not establish whether that separation persists after startup, nor prove native b
 accuracy or synchronized long playback. No complete connected-test XML/counts or exact
 owner-tested commit were supplied with the three reports.
 
-The executor currently treats the first advancing incoming player position as usable
+The original executor treated the first advancing incoming player position as usable
 alignment evidence. Media3 1.7.1's `audio/AudioTrackPositionTracker.java`,
 `getCurrentPositionUs()`, can initially use a latency-adjusted playback-head estimate,
 then switch to an advancing AudioTimestamp and smooth that mode switch over one second.
 `DefaultAudioSink.play()` starts its AudioTrack asynchronously relative to the caller's
 player command. These source facts support **two still-distinct hypotheses**: a real
-independent-output startup delay, or an unstable early clock estimate. The supplied
-reports end too early to distinguish them. Neither is repaired by changing the native
+independent-output startup delay, or an unstable early clock estimate. The initial
+failure reports ended too early to distinguish them. Neither is repaired by changing the native
 detector, cue, gain curve, confidence gate, or merely increasing the allowed drift.
 
 Source references match the repository's pinned Media3 1.7.1:
 [AudioTrackPositionTracker](https://github.com/androidx/media/blob/1.7.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/AudioTrackPositionTracker.java)
 and [DefaultAudioSink](https://github.com/androidx/media/blob/1.7.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/audio/DefaultAudioSink.java).
 
-The new passing JVM characterization explicitly reproduces all three reported offset
-magnitudes and requires fallback, no promotion, incoming release and outgoing continuity.
-**The 120 ms limit, timing assertions, production code and original 14 Android tests remain
-unchanged. No startup repair is claimed yet.**
+The passing JVM characterization still reproduces all three reported offset magnitudes
+**without a startup observation** and requires fallback, no promotion, incoming release and
+outgoing continuity. The original timing/gain/pause/handoff assertions are retained; the
+extended Android test additionally checks maximum drift and the early-command deadline.
+Production selection is unchanged. A device repair is **not verified** until those tests pass.
+
+The owner subsequently ran the separate two-second probe on the **phone speaker**:
+
+| Fixture | Samples | First progress after command | First offset | Offset range at 1–2 seconds | Maximum absolute offset |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Standard | 97 | 147,883 us | 139,004 us | 116,004–130,004 us | 141,004 us |
+| Extended | 97 | 137,686 us | 118,163 us | 111,163–124,163 us | 127,163 us |
+
+These are owner-supplied raw summary values, retained in
+`benchmarks/phase32-native-executor/device-startup-observations.json`. The exact installed
+commit/full test XML was not supplied. The tail samples still exceed 120 ms, so simply
+waiting for clock settling cannot reliably satisfy the current bound. They confirm
+persistent **player-clock separation**; they do not isolate hardware latency from all
+clock-estimation bias or measure acoustic beat alignment. The measured-lead correction
+uses a fresh observation in each test session rather than copying any of these numbers
+into production or treating one device's delay as a universal constant.
+
+For the repair, update the branch and rerun the original 14-test command above. The first
+completion report includes `startupLeadUs`; if a test fails, preserve its complete
+`NATIVE_DJ_ANDROID` report. A missing/invalid reference supplies zero, never an invented lead.
+Run the prior 24 regressions after the execution suite passes. The uncompensated probe
+below remains useful for comparison and deliberately never applies the prediction.
 
 Run the separately selected probe after updating this branch:
 
@@ -383,11 +458,10 @@ point where the failing tests stop. Sampling uses bounded main-looper callbacks 
 deadline; no sleeps block the player thread. This is diagnostic infrastructure, not a
 replacement executor or a relaxation of acceptance tests.
 
-If offsets remain above 120 ms after startup, the existing scheme cannot meet its stated
-bound on that route; a measured preparation/scheduling correction must precede merge.
-If offsets settle inside the bound, validate which clock evidence is usable before
-changing admission/observation policy; do not silently rebase the incoming cue or declare
-the early samples accurate. After any repair, rerun the original 14 plus prior 24 tests.
+The measured-lead implementation must demonstrate that its **actual** incoming/outgoing
+clock separation meets the original bound on this route before merge. An early API command
+alone is not success. Do not silently rebase the incoming cue or declare early samples
+acoustically accurate. After any repair, rerun the original 14 plus prior 24 tests.
 Actual output capture remains necessary for claims about acoustic beat alignment.
 
 ### Optional permitted private music

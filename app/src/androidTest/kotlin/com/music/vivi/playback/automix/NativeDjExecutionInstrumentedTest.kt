@@ -33,6 +33,9 @@ class NativeDjExecutionInstrumentedTest {
             assertTrue(m.plannedOverlapUs>=29_000_000)
             assertTrue(m.concurrentProgressUs>=m.plannedOverlapUs-150_000)
             assertTrue(abs(m.estimatedStartOffsetUs!!)<=120_000)
+            assertTrue(m.maximumObservedDriftUs<=120_000)
+            assertTrue(m.startupLeadUs in 0..250_000)
+            assertTrue(m.commandOutgoingUs!! in (m.plannedStartUs-m.startupLeadUs)..(m.plannedStartUs-m.startupLeadUs+40_000))
             assertEquals(1,h.promotions);assertSame(h.incoming,h.primary);assertTrue(h.incoming!!.isPlaying)
             assertTrue(h.incoming!!.currentPosition*1000>h.plan.candidate.incomingCueUs)
             assertEquals(h.volume,h.incoming!!.volume,.0001f)
@@ -156,6 +159,7 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
     var outgoingSessionAtRelease:Int?=null
     private lateinit var outputs:NativeDjAudioOutputs
     private lateinit var incomingItem:MediaItem
+    private var startupObservation:NativeDjStartupObservation?=null
     init {
         try {
             val a=localOutgoing ?: fixture(if(codec)"rhythm-128-48000.m4a" else null,"out")
@@ -188,8 +192,14 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
                 playback=adapter()
             }
             until("outgoing prepared",10_000){outgoing.playbackState==androidx.media3.common.Player.STATE_READY}
-            main {outgoing.play()}
+            var commandAtUs=0L;var commandPositionUs=0L
+            main {commandPositionUs=outgoing.currentPosition*1000;commandAtUs=System.nanoTime()/1000;outgoing.play()}
             until("outgoing advancing",3000){outgoing.isPlaying && outgoing.currentPosition*1000>outgoingStartUs+30_000}
+            main {
+                val position=outgoing.currentPosition*1000
+                startupObservation=NativeDjStartupObservation(plan.outgoing.source,generation,
+                    commandAtUs,commandPositionUs,System.nanoTime()/1000,position)
+            }
         }catch(error:Throwable){close();throw error}
     }
     fun adapter()=Media3NativeDjPlayback(outgoing,plan.outgoing,plan.incoming,incomingItem,
@@ -197,7 +207,7 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
         {newPlayer().also {incoming=it}},
         {q,p ->if(q.generation!=generation)false else {assertEquals(0,promotions);assertTrue(p===incoming);primary=p;promotions++;generation++;true}},
         {p ->if(p===outgoing){outgoingAtReleaseUs=p.currentPosition*1000;outgoingSessionAtRelease=p.audioSessionId};check(!released.contains(p));released+=p;p.release()},
-        {volume},exclusiveControlAvailable={true},outputs=outputs)
+        {volume},exclusiveControlAvailable={true},outputs=outputs,startTiming={startupObservation})
     private fun newPlayer()=ExoPlayer.Builder(context).setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),false).setHandleAudioBecomingNoisy(true).build().also {it.setOffloadEnabled(false)}
     fun start(p:NativeTransitionPlan=plan,outLevel:NativeDjLevel=this.outLevel)=main {executor=playback.execute(p,outLevel,inLevel)}

@@ -191,3 +191,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add deterministic signal/state tests and isolated Android playback tests with
   timing/session diagnostics. Normal playback still uses legacy AutoMix; device
   execution and real-song listening remain separate validation requirements.
+- In the experimental executor, predict incoming command timing from a fresh outgoing
+  startup observation while retaining the selected cues, full overlap and drift limits.
+  Continue outgoing playback safely if an unverified early start is interrupted.

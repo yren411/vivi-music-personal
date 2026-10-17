@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private val nowUs: () -> Long = { System.nanoTime()/1000 },
     private val config: NativeDjExecutionConfig = NativeDjExecutionConfig()) : AutoCloseable {
-    companion object { const val VERSION = "tinium-native-dj-executor-v1" }
+    companion object { const val VERSION = "tinium-native-dj-executor-v2-measured-start-lead" }
     var status=NativeDjExecutionStatus(); private set
     private var plan:NativeTransitionPlan?=null
     private var incoming:NativeDjDeck?=null
@@ -26,6 +26,8 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private var maxDrift=0L
     private var maxTickGap=0L
     private var preparationElapsed:Long?=null
+    private var startupReference:NativeDjStartupObservation?=null
+    private var startupLead=0L
     private var lastTick:Long?=null
     private var lastProgressAtUs=0L
     private var lastOut:Long?=null
@@ -52,6 +54,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             if(reason!=null)return stop(NativeDjExecutionStage.FALLBACK,reason)
             if(!host.claim())return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.OWNERSHIP_BUSY)
             owned=true
+            startupReference=host.startupObservation()
             content=NativeDjGain.content(p,outgoingLevel,incomingLevel)
             preparedAt=nowUs()
             stage(NativeDjExecutionStage.PREPARING)
@@ -143,6 +146,13 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                     return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.POSITION_DISCONTINUITY)
                 lastTick=now;return status
             }
+            // A per-attempt prediction affects only command scheduling, never media positions.
+            // Recheck freshness while waiting; a pause/seek/queue change must not revive old data.
+            if(status.stage==NativeDjExecutionStage.PREPARING || status.stage==NativeDjExecutionStage.ARMED) {
+                startupLead=startupReference?.takeIf {it.observedPositionUs<=a.positionUs}
+                    ?.leadUs(requireNotNull(queue),now) ?: 0L
+            }
+            val dispatchTarget=c.outgoingCueUs-startupLead
             val expectedEnd=a.ended && a.positionUs>=c.outgoingCueUs+c.overlapUs
             if(!a.ready && !expectedEnd)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.BUFFERING)
             if(!a.playing && !expectedEnd)return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.UNEXPECTED_PAUSE)
@@ -152,35 +162,38 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 lastProgressAtUs=now
             if(status.stage!=NativeDjExecutionStage.PREPARING && now-lastProgressAtUs>config.progressTimeoutUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.PLAYBACK_STALLED)
             if(lastOut!=null && (a.positionUs<lastOut!!-2000 || a.positionUs-lastOut!!>gap+250_000 ||
-                b.positionUs<lastIn!!-2000 || (status.stage==NativeDjExecutionStage.MIXING && b.positionUs-lastIn!!>gap+250_000)))
+                b.positionUs<lastIn!!-2000 || ((status.stage==NativeDjExecutionStage.STARTING || status.stage==NativeDjExecutionStage.MIXING) && b.positionUs-lastIn!!>gap+250_000)))
                 return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.POSITION_DISCONTINUITY)
             if(status.stage==NativeDjExecutionStage.PREPARING) {
                 if(now-preparedAt>config.preparationTimeoutUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.PREPARATION_TIMEOUT)
                 if(b.ready && b.durationUs>0 && b.seekable && !b.playing && abs(b.positionUs-c.incomingCueUs)<=config.cueToleranceUs) {
                     preparationElapsed=now-preparedAt;stage(NativeDjExecutionStage.ARMED)
-                } else if(a.positionUs>=c.outgoingCueUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
+                } else if(a.positionUs>=dispatchTarget)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
             }
-            if(status.stage==NativeDjExecutionStage.ARMED && a.positionUs>=c.outgoingCueUs) {
+            if(status.stage==NativeDjExecutionStage.ARMED && a.positionUs>=dispatchTarget) {
                 if(!a.ready || !a.playing || !b.ready || b.playing || abs(b.positionUs-c.incomingCueUs)>config.cueToleranceUs)
                     return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.SEEK_FAILED)
-                if(a.positionUs-c.outgoingCueUs>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
+                if(a.positionUs-dispatchTarget>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
                 dispatchPosition=a.positionUs;dispatchedAt=now
-                next.play();stage(NativeDjExecutionStage.MIXING)
+                next.play();stage(if(a.positionUs<c.outgoingCueUs)NativeDjExecutionStage.STARTING else NativeDjExecutionStage.MIXING)
             }
-            if(status.stage==NativeDjExecutionStage.MIXING) {
+            if(status.stage==NativeDjExecutionStage.STARTING || status.stage==NativeDjExecutionStage.MIXING) {
                 if((!a.ready && !(a.ended && a.positionUs>=c.outgoingCueUs+c.overlapUs)) || !b.ready)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.BUFFERING)
                 if(!a.playing && !(a.ended && a.positionUs>=c.outgoingCueUs+c.overlapUs))return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.UNEXPECTED_PAUSE)
-                val outElapsed=(a.positionUs-c.outgoingCueUs).coerceAtLeast(0)
+                // Keep the original signed anchor, including early presentation. Subtracting the
+                // measured lead here would hide real drift. No seek/rate correction is performed.
+                val outElapsed=a.positionUs-c.outgoingCueUs
                 val inElapsed=b.positionUs-c.incomingCueUs
                 if(b.playing && inElapsed>0) {
                     if(estimatedOffset==null)estimatedOffset=outElapsed-inElapsed
                     val drift=abs(outElapsed-inElapsed);maxDrift=max(maxDrift,drift)
                     if(drift>config.maxObservedDriftUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.EXCESSIVE_DRIFT)
-                    if(lastIn!=null && b.positionUs>lastIn!! && a.positionUs>lastOut!!)
-                        concurrent+=minOf(b.positionUs-lastIn!!,a.positionUs-lastOut!!)
+                    if(lastIn!=null && b.positionUs>lastIn!! && a.positionUs>maxOf(lastOut!!,c.outgoingCueUs))
+                        concurrent+=minOf(b.positionUs-lastIn!!,a.positionUs-maxOf(lastOut!!,c.outgoingCueUs))
                 } else if(now-dispatchedAt>config.startTimeoutUs || estimatedOffset!=null)
                     return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_FAILED)
-                val gains=NativeDjGain.gains(outElapsed.toDouble()/c.overlapUs,config.curve,content)
+                if(status.stage==NativeDjExecutionStage.STARTING && outElapsed>=0)stage(NativeDjExecutionStage.MIXING)
+                val gains=NativeDjGain.gains(outElapsed.coerceAtLeast(0).toDouble()/c.overlapUs,config.curve,content)
                 outGain=gains.outgoing;inGain=gains.incoming
                 host.outgoing.gain(outGain);next.gain(inGain)
                 if(outElapsed>=c.overlapUs) {
@@ -200,8 +213,11 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     }
 
     @Synchronized fun pause(reason:NativeDjExecutionReason?=null) {
-        if(terminal || status.stage !in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.MIXING,NativeDjExecutionStage.PREPARING))return
+        if(terminal || status.stage !in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING,NativeDjExecutionStage.PREPARING))return
         pausedStage=status.stage;pausedAt=nowUs()
+        if(pausedStage in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.PREPARING)) {
+            startupReference=null;startupLead=0
+        }
         try { host.outgoing.pause();incoming?.pause();lastOut=host.outgoing.snapshot().positionUs;lastIn=incoming?.snapshot()?.positionUs
             stage(NativeDjExecutionStage.PAUSED,reason) } catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
     }
@@ -212,7 +228,14 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             val now=nowUs();val pauseDuration=now-pausedAt
             if(pausedStage==NativeDjExecutionStage.PREPARING)preparedAt+=pauseDuration
             dispatchedAt+=pauseDuration
-            host.outgoing.play();if(pausedStage==NativeDjExecutionStage.MIXING)incoming?.play()
+            // Pausing an as-yet-unpresented early start destroys the pending startup timing.
+            // Resume normal outgoing music rather than restart an unverifiable incoming cue.
+            if(pausedStage==NativeDjExecutionStage.STARTING && estimatedOffset==null) {
+                host.outgoing.play()
+                stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.STARTUP_INTERRUPTED)
+                return
+            }
+            host.outgoing.play();if(pausedStage in setOf(NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING))incoming?.play()
             lastTick=now;lastProgressAtUs=now;stage(pausedStage)
         }catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
     }
@@ -254,7 +277,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     @Synchronized fun measurements():NativeDjExecutionMeasurements {
         val c=plan?.candidate
         return NativeDjExecutionMeasurements(c?.outgoingCueUs ?: 0,c?.incomingCueUs ?: 0,c?.overlapUs ?: 0,
-            dispatchPosition,estimatedOffset,concurrent,maxDrift,maxTickGap,preparationElapsed,if(promoted)1 else 0,events.toList())
+            dispatchPosition,estimatedOffset,concurrent,maxDrift,maxTickGap,preparationElapsed,if(promoted)1 else 0,events.toList(),startupLead)
     }
     @Synchronized fun report():NativeDjExecutionReport {
         val p=plan;val c=p?.candidate
