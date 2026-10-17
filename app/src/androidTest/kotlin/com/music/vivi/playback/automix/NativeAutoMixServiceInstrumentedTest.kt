@@ -173,7 +173,8 @@ class NativeAutoMixServiceInstrumentedTest {
         }
         fun mixing()=await("native mixing",20_000){service.nativeServiceInspection().execution?.status?.stage==NativeDjExecutionStage.MIXING}
         fun completed()=service.autoMixRecorder.snapshot().attempts.count {a->a.records.any {it.native?.execution?.status?.stage==NativeDjExecutionStage.COMPLETED}}
-        fun report()=AutoMixRecorder.render(service.autoMixRecorder.snapshot(),MixReportHeader("test",1,"17","generated service instrumentation",true,AutoMixPerformance.PERFORMANCE,engineMode=selectedMode))
+        fun report()=AutoMixRecorder.render(service.autoMixRecorder.snapshot(),MixReportHeader(com.music.vivi.BuildConfig.VERSION_NAME,com.music.vivi.BuildConfig.VERSION_CODE.toLong(),
+            android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,true,AutoMixPerformance.PERFORMANCE,engineMode=selectedMode))
         fun focus(value:Int)=main {MusicService::class.java.getDeclaredMethod("handleAudioFocusChange",Int::class.javaPrimitiveType).apply {isAccessible=true}.invoke(service,value)}
         fun await(label:String,timeoutMs:Long,condition:()->Boolean) {
             val handler=Handler(Looper.getMainLooper());val finished=CountDownLatch(1);val error=AtomicReference<Throwable?>()
