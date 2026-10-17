@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "source": "Owner-supplied NATIVE_DJ_STARTUP summary lines",
+  "device": "Samsung Galaxy S25 Ultra",
+  "route": "phone speaker",
+  "installedCommit": "Not supplied",
+  "measurement": "Player-clock observations during two-second muted incoming startup; not acoustic latency",
+  "tailIntervalMeaning": "Samples at 1\u20132 seconds after the incoming command",
+  "rows": [
+    {
+      "fixture": "standard",
+      "samples": 97,
+      "firstAdvanceUs": 147883,
+      "firstOffsetUs": 139004,
+      "tailMinOffsetUs": 116004,
+      "tailMaxOffsetUs": 130004,
+      "maxAbsOffsetUs": 141004
+    },
+    {
+      "fixture": "extended",
+      "samples": 97,
+      "firstAdvanceUs": 137686,
+      "firstOffsetUs": 118163,
+      "tailMinOffsetUs": 111163,
+      "tailMaxOffsetUs": 124163,
+      "maxAbsOffsetUs": 127163
+    }
+  ],
+  "interpretation": "Persistent clock separation can exceed the unchanged 120000us bound after startup. A settling-only grace period is insufficient.",
+  "repairAndroidVerification": "These historical uncompensated probe measurements do not validate a repair. Separately, the owner subsequently reported all 14 v3 execution tests passed on S25 Ultra / Android 17; see validation.json ownerReportedV3DeviceValidation. No acoustic claim."
+}

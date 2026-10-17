@@ -1,0 +1,227 @@
+{
+  "schema": 1,
+  "baseCommit": "a87611de2188436b7cc951afe4999199210b9d40",
+  "applicationImplementationCommit": "8d076f9fca597c11cb3b80e01869022d7febe54b",
+  "instrumentationSourceSha256": "94f043eb250d7dadc2ab9cfc29832904721bc62f0f233754610ae63fc426cf64",
+  "fullJvmSuites": {
+    "Arm64GmsDebug": {
+      "tests": 421,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 421,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "newJvmTestsPerVariant": 68,
+  "realHostJniTestMethodsPerVariant": 16,
+  "unitTestTasksRestoredFromGradleCache": false,
+  "nativeCtest": {
+    "passed": 10,
+    "failed": 0
+  },
+  "nativeSanitizerCtest": {
+    "passed": 10,
+    "failed": 0
+  },
+  "appApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "instrumentationApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "newGeneratedAndroidTestsCompiledAndPackaged": 14,
+  "optionalLocalListeningAndroidTestsCompiled": 1,
+  "previousAndroidTestsUnchanged": 24,
+  "newAndroidRuntimeTestsExecuted": 0,
+  "capturedAudioMeasurements": 0,
+  "subjectiveListeningTests": 0,
+  "androidLimitations": [
+    "No KVM device",
+    "No emulator system images",
+    "No connected Android device provisioned"
+  ],
+  "nativePayloadSha256UnchangedFromPhase31": true,
+  "productionAnalyzer": "tinium-legacy-kotlin",
+  "productionPreprocessing": "nearest-time-mono-22050-v1",
+  "productionExecutor": "Existing AutoMixController, unchanged",
+  "existingAssertionsWeakened": false,
+  "normalServiceFocusRoutingAndMediaSessionIntegration": "Not activated; caller-owned isolated session only",
+  "androidFocusAndRouteTests": "Explicit forwarding policy; not system-focus arbitration or automatic route observation",
+  "signing": "Existing debug signing only; no distribution/release signing changes",
+  "malformedPlanRegression": {
+    "beforeFixTests": 1,
+    "beforeFixFailures": 1,
+    "afterFixFullGmsPassed": 405,
+    "afterFixFullFossPassed": 405,
+    "checks": [
+      "pulse-count/overlap duration consistency",
+      "predicted drift recomputation",
+      "rank/alignment summary consistency"
+    ]
+  },
+  "runtimeExecutionScope": "Cloud runtime counts only; historical owner failures and the later owner-reported v3 device pass are separate evidence below.",
+  "ownerReportedDeviceFailures": {
+    "device": "Samsung Galaxy S25 Ultra",
+    "testedCommit": "Not supplied",
+    "reportedFailingMethods": 3,
+    "completeTestTotals": "Not supplied",
+    "commonStage": "FALLBACK",
+    "commonReason": "EXCESSIVE_DRIFT",
+    "rows": [
+      {
+        "method": "quietTailDoesNotMakeIncomingNearlySilent",
+        "dispatchLatenessUs": 3741,
+        "firstObservedOffsetUs": 125004,
+        "maximumObservedDriftUs": 125004
+      },
+      {
+        "method": "pauseAndResumeFreezeBothMediaClocksAndEnvelope",
+        "dispatchLatenessUs": 7741,
+        "firstObservedOffsetUs": 119004,
+        "maximumObservedDriftUs": 129004
+      },
+      {
+        "method": "nativePlanExecutesExtendedOverlapAndPromotesExactlyOnce",
+        "dispatchLatenessUs": 6474,
+        "firstObservedOffsetUs": 139163,
+        "maximumObservedDriftUs": 139163
+      }
+    ],
+    "diagnosis": "Owner speaker probe confirms persistent 111163\u2013130004us player-clock separation after startup; command-at-anchor does not reliably meet the existing drift bound.",
+    "repairVerified": false,
+    "mergeRecommendation": "Historical: held at that stage pending a measured repair and device regressions; subsequent owner-reported v3 pass is recorded separately.",
+    "repairImplemented": "v2 measured per-attempt outgoing startup prediction; no cue rebasing, rate adjustment or threshold relaxation",
+    "recordScope": "Historical initial failures, before v2/v3 repairs; see ownerReportedV3DeviceValidation for the subsequent pass."
+  },
+  "startupDeviceDiagnostic": {
+    "class": "com.music.vivi.playback.automix.NativeDjStartupClockInstrumentedTest",
+    "sourceSha256": "5803815d7b08cb91b863f2d64a6420a9abbe1a65485d52080dd1ba6a9f65a7fe",
+    "testMethods": 1,
+    "fixturesPerMethod": 2,
+    "execution": "Owner supplied phone-speaker standard/extended summaries; not executed in cloud",
+    "acceptanceMeaning": "Observation/progression/cleanup only; does not approve synchronization",
+    "productionOrThresholdChanges": false
+  },
+  "measuredStartCorrection": {
+    "executorVersion": "tinium-native-dj-executor-v2-measured-start-lead",
+    "newJvmTestMethods": 12,
+    "strictDriftLimitUs": 120000,
+    "maximumPredictionUs": 250000,
+    "maximumObservationAgeUs": 10000000,
+    "fixedDeviceOffsetUsed": false,
+    "originalAndroidAssertionsRetained": true,
+    "additionalAndroidAssertions": [
+      "maximum observed drift <=120000us",
+      "command dispatch within 40000us of predicted command target"
+    ],
+    "androidVerification": "Historical v2: the subsequent owner run exposed the two failures in ownerFollowupDeviceFailures; superseded by v3.",
+    "nativeCtestsRerunForThisKotlinOnlyChange": false,
+    "priorNativeResultsRemainApplicableToUnchangedDsp": true,
+    "deviceProbeEvidence": "device-startup-observations.json",
+    "supersededBy": "formatAndClockSamplingCorrection; v2 device repair was incomplete"
+  },
+  "ownerFollowupDeviceFailures": {
+    "executorVersion": "tinium-native-dj-executor-v2-measured-start-lead",
+    "testedCommit": "Not supplied",
+    "reportedFailingMethods": 2,
+    "completeTestTotals": "Not supplied",
+    "rows": [
+      {
+        "method": "aacAndFlacCorrectedDecodeNativePlanReachesRealPlayback",
+        "stage": "FALLBACK",
+        "reason": "EXCESSIVE_DRIFT",
+        "plannedOutgoingUs": 4349606,
+        "plannedIncomingUs": 139320,
+        "plannedOverlapUs": 15000023,
+        "commandOutgoingUs": 4212000,
+        "startupLeadUs": 140873,
+        "firstObservedOffsetUs": -196286,
+        "maximumObservedDriftUs": 196286
+      },
+      {
+        "method": "nativePlanExecutesExtendedOverlapAndPromotesExactlyOnce",
+        "stage": "COMPLETED",
+        "failingAssertion": "concurrentProgressUs >= plannedOverlapUs - 150000",
+        "actualProgressValue": "Not supplied; original assertion lacked diagnostic text"
+      }
+    ],
+    "repairAndroidVerified": false,
+    "recordScope": "Historical v2 failures, before the subsequent v3 pass; raw values retained."
+  },
+  "formatAndClockSamplingCorrection": {
+    "executorVersion": "tinium-native-dj-executor-v3-format-aware-clock-progress",
+    "newRegressionMethods": 3,
+    "beforeFixExpectedFailures": 3,
+    "priorExecutorCompletedCounterReproduction": {
+      "plannedOverlapUs": 16000000,
+      "reportedProgressUs": 5320000,
+      "stage": "COMPLETED",
+      "clockSnapshotPeriodsUs": [
+        20000,
+        30000
+      ]
+    },
+    "strictDriftLimitUs": 120000,
+    "strictCommandLatenessUs": 40000,
+    "predictionPolicy": "Known matching prepared audio formats only; unknown/mismatch means zero lead",
+    "progressMetric": "Maximum common cumulative media-clock progression from original cue anchors",
+    "progressWatchdogs": "Independent per deck; unchanged two-second timeout",
+    "androidVerification": "Owner reports all 14 v3 execution tests passed on S25 Ultra / Android 17; no Android runtime in cloud; raw XML and installed SHA not independently supplied.",
+    "fullBuild": "BUILD SUCCESSFUL in 3m 8s; 397 actionable tasks: 57 executed, 340 up-to-date",
+    "fullTestTasksActuallyExecuted": true,
+    "nativeDspUnchanged": true,
+    "beforeFixReproductionRuns": [
+      {
+        "tests": 2,
+        "expectedFailures": 2
+      },
+      {
+        "tests": 1,
+        "expectedFailures": 1
+      }
+    ],
+    "afterFixFullSuites": "421 GMS + 421 FOSS; zero failures/errors/skips"
+  },
+  "ownerReportedV3DeviceValidation": {
+    "source": "Owner report in this task; reconfirmed in documentation-correction request",
+    "device": "Samsung Galaxy S25 Ultra",
+    "androidVersion": "17",
+    "executorVersion": "tinium-native-dj-executor-v3-format-aware-clock-progress",
+    "testClass": "com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest",
+    "reportedResult": "All 14 tests passed",
+    "requestedBranchCommit": "b798d833da1ea96cb994240e0d3eb8b6ab109677",
+    "installedCommitIndependentlyVerified": false,
+    "rawTestXmlSupplied": false,
+    "executedByCodex": false,
+    "expectedResult": {
+      "executed": 14,
+      "failures": 0,
+      "skipped": 0
+    },
+    "prior24RegressionRerunConfirmed": false,
+    "acousticSynchronizationValidated": false,
+    "comprehensiveRealSongListeningValidated": false,
+    "bluetoothAndExternalEqListeningValidated": false,
+    "longTermNormalListeningValidated": false,
+    "productionActivated": false
+  },
+  "reviewedCommitGithubChecks": {
+    "commit": "b798d833da1ea96cb994240e0d3eb8b6ab109677",
+    "universalGms": {
+      "conclusion": "success",
+      "url": "https://github.com/yren411/vivi-music-personal/actions/runs/39032420799"
+    },
+    "buildPrFoss": {
+      "conclusion": "success",
+      "url": "https://github.com/yren411/vivi-music-personal/actions/runs/39032420803"
+    },
+    "duplicatePushGms": "Skipped by existing workflow condition; not a test pass"
+  }
+}
