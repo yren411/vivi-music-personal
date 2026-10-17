@@ -4123,13 +4123,27 @@ class MusicService :
                 a,b,player.currentPosition*1000,player.isPlaying,
                 a.fullyCached && a.uri.scheme!="file",b.fullyCached && b.uri.scheme!="file")
         }
-        override fun incompatibility():String?=when {
-            !AutoMixServiceHost().allowed -> "UNSUPPORTED_PLAYER_CONFIGURATION"
+        // Source/timeline resolution can finish before the PCM chain and AudioTrack exist.
+        // Wait for this item's actual output before testing processor capability. No delay,
+        // retry loop or relaxed capability check; the existing service tick observes readiness.
+        override fun waitingForOutput():Boolean=configurationRejection()==null &&
+            (player.playbackState!=Player.STATE_READY || formatTrackIds[player]!=player.currentMediaItem?.mediaId ||
+                (diagnosticTrackCounts[player] ?: 0)<=0)
+        private fun configurationRejection():String?=when {
+            !autoMixRequested -> "AUTOMIX_DISABLED"
+            !playerInitialized.value -> "PLAYER_NOT_INITIALIZED"
+            castConnectionHandler?.isCasting?.value==true -> "CASTING_ACTIVE"
+            listenTogetherManager.roomState.value!=null -> "LISTEN_TOGETHER_ACTIVE"
+            player.skipSilenceEnabled -> "SKIP_SILENCE_ACTIVE"
+            sleepTimer.pauseWhenSongEnd -> "SLEEP_TIMER_END_ACTIVE"
+            player.isCurrentMediaItemLive -> "LIVE_SOURCE"
             player.playbackParameters.speed!=1f || player.playbackParameters.pitch!=1f -> "UNSUPPORTED_RATE"
             isNextItemGapless() || player.repeatMode==Player.REPEAT_MODE_ONE -> "GAPLESS_OR_REPEAT_ONE"
             isCrossfading || secondaryPlayer!=null || fadingPlayer!=null -> "OWNERSHIP_BUSY"
             else -> null
         }
+        override fun incompatibility():String?=configurationRejection() ?:
+            if(autoMixProcessors[player]?.isActive==true)null else "PCM_PROCESSOR_UNAVAILABLE"
         override fun legacyEnabled(enabled:Boolean) {
             legacyAutoMixEnabled=enabled
             intelligentAutoMix?.configure(enabled,nativePerformance)

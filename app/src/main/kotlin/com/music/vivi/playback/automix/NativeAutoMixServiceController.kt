@@ -17,6 +17,8 @@ data class NativeServicePair<S>(val queue:NativeDjQueue,val outgoing:PlanningTra
 /** Application-thread boundary, shared by MusicService and actual service instrumentation. */
 interface NativeAutoMixServiceHost<S> {
     fun pair():NativeServicePair<S>?
+    /** Initial renderer/sink setup is transient, not a rejected attempt. Checked before claiming a pair. */
+    fun waitingForOutput():Boolean=false
     fun incompatibility():String?
     fun legacyEnabled(enabled:Boolean)
     fun execute(plan:NativeTransitionPlan,outgoingLevel:NativeDjLevel?,incomingLevel:NativeDjLevel?):NativeDjTransitionExecutor
@@ -109,6 +111,13 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
             return
         }
         if(pair==null && attempted!=current.queue) {
+            // Timeline/source resolution may precede renderer and sink configuration. Do not
+            // latch a transient inactive processor as a permanent rejection for this queue.
+            if(host.waitingForOutput()) {
+                host.legacyEnabled(true)
+                host.status(AutoMixStatus(AutoMixPhase.WAITING_SOURCE,nativeMode=true,reason="WAITING_PLAYER_OUTPUT"))
+                return
+            }
             pair=current;attempted=current.queue
             host.legacyEnabled(false)
             attempt=recorder.begin("${current.outgoing.source.recordingId}|${current.outgoing.source.renditionKey}",

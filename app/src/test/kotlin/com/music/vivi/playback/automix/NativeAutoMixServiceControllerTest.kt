@@ -17,8 +17,10 @@ class NativeAutoMixServiceControllerTest {
         var current:NativeServicePair<DecodedWindow>?=null
         var legacy=false;var prepareFails=false;var executes=0;var cancellations=0;var unavailable:String?=null
         var virtual:VirtualNativeDjHost?=null;var executor:NativeDjTransitionExecutor?=null
+        var outputPending=false
         var latest=AutoMixStatus();var paused=0;var resumed=0;var refreshed=0
         override fun pair()=current?.let {v->v.copy(positionUs=virtual?.a?.position ?: v.positionUs)}
+        override fun waitingForOutput()=outputPending
         override fun incompatibility()=unavailable
         override fun legacyEnabled(enabled:Boolean){legacy=enabled}
         override fun execute(plan:NativeTransitionPlan,outgoingLevel:NativeDjLevel?,incomingLevel:NativeDjLevel?):NativeDjTransitionExecutor {
@@ -93,6 +95,41 @@ class NativeAutoMixServiceControllerTest {
             assertEquals(1,v.promotions);assertEquals(1,v.a.releaseCount);assertFalse(v.b.released)
             assertTrue(e.measurements().concurrentProgressUs>=p.candidate.overlapUs-10_000)
             assertTrue(v.b.position>p.candidate.incomingCueUs);assertEquals(1,h.executes)
+        }
+    }
+    @Test fun unresolvedOutputDoesNotLatchTransientProcessorRejectionAndSamePairCanPlanWhenReady() {
+        val h=Host().also {it.current=pair();it.outputPending=true;it.unavailable="PCM_PROCESSOR_UNAVAILABLE"}
+        val calls=AtomicInteger()
+        controller(h,calls).use {c ->
+            repeat(20){c.tick()}
+            assertTrue(h.legacy);assertEquals(0,calls.get());assertEquals(0,h.executes)
+            assertEquals("WAITING_PLAYER_OUTPUT",h.latest.reason)
+            // Same generation/source pair, now the real sink has configured its processor.
+            h.outputPending=false;h.unavailable=null
+            await(c){c.confirmedPlan!=null}
+            assertEquals(2,calls.get());assertFalse(h.legacy)
+            assertEquals(NativePlanReadiness.TIMING_AND_TRANSIENT_SUPPORTED,c.confirmedPlan!!.readiness)
+        }
+    }
+    @Test fun configuredButUnsupportedOutputStillFallsBackOnceWithoutNativeAnalysis() {
+        val h=Host().also {it.current=pair();it.outputPending=true;it.unavailable="PCM_PROCESSOR_UNAVAILABLE"}
+        val calls=AtomicInteger()
+        controller(h,calls).use {c ->
+            c.tick();assertEquals("WAITING_PLAYER_OUTPUT",h.latest.reason)
+            h.outputPending=false
+            repeat(20){c.tick()}
+            assertTrue(h.legacy);assertEquals(0,calls.get());assertEquals(0,h.executes)
+            assertEquals("PCM_PROCESSOR_UNAVAILABLE",h.latest.reason)
+        }
+    }
+    @Test fun nextTrackChangeWhileOutputIsPendingCannotAnalyzeTheObsoletePair() {
+        val h=Host().also {it.current=pair();it.outputPending=true};val calls=AtomicInteger()
+        controller(h,calls).use {c ->
+            c.tick();assertEquals(0,calls.get())
+            h.current=null;c.validateQueue();h.outputPending=false
+            repeat(20){c.tick()}
+            assertEquals(0,calls.get());assertEquals(0,h.executes);assertNull(c.confirmedPlan)
+            assertTrue(h.legacy);assertEquals("WAITING_RESOLVED_PAIR",h.latest.reason)
         }
     }
     @Test fun unsupportedConfigurationFallsBackOnceWithoutAnalysis() {

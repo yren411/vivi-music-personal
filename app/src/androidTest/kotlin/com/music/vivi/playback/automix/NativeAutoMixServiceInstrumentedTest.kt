@@ -252,7 +252,11 @@ class NativeAutoMixServiceInstrumentedTest {
                     android.util.Log.i("TiniumNativeDj","NATIVE_SERVICE_PROGRESS test=$testMethod phase=$phase stage=${s.execution?.status} outputs=${s.outputs} positionMs=${service.player.currentPosition}")
                     nextProgress=SystemClock.uptimeMillis()+5000
                 }
-                if(SystemClock.uptimeMillis()>=deadline)throw AssertionError("NATIVE_SERVICE_ANDROID $label\n"+report())
+                if(SystemClock.uptimeMillis()>=deadline) {
+                    val status=service.autoMixStatus.value
+                    val reason=status.reason?.takeIf {it.matches(Regex("[A-Z0-9_]{1,80}"))}
+                    throw AssertionError("NATIVE_SERVICE_ANDROID $label playerState=${service.player.playbackState} phase=${status.phase} reason=$reason\n"+report())
+                }
                 handler.postDelayed(this,10)
             }catch(t:Throwable){error.set(t);finished.countDown()}}}
             handler.post(check)
