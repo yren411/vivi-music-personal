@@ -144,8 +144,22 @@ The unchanged v3 ten-second startup-observation expiry means long songs commonly
 cue with **zero prediction lead**. Independent outputs may exceed the 120ms guard and fall
 back. This limitation must be evaluated, not hidden by a wider tolerance or stale device delay.
 
-Owner feedback for Phase 3.3: **not yet supplied**. Real-song categories, route/EQ comparisons,
+At the original evidence commit, owner feedback had not yet been supplied; see the
+subsequent hang report below. Real-song categories, route/EQ comparisons,
 background/controls testing, subjective negative feedback and safe Stats export are described
 in the activation guide. No acoustic, Poweramp audibility, streaming success, ordinary-listening
 CPU, memory or battery claim is made. A passing generated-media test alone is insufficient for
 broader activation or public redistribution clearance.
+
+## Owner-reported hang and test-harness follow-up
+
+After the initial evidence above, the owner reported no completed service tests after roughly
+seven minutes on one attempt and three minutes on another, with audio/crackles and no returned
+filtered logcat messages. The method, main-thread state and acoustic cause remain unknown.
+These are unfavorable owner observations, not measured runtime/quality results or passes.
+
+The test-only follow-up removes unbounded main-thread/global-idle waits, bounds preference
+operations, preserves original failures during cleanup, and emits private last-stage/filtered
+thread diagnostics. It does not alter MusicService, DSP, timing gates, gains or functional
+playback assertions. See `harness-hang-followup.json` for the follow-up's actual host checks,
+and the activation guide's single-test/ADB instructions for required device diagnosis.

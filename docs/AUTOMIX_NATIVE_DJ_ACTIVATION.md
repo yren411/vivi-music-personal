@@ -343,3 +343,63 @@ GPL/AGPL notices, source provenance and source-distribution obligations remain a
 The owner's Musixmatch permission assumption supports this development task; it is not an
 independent public redistribution clearance. No lyrics changes, new BitChord import, public
 APK, release/version allocation, distribution signing or automatic merge is performed.
+
+## Device test hangs: bounded harness and progress capture
+
+The owner reported two Phase 3.3 device invocations with audio but no completed test after
+approximately seven and three minutes. No matching logcat messages were available, so neither
+the stuck method nor the cause of the crackles is established. This is **not** a device pass.
+
+The original service harness could block without a deadline in `runOnMainSync()` and
+`waitForIdleSync()`, including cleanup after an already-failed playback assertion. A global
+idle wait is inappropriate for a service that schedules work. The follow-up replaces those
+calls with test-only bounded Handler/FutureTask calls (7s), bounds preference operations (10s),
+and adds a 240s whole-test JUnit limit for the longest 150s progression case plus setup/cleanup.
+Existing playback assertions and their 20/50/150s limits are unchanged. Queued timed-out
+mutations are removed/canceled; already-running Android platform code is not interrupted or
+claimed recoverable. Cleanup attempts remaining steps and preserves the original failure.
+A bounded main-thread barrier replaces global idleness; it is not proof of service destruction.
+
+Test/stage/progress markers use `TiniumNativeDj`. Four private files are bounded to the latest
+stage, first body failure, latest filtered thread snapshot and latest sanitized AutoMix report:
+`phase33-service-progress.txt`, `phase33-service-failure.txt`, `phase33-service-threads.txt`,
+`phase33-service-last.txt`. These contain no audio, titles, URLs, credentials or media paths.
+Thread snapshots include only the main, ExoPlayer and AutoMix threads (at most 8 × 18 frames).
+Progress writes occur on the test thread, not playback callbacks or normal listening.
+
+After stopping a stuck Gradle invocation with Ctrl+C, stop only the isolated test process:
+
+```powershell
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+& $adb shell am force-stop com.yren411.tinium.decodercheck
+```
+
+This does not uninstall either app or erase its data. Update the PR branch and first run the
+short single legacy-default test, which intentionally starts no audio:
+
+```powershell
+git fetch origin
+git switch codex/automix-native-dj-service
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#legacyDefaultDoesNotConstructNativePipeline" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Expected: one executed test, zero failures/skips. If it fails, retain the original failure
+and suppressed cleanup errors. If the runner itself remains stuck, a second terminal can
+read these files while the process is alive, without relying on logcat:
+
+```powershell
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase33-service-progress.txt
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase33-service-failure.txt
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase33-service-threads.txt
+```
+
+A failure/threads file may not exist before a failure; compare the recorded test, phase and
+run-start timestamp to the current progress file. A missing progress file can indicate that
+execution never entered the harness. A blocked Android main thread may also prevent the
+framework from finishing the instrumentation invocation despite bounded test waits; stopping
+the isolated process is then appropriate after retaining diagnostics. No arbitrary native or
+platform deadlock is claimed fixed by a timeout. After the smoke test passes, run the codec
+case alone by replacing the selector suffix with
+`#actualAacAndFlacSourcesUseThePinnedServiceNativePipeline`, then return to all eleven.

@@ -209,3 +209,6 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Extend deliberate diagnostic exports with privacy-safe native transition evidence and
   add actual-service Android tests. Real-song, route/EQ listening and new device-runtime
   validation remain required; this experimental mode is not a production-readiness claim.
+
+- Improve experimental service-test progress and timeout diagnostics, including bounded
+  main-thread waits and private failure reports when logcat is unavailable.
