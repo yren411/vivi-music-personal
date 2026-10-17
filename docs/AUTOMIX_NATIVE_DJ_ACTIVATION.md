@@ -430,3 +430,46 @@ cached material cannot silently satisfy the test. Existing mixing assertions rem
 This is a test-source identity defect, not evidence that coverage checks or native confidence
 should be relaxed. Production cache/decoder/analyzer code was not changed. The observed
 crackles have no established acoustic cause. Device reruns remain necessary after this fix.
+
+### Initial audio-output readiness and configuration diagnostics
+
+After the fixture-ID repair, the owner's codec rerun passed its actual AAC playback
+format/duration assertion. Its report showed the intended 30s/48kHz stereo AAC and
+30s/44.1kHz mono FLAC during legacy decoding. The stale-WAV problem was no longer
+present. However, native admission recorded `UNSUPPORTED_PLAYER_CONFIGURATION` at
+391ms, before any native decode/plan, then permanently fell back for that queue pair.
+No native mix or successful end-to-end service run is inferred from this report.
+
+The initial admission path could resolve source/duration while Media3 was still
+initializing. It checked the legacy host's `allowed` property, which includes
+`AutoMixAudioProcessor.isActive`, and latched failure for the pair. An unconfigured
+processor is inactive too. A JVM reproduction with an initializing output, transient
+processor rejection and subsequently ready output failed before the repair: the
+controller rejected rather than retaining eligibility. The broad device reason does
+not identify which individual condition was false; the processor timing explanation
+is a strong hypothesis for that device attempt, not a measured callback trace.
+
+Native admission now waits for READY playback, an input-format observation belonging
+to the current item, and an actual AudioTrack-initialization observation. While waiting,
+it leaves ordinary legacy handling available, reports `WAITING_PLAYER_OUTPUT`, starts
+no native decode, and does not mark that pair attempted. The same pair can proceed on
+an existing service tick after setup completes. This introduces no sleeps, new workers,
+forced player changes or arbitrary Samsung timing constant. Queue replacement while
+waiting cannot claim the obsolete pair.
+
+Known hard restrictions still reject: casting, Listen Together, silence skipping,
+sleep-at-end, live input, unsupported speed/pitch, gapless/repeat-one and competing
+deck ownership. After real output setup, an inactive PCM processor still rejects as
+`PCM_PROCESSOR_UNAVAILABLE`; it is not bypassed. Native checks now emit specific safe
+codes instead of constructing a legacy decoder/pipeline just to read `allowed`.
+The legacy host's `allowed` property and default behavior are unchanged. Active
+analysis/execution capability checks and all coverage/drift/gain gates are retained.
+If output never initializes, normal playback handling remains available; no native
+attempt starts. A test timeout now also prints playback state and a controlled status
+reason, so this waiting state can be distinguished from a plan rejection.
+
+See `benchmarks/phase33-native-automix/output-readiness-followup.json` for the failing
+regression reproduction, post-fix host checks and the pending Android rerun. Device
+execution is still required to determine whether another independent gate or later
+planning/execution issue exists. Neither the output race repair nor the cache repair
+establishes the acoustic cause of the previously reported crackles.

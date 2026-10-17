@@ -214,3 +214,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
   main-thread waits and private failure reports when logcat is unavailable.
 - Isolate generated service-test media identities between runs so cached WAV fixtures cannot
   replace AAC/FLAC or silence fixtures; remove only the current test's cache resources.
+
+- Experimental Native DJ AutoMix waits for the current audio output to initialize before
+  admitting a pair, and reports specific configuration-rejection reasons. Legacy mode
+  remains the default; native coverage, gain and timing safeguards are unchanged.

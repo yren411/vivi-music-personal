@@ -172,3 +172,13 @@ It showed old 40s/22,050Hz mono WAV content behind the 30s codec assets' reused 
 no native plan or mix started. `fixture-cache-followup.json` records the numerical evidence,
 independent ffprobe asset checks, fixture-key repair and actual host validation. Neither this
 legacy smoke pass nor the rejected codec attempt is counted as a successful native service mix.
+
+### Subsequent device evidence: admission before output readiness
+
+The codec rerun after cache isolation showed the actual 30s AAC/FLAC source formats,
+but native admission rejected at 391ms as `UNSUPPORTED_PLAYER_CONFIGURATION`. There
+was no native analysis, plan or mix. The generic reason cannot identify the individual
+false capability condition. The initial-output admission race was reproduced on the
+JVM and repaired without changing the legacy gate or allowing unsupported processors.
+See `output-readiness-followup.json` and the activation guide. Device rerun remains
+required; no successful native service transition is counted from this attempt.
