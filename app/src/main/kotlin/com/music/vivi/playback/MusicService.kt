@@ -4061,7 +4061,8 @@ class MusicService :
         autoMixEngineMode, nativeAutoMix?.nativeSelected==true,legacyAutoMixEnabled,
         nativeAutoMix?.currentExecutor?.report(),outputIdentities.size,player.currentMediaItem?.mediaId,
         player.volume,nativePlayback?.incomingVolume(),nativePlayback?.incomingPlaying(),
-        outputIdentities.values.map(effectSessions::session).filter {it>0}.toSet(),nativePlayback?.incomingSessionId())
+        outputIdentities.values.map(effectSessions::session).filter {it>0}.toSet(),nativePlayback?.incomingSessionId(),
+        nativeAutoMix?.ownsPlayback==true || intelligentAutoMix?.mixing==true || isCrossfading)
 
     private fun invalidateNative(reason:NativeDjExecutionReason) {
         if(nativePromoting)return
@@ -4941,4 +4942,5 @@ private data class SponsorBlockConfig(
 
 internal data class NativeServiceInspection(val mode:AutoMixEngineMode,val nativeSelected:Boolean,val legacyEnabled:Boolean,
     val execution:NativeDjExecutionReport?,val outputs:Int,val primaryId:String?,val primaryVolume:Float,
-    val incomingVolume:Float?,val incomingPlaying:Boolean?,val activeSessions:Set<Int>,val incomingSessionId:Int?)
+    val incomingVolume:Float?,val incomingPlaying:Boolean?,val activeSessions:Set<Int>,val incomingSessionId:Int?,
+    val transitionActive:Boolean)

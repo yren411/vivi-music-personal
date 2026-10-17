@@ -137,10 +137,16 @@ class NativeAutoMixServiceInstrumentedTest {
     @Test fun successiveAttemptsPreserveQueueAndReleaseOldPlayers()=withService(longIncoming=true){h ->
         h.play();h.await("successive native attempts and handoffs",150_000){
             val attempts=h.history().attempts.count {a->a.records.any {it.native?.event==NativeServiceEvent.PAIR}}
-            attempts>=2 && h.completed()>=1 && h.service.player.currentMediaItem?.mediaId==h.items[2].mediaId
+            // A safe legacy fallback publishes the incoming queue item at fade START.
+            // Queue identity alone is not completion; wait for real controller ownership
+            // to end, then independently assert that exactly one output survived.
+            attempts>=2 && h.completed()>=1 && h.service.player.currentMediaItem?.mediaId==h.items[2].mediaId &&
+                !h.service.nativeServiceInspection().transitionActive
         }
         h.main {assertTrue(h.completed()>=1);assertEquals(h.items[2].mediaId,h.service.player.currentMediaItem?.mediaId)
-            assertEquals(2,h.service.player.currentMediaItemIndex);assertEquals(1,h.service.nativeServiceInspection().outputs)
+            assertEquals(2,h.service.player.currentMediaItemIndex)
+            val s=h.service.nativeServiceInspection()
+            assertEquals("Successive handoffs outputs=${s.outputs} transitionActive=${s.transitionActive} legacyEnabled=${s.legacyEnabled} execution=${s.execution?.status}\n${h.report()}",1,s.outputs)
             assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f)}
     }
     private fun withService(native:Boolean=true,silentIncoming:Boolean=false,longIncoming:Boolean=false,codec:Boolean=false,block:(Harness)->Unit) {

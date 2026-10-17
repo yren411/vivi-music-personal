@@ -274,4 +274,24 @@ class AutoMixControllerTest {
             assertTrue(h.a.released); assertEquals(1f,h.b.rate,0.001f)
         }
     }
+    @Test fun legacyQueuePromotionPrecedesFadeCompletionAndOutgoingRelease() {
+        val h=Host()
+        AutoMixController(h,AnalysisWorkers()).use { c ->
+            start(h,c)
+            // Same queue predicate as the service regression: incoming is now current,
+            // but this existing controller legitimately owns TWO decks during its fade.
+            assertSame(h.b,h.active);assertEquals(1,h.promotions)
+            assertTrue(c.mixing);assertFalse(h.a.released)
+            assertEquals(2,listOf(h.a,h.b).count {!it.released})
+            h.advance(1000);c.tick()
+            assertTrue(c.mixing);assertTrue(h.a.playing && h.b.playing)
+            repeat(150){h.advance(50);c.tick()} // Virtual media time, no wall-clock delay.
+            assertFalse(c.mixing)
+            assertSame(h.b,h.active);assertTrue(h.b.playing)
+            assertEquals(1,h.a.releaseCount);assertFalse(h.b.released)
+            assertEquals(1,listOf(h.a,h.b).count {!it.released})
+            assertEquals(1,h.promotions)
+        }
+    }
+
 }
