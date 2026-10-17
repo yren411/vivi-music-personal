@@ -168,3 +168,16 @@ This is an unversioned draft for review. No release version or tag is assigned.
   The owner confirmed the targeted AAC/FLAC integration test passed on the S25
   Ultra with Android 17; full regression and musical-quality validation remain
   separate requirements before experimental production activation.
+
+## Experimental native-aware transition planning
+
+- Add an internally invoked two-track planner using actual BitChord beat evidence,
+  covered PCM, explicit cue candidates and predicted drift at normal playback rate.
+  Keep half/double-time interpretations and missing phrase/vocal/key evidence visible.
+- Corroborate proposed pulse runs with bounded PCM observations and preserve intros
+  when no measured quiet prefix supports a later cue. Rank feasible overlaps without
+  treating the native score as a calibrated confidence probability.
+- Add generated legacy/native comparisons, private local-audio evaluation tooling,
+  cancellation/cache regressions and six new Android planner instrumentation tests.
+  Normal AutoMix, playback gains, effects sessions, settings and UI stay unchanged;
+  the experimental planner is not connected to production playback.

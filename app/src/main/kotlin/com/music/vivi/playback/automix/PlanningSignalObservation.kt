@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+package com.music.vivi.playback.automix
+
+import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.sqrt
+
+/** Optional corroboration of BitChord's grid, NOT another tempo detector or vocal classifier.
+ * Absolute 20 ms RMS-rise event timestamps, plus measured below--60 dBFS leading material.
+ * No raw PCM survives. The native confidence is neither modified nor calibrated here. */
+data class PlanningSignalObservation(
+    val source: AnalysisSourceIdentity,
+    val profile: AnalysisProfile,
+    val interval: AudioIntervalUs,
+    val version: String,
+    val leadingQuietEndUs: Long?,
+    val riseEventsUs: List<Long>,
+    val complete: Boolean,
+    val windowRms: Double,
+    val windowPeak: Double,
+) {
+    companion object {
+        const val VERSION = "pcm-rms20ms-rise25pct-quiet60db-v1"
+        fun measure(window: DecodedWindow, control: AnalysisControl): PlanningSignalObservation {
+            require(window.invalidReason() == null && window.format == PcmFormat(22050, 1, PcmEncoding.FLOAT32))
+            require(window.samples.size <= 22050 * 32 && window.preprocessingVersion == PcmPreprocessing.BANDLIMITED)
+            val span = requireNotNull(window.sampleInterval)
+            require(window.coverage.status(span) == CoverageStatus.FULL)
+            var squares = 0.0
+            var peak = 0.0
+            window.samples.forEachIndexed { index, f ->
+                if (index % 4096 == 0) control.checkpoint()
+                require(f.isFinite())
+                val value = f.toDouble()
+                squares += value * value
+                peak = max(peak, abs(value))
+            }
+            val rms = sqrt(squares / window.samples.size)
+            val events = ArrayList<Long>()
+            var previous = 0.0
+            var quietEnd = span.startUs
+            var stillQuiet = true
+            var complete = true
+            val blockFrames = 441 // exactly 20 ms at canonical 22050 Hz
+            var frame = 0
+            while (frame < window.samples.size) {
+                control.checkpoint()
+                val end = minOf(frame + blockFrames, window.samples.size)
+                var sum = 0.0
+                var blockPeak = 0.0
+                for (index in frame until end) {
+                    val value = window.samples[index].toDouble()
+                    sum += value * value
+                    blockPeak = max(blockPeak, abs(value))
+                }
+                val level = sqrt(sum / (end - frame))
+                val position = Math.addExact(span.startUs, frame.toLong() * 1_000_000 / 22050)
+                if (level - previous >= max(0.001, rms * 0.25)) {
+                    if (events.size < 512) events.add(position) else complete = false
+                }
+                if (stillQuiet && blockPeak < 0.001) {
+                    quietEnd = Math.addExact(span.startUs, end.toLong() * 1_000_000 / 22050)
+                } else stillQuiet = false
+                previous = level
+                frame = end
+            }
+            control.checkpoint()
+            return PlanningSignalObservation(window.identity, BitChordNativeAnalysisEngine.PROFILE,
+                span, VERSION, if (span.startUs == 0L) quietEnd else null, events.toList(), complete, rms, peak)
+        }
+    }
+}
+
+/** Captures compact observations only in an explicitly invoked experimental job. */
+class NativePlanningAnalysis<S>(
+    private val decoder: AnalysisWindowDecoder<S>,
+    private val engine: AnalysisEngine = BitChordNativeAnalysisEngine(),
+) {
+    init { require(engine.backend == BitChordNativeAnalysisEngine.BACKEND) }
+    fun analyze(source: S, request: DecodeRequest, detail: AnalysisDetail, control: AnalysisControl): PlanningWindowEvidence {
+        var observation: PlanningSignalObservation? = null
+        val observedDecoder = AnalysisWindowDecoder<S> { input, wanted, jobControl ->
+            decoder.decode(input, wanted, jobControl).also { result ->
+                if (result is DecodeResult.Decoded && result.window.invalidReason() == null &&
+                    result.window.preprocessingVersion == PcmPreprocessing.BANDLIMITED &&
+                    result.window.coverage.status(result.window.decodeInterval) == CoverageStatus.FULL) {
+                    observation = PlanningSignalObservation.measure(result.window, jobControl)
+                }
+            }
+        }
+        val result = WindowAnalysisPipeline(observedDecoder, engine, PcmPreprocessing.BANDLIMITED)
+            .analyze(source, request, detail, control)
+        return PlanningWindowEvidence(result, if (result is AnalysisResult.Completed) observation else null)
+    }
+}

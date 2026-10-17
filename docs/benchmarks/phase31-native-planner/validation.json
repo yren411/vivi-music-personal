@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "baseCommit": "e76bfcdd0c6fa47580fd2b3b4fab427930546198",
+  "jvm": {
+    "Arm64GmsDebug": {
+      "tests": 353,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 353,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "realHostJniTestsPerVariant": 15,
+  "nativeCtest": {
+    "tests": 10,
+    "passed": 10,
+    "failed": 0
+  },
+  "nativeSanitizerCtest": {
+    "tests": 10,
+    "passed": 10,
+    "failed": 0
+  },
+  "appDebugApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "instrumentationApksAssembled": [
+    "Arm64GmsDebug",
+    "UniversalFossDebug"
+  ],
+  "newPlannerInstrumentationTests": 6,
+  "previousInstrumentationTestsUnchanged": 18,
+  "androidRuntimeExecuted": false,
+  "environmentLimits": [
+    "No emulator/system image or KVM/USB device provisioned",
+    "adb cannot create read-only default user directory"
+  ],
+  "localHarness": {
+    "pairs": 1,
+    "source": "generated WAV, offline ffmpeg preparation",
+    "jvmTestsPassed": 1,
+    "privateNamesAndPathsAbsentFromReport": true
+  },
+  "productionAnalyzer": "tinium-legacy-kotlin",
+  "productionPreprocessing": "nearest-time-mono-22050-v1",
+  "existingTestsWeakened": false,
+  "dedicatedRealHostJniTestsPerVariant": 14,
+  "realNativeComparisonTestsPerVariant": 1,
+  "testTasksRestoredFromCache": false,
+  "instrumentationKotlinCompiled": true,
+  "crossBatchTicketRegressionPassed": true,
+  "implementationCommit": "3c4ad9bec62fc6af1d4a16863b5c70d9105b0c42"
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "algorithm": "SHA-256 of sorted pair reports, JSON sort_keys/separators=(comma,colon)",
+  "excludedPairKeys": [
+    "nativePlanningUs",
+    "validationUs",
+    "anchorGenerationUs",
+    "candidateEvaluationUs",
+    "legacyPlanningUs",
+    "nativeAnalysisOutgoingUs",
+    "nativeAnalysisIncomingUs",
+    "legacyAnalysisOutgoingUs",
+    "legacyAnalysisIncomingUs",
+    "correctedPreparationOutgoingUs",
+    "correctedPreparationIncomingUs",
+    "legacyPreparationOutgoingUs",
+    "legacyPreparationIncomingUs",
+    "outgoingReportId",
+    "incomingReportId"
+  ],
+  "fingerprint": "0d55201085714c0798c6bc0081d447f6dc2431c7d259df293afa952e3fa3ab4a",
+  "previousFullHostRunMatches": true
+}
