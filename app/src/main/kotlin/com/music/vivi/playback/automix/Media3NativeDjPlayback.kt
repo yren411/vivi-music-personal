@@ -55,6 +55,10 @@ class Media3NativeDjPlayback(
     override fun claim():Boolean {
         thread()
         if(closed || claimed || !exclusiveControlAvailable())return false
+        val master=userVolume();val focus=focusGain()
+        require(master.isFinite() && master in 0f..1f && focus.isFinite() && focus in 0f..1f)
+        // Refuse a stale/competing gain baseline rather than jumping to unity on acquisition.
+        if(kotlin.math.abs(outgoingDeck.player.volume-master*focus)>.0001f)return false
         require(outgoingDeck.player.mediaItemCount==1) {"Experimental session requires an isolated single-item outgoing deck"}
         synchronized(leases) {if(leases.containsKey(outgoingDeck.player))return false;leases[outgoingDeck.player]=this}
         originalPauseAtEnd=outgoingDeck.player.pauseAtEndOfMediaItems

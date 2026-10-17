@@ -103,7 +103,13 @@ class NativeDjExecutionInstrumentedTest {
     @Test fun unsupportedPlanNeverCreatesIncomingPlayer()=withPair {h ->
         h.start(h.plan.copy(requiredFutureCapability="unsupported"));h.main {assertEquals(NativeDjExecutionReason.UNSUPPORTED_CAPABILITY,h.executor.status.reason);assertNull(h.incoming);assertTrue(h.outgoing.isPlaying)}
     }
-    @Test fun secondExecutorCannotTakeOverTheSameOutgoingPlayer()=withPair {h ->
+    @Test fun gainBaselineAndOwnershipGuardsPreventCompetingControllers()=withPair {h ->
+        h.main {
+            h.outgoing.volume=.03f
+            val mismatch=h.adapter()
+            try {assertEquals(NativeDjExecutionReason.OWNERSHIP_BUSY,mismatch.execute(h.plan).status.reason);assertEquals(.03f,h.outgoing.volume,0f)}
+            finally {mismatch.close();h.outgoing.volume=h.volume}
+        }
         h.start();h.main {
             val second=h.adapter();try {val e=second.execute(h.plan);assertEquals(NativeDjExecutionReason.OWNERSHIP_BUSY,e.status.reason)}finally {second.close()}
             assertTrue(h.outgoing.pauseAtEndOfMediaItems)
