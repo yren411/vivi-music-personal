@@ -163,3 +163,12 @@ operations, preserves original failures during cleanup, and emits private last-s
 thread diagnostics. It does not alter MusicService, DSP, timing gates, gains or functional
 playback assertions. See `harness-hang-followup.json` for the follow-up's actual host checks,
 and the activation guide's single-test/ADB instructions for required device diagnosis.
+
+### Subsequent device evidence: stale fixture bytes
+
+The owner reported the single legacy-default test completed on its first attempt with the
+bounded driver. The codec case then returned a sanitized assertion instead of a silent hang.
+It showed old 40s/22,050Hz mono WAV content behind the 30s codec assets' reused cache keys;
+no native plan or mix started. `fixture-cache-followup.json` records the numerical evidence,
+independent ffprobe asset checks, fixture-key repair and actual host validation. Neither this
+legacy smoke pass nor the rejected codec attempt is counted as a successful native service mix.

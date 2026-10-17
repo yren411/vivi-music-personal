@@ -403,3 +403,30 @@ the isolated process is then appropriate after retaining diagnostics. No arbitra
 platform deadlock is claimed fixed by a timeout. After the smoke test passes, run the codec
 case alone by replacing the selector suffix with
 `#actualAacAndFlacSourcesUseThePinnedServiceNativePipeline`, then return to all eleven.
+
+### Confirmed cross-test cache contamination
+
+The bounded driver let the owner complete the single legacy-default test and obtain a real
+failure from `actualAacAndFlacSourcesUseThePinnedServiceNativePipeline`. The latter never
+reached native planning: corrected decoding rejected EMPTY_OUTPUT/PARTIAL_SOURCE_COVERAGE.
+The diagnostics showed 40s, 22,050Hz mono PCM, despite the selected 30s AAC/FLAC assets.
+
+The harness had reused `phase33-generated-0/1/2` as both media IDs and custom cache keys for
+WAV, codec, silent and different-duration files across runs. Temporary file URIs alone do
+not invalidate Media3's persistent cache. Playback and analysis therefore could consume old
+WAV bytes under a codec fixture's key. For the FLAC input's 843,350-byte bound, the cached
+WAV header plus PCM yields `(843350 - 44) / 2 = 421653` frames, exactly the decoded count;
+`421653 / 22050 = 19.122585s`, exactly the partial coverage. The AAC byte bound (341,588)
+is shorter than the stale WAV's 8s seek byte offset (352,844), explaining empty output.
+
+Each harness now uses a fresh UUID namespace for recording IDs **and** cache keys. Those
+identities remain stable within its queue; deterministic PCM/beat timing is unchanged.
+Cleanup removes only that run's three resources from the service caches, never a whole cache,
+another run's resources, normal music or application data. Old fixed-key entries need not be
+cleared or the app uninstalled: new runs cannot reuse them. The codec test additionally asserts
+actual AAC playback format/duration and both corrected decoder source rates/durations, so wrong
+cached material cannot silently satisfy the test. Existing mixing assertions remain required.
+
+This is a test-source identity defect, not evidence that coverage checks or native confidence
+should be relaxed. Production cache/decoder/analyzer code was not changed. The observed
+crackles have no established acoustic cause. Device reruns remain necessary after this fix.

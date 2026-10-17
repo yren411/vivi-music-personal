@@ -212,3 +212,5 @@ This is an unversioned draft for review. No release version or tag is assigned.
 
 - Improve experimental service-test progress and timeout diagnostics, including bounded
   main-thread waits and private failure reports when logcat is unavailable.
+- Isolate generated service-test media identities between runs so cached WAV fixtures cannot
+  replace AAC/FLAC or silence fixtures; remove only the current test's cache resources.
