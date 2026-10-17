@@ -1,6 +1,6 @@
 # Phase 3.3 validation evidence
 
-Application implementation commit: `5f70b625` (see full hash in `validation.json`).
+Application implementation commit: `d7d9c40f` (see full hash in `validation.json`).
 Baseline: `f3c96b1adb7607dbf71bb4c41933010fecb47fc0`, merged PR #22.
 Environment: Linux x86_64, Java 21, Gradle 9.3.1, AGP 9.1.1, SDK 37,
 NDK 27.0.12077973. No Android runtime or permitted real-song corpus was available.
@@ -10,10 +10,10 @@ This is engineering evidence for an **opt-in experiment**, not production readin
 
 | Evidence level | Result | Limits |
 |---|---|---|
-| Complete Arm64 GMS Debug JVM suite | 454 passed; 0 failed/errors/skipped | Actual executed task, not a cached zero-test run |
-| Complete Universal FOSS Debug JVM suite | 454 passed; 0 failed/errors/skipped | Actual executed task; includes existing updater, effects and AutoMix tests |
+| Complete Arm64 GMS Debug JVM suite | 456 passed; 0 failed/errors/skipped | Actual executed task, not a cached zero-test run |
+| Complete Universal FOSS Debug JVM suite | 456 passed; 0 failed/errors/skipped | Actual executed task; includes existing updater, effects and AutoMix tests |
 | Real host-JNI tests | 17 per variant, included above | Linux native library; not Android JNI/device playback |
-| New JVM service/contracts/source tests | 33 per variant, included above | Deterministic virtual-player boundary, generated PCM, shared worker budget |
+| New JVM service/contracts/source tests | 35 per variant, included above | Deterministic virtual-player boundary, generated PCM, shared worker budget |
 | Universal FOSS Debug lint task | Completed successfully in 3m57s | Existing nonblocking findings remain; details below |
 | Native CTest | 10/10 passed, 21.61s | Existing unchanged DSP and provenance tests rerun |
 | ASan/UBSan/LSan native CTest | 10/10 passed, 75.81s | Host memory-safety checks; no Android memory measurement |
@@ -24,7 +24,7 @@ This is engineering evidence for an **opt-in experiment**, not production readin
 | Native ABI and APK inspection | Four actual packaged JNI ABIs; ELF and ZIP 16KB checks passed | Packaging does not establish runtime compatibility |
 | Real songs / acoustic sync / audible EQ / phone resources | Not tested | No invented ratings, battery results or phone timings |
 
-The full validation command completed in **4m23s**, with **52 tasks executed and
+The full validation command completed in **3m34s**, with **52 tasks executed and
 470 up-to-date**. JVM test tasks executed. Intermediate compilation/package reuse is
 explicit in `validation.json`; it does not imply tests ran on Android.
 
@@ -32,7 +32,8 @@ explicit in `validation.json`; it does not imply tests ran on Android.
 policy. Its report contains 79 error-severity findings, 777 warnings and 5 hints; this is not
 a clean lint report. Every primary error source line is present in the starting baseline
 (including the existing resource lookup in PlayerDiagnostics); no baseline lint rerun is
-claimed. No suppression or lint/workflow configuration was changed to obtain success.
+claimed. No suppression or lint/workflow configuration was changed to obtain success. This local lint
+run predates the isolated source-pin follow-up; final-commit CI lint is reported on the PR.
 Command: `bash gradlew :app:lintUniversalFossDebug "-PautomixDecoderTests=true"
 --no-configuration-cache --no-daemon --max-workers=4 --console=plain`.
 
@@ -80,7 +81,7 @@ planning and the new service coordinator. Its playback decks are virtual:
 | Queue promotions | 1 |
 | Decoded windows | 2 |
 | Content gains, outgoing / incoming | 0.968973 / 1.0 |
-| Host elapsed for this test's pipeline | 192,766,638ns (~193ms) |
+| Host elapsed for this test's pipeline | 180,527,518ns (~181ms) |
 
 This single host elapsed value is not a stable performance benchmark, MediaCodec runtime,
 Android player start time or phone CPU/battery measurement. It contains no network source.
@@ -90,7 +91,8 @@ failure, queue replacement, blocked-analysis cancellation, mode rollback, pause/
 volume forwarding, preparation failure, active player failure, missing actual duration,
 three-failure session suspension, marker invalidation and bounded private diagnostics.
 Worker tests enforce maximum active work of 1/2/4 across typed pools and interrupt waiting
-obsolete jobs. Source tests reject old publication epochs and same-ID source replacements.
+obsolete jobs. Source tests reject old publication epochs and same-ID source replacements. Source-pin tests additionally preserve transition-time
+rendition identity and release it for normal URL refresh after promotion/disposal.
 No arbitrary sleeps, relaxed alignment thresholds or removed cache-identity assertions were used.
 
 ## Resource bounds and packaging

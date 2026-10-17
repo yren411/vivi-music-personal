@@ -124,7 +124,10 @@ resolver opens a rendition. Upcoming resolution reuses the immediate-next prefet
 existing 30-second retry throttle; it does not resolve every future queue item. Signed URLs
 remain in memory only. Incoming playback pins the analyzed authorized source and cache key;
 it does not silently re-resolve to a different encoding at the cue. Subsequent songs in the
-promoted playlist return to the normal resolver. Existing cache authorization, byte/window
+promoted playlist return to the normal resolver. The temporary current-item pin is also
+released on successful promotion (or standby disposal), using a thread-visible source holder.
+Later opens can therefore refresh an expired authorized URL through the normal resolver;
+the analyzed rendition remains pinned throughout transition ownership. Existing cache authorization, byte/window
 limits, cancellation and network timeout safeguards are retained.
 
 Only fully cached, known-length data can establish a cached rendition without a URL. Unknown

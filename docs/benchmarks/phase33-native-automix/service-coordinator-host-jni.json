@@ -12,7 +12,7 @@
     "executor": "tinium-native-dj-executor-v3-format-aware-clock-progress",
     "promotions": 1,
     "decodedWindows": 2,
-    "hostElapsedNanos": 192766638,
+    "hostElapsedNanos": 180527518,
     "outgoingContentGain": 0.9689734189209601,
     "incomingContentGain": 1.0
 }

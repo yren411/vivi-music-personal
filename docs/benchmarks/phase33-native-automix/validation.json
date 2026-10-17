@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "baseline": "f3c96b1adb7607dbf71bb4c41933010fecb47fc0",
-  "sourceCommit": "5f70b625860b0dbbfb9f92c84d0dfe2b73c362f4",
+  "sourceCommit": "d7d9c40f8f4d595ebcb3b233ea961e37c370513d",
   "environment": "Linux x86_64; Java 21; Gradle 9.3.1; AGP 9.1.1; SDK 37; NDK 27.0.12077973",
   "unitTests": {
     "testArm64GmsDebugUnitTest": {
-      "tests": 454,
+      "tests": 456,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
       "realHostJniTests": 17
     },
     "testUniversalFossDebugUnitTest": {
-      "tests": 454,
+      "tests": 456,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
@@ -29,14 +29,15 @@
     "compileArm64GmsReleaseKotlin": "EXECUTED",
     "compileUniversalFossReleaseKotlin": "EXECUTED"
   },
-  "gradleOutcome": "BUILD SUCCESSFUL in 4m 23s; 52 executed, 470 up-to-date",
+  "gradleOutcome": "BUILD SUCCESSFUL in 3m 34s; 52 executed, 470 up-to-date",
   "newServiceAndroidTests": {
     "dexTestAnnotations": 11,
     "compiledGmsAndFoss": true,
     "executed": 0,
     "failures": null,
     "skips": null,
-    "reason": "No configured emulator/device; no KVM/system image; ADB enumeration failed on nonwritable Android home"
+    "reason": "No configured emulator/device; no KVM/system image; ADB enumeration failed on nonwritable Android home",
+    "finalReportMetadataCompile": "Both GMS/FOSS test APKs rebuilt successfully in 30s; 20 tasks executed, 312 up-to-date"
   },
   "prior38AndroidSourcesChanged": false,
   "nativeCtest": {
@@ -70,6 +71,7 @@
     "hints": 5,
     "policy": "Existing abortOnError=false unchanged",
     "errorPrimarySourceLinesAllPresentAtBaseline": true,
-    "baselineLintRerun": false
+    "baselineLintRerun": false,
+    "sourceCommit": "5f70b625860b0dbbfb9f92c84d0dfe2b73c362f4"
   }
 }
