@@ -137,7 +137,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.SEEK_FAILED)
             if(lastOut==null || (a.positionUs>lastOut!! && (status.stage!=NativeDjExecutionStage.MIXING || b.positionUs>(lastIn ?: b.positionUs))))
                 lastProgressAtUs=now
-            if(now-lastProgressAtUs>config.progressTimeoutUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.PLAYBACK_STALLED)
+            if(status.stage!=NativeDjExecutionStage.PREPARING && now-lastProgressAtUs>config.progressTimeoutUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.PLAYBACK_STALLED)
             if(lastOut!=null && (a.positionUs<lastOut!!-2000 || a.positionUs-lastOut!!>gap+250_000 ||
                 b.positionUs<lastIn!!-2000 || (status.stage==NativeDjExecutionStage.MIXING && b.positionUs-lastIn!!>gap+250_000)))
                 return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.POSITION_DISCONTINUITY)
