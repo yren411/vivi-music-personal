@@ -63,7 +63,7 @@ class NativeAutoMixServiceInstrumentedTest {
             assertEquals(1,h.service.player.currentMediaItemIndex);assertEquals(h.items.size,h.service.player.mediaItemCount)
             assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f)
             assertEquals(1,h.service.nativeServiceInspection().outputs)
-            val report=h.service.autoMixRecorder.snapshot().attempts.flatMap {it.records}.mapNotNull {it.native?.execution}.last {it.status.stage==NativeDjExecutionStage.COMPLETED}
+            val report=h.history().attempts.flatMap {it.records}.mapNotNull {it.native?.execution}.last {it.status.stage==NativeDjExecutionStage.COMPLETED}
             assertEquals(1,report.measurements.promotions)
             assertTrue(report.measurements.concurrentProgressUs>=report.measurements.plannedOverlapUs-150_000)
         }
@@ -81,7 +81,7 @@ class NativeAutoMixServiceInstrumentedTest {
         h.await("codec pair advancing",3000){h.service.nativeServiceInspection().incomingPlaying==true}
         h.main {val e=requireNotNull(h.service.nativeServiceInspection().execution)
             assertEquals(PcmPreprocessing.BANDLIMITED,e.preprocessing)
-            val decoded=h.service.autoMixRecorder.snapshot().attempts.flatMap {it.records}.mapNotNull {it.decoder}
+            val decoded=h.history().attempts.flatMap {it.records}.mapNotNull {it.decoder}
                 .filter {it.preprocessing==AnalysisPreprocessing.BANDLIMITED && it.stage==DecoderStage.COMPLETE}
             for(rate in listOf(48000,44100))assertTrue("Actual codec source format $rate missing\n${h.report()}",
                 decoded.any {d->d.duration?.durationUs in 29_999_000L..30_001_000L && d.sourceFormats.any {it.format.sampleRateHz==rate}})
@@ -105,7 +105,7 @@ class NativeAutoMixServiceInstrumentedTest {
     }
     @Test fun replacingNextTrackInvalidatesTheOldPair()=withService {h ->
         h.play()
-        h.await("planning begins",5000){h.service.autoMixRecorder.snapshot().attempts.isNotEmpty()}
+        h.await("planning begins",5000){h.history().attempts.isNotEmpty()}
         h.main {h.service.player.removeMediaItem(1)}
         h.await("new queue identity",5000){h.service.player.nextMediaItemIndex==1 && h.service.player.getMediaItemAt(1).mediaId==h.items[2].mediaId}
         h.main {assertEquals(0,h.completed());assertTrue(h.service.nativeServiceInspection().outputs<=2)}
@@ -118,7 +118,7 @@ class NativeAutoMixServiceInstrumentedTest {
         h.main {assertSame(original.get(),h.service.player);assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f)}
     }
     @Test fun nonRhythmicIncomingFallsBackWithoutStoppingPlayback()=withService(silentIncoming=true){h ->
-        h.play();h.await("native rejection",15_000){h.service.autoMixRecorder.snapshot().attempts.any {a->a.records.any {it.native?.event==NativeServiceEvent.FALLBACK}}}
+        h.play();h.await("native rejection",15_000){h.history().attempts.any {a->a.records.any {it.native?.event==NativeServiceEvent.FALLBACK}}}
         h.main {assertTrue(h.service.player.isPlaying);assertTrue(h.service.nativeServiceInspection().legacyEnabled);assertEquals(h.items[0].mediaId,h.service.player.currentMediaItem?.mediaId)}
         assertTrue(h.report().contains("FALLBACK"));assertEquals(0,h.completed())
     }
@@ -136,7 +136,7 @@ class NativeAutoMixServiceInstrumentedTest {
     }
     @Test fun successiveAttemptsPreserveQueueAndReleaseOldPlayers()=withService(longIncoming=true){h ->
         h.play();h.await("successive native attempts and handoffs",150_000){
-            val attempts=h.service.autoMixRecorder.snapshot().attempts.count {a->a.records.any {it.native?.event==NativeServiceEvent.PAIR}}
+            val attempts=h.history().attempts.count {a->a.records.any {it.native?.event==NativeServiceEvent.PAIR}}
             attempts>=2 && h.completed()>=1 && h.service.player.currentMediaItem?.mediaId==h.items[2].mediaId
         }
         h.main {assertTrue(h.completed()>=1);assertEquals(h.items[2].mediaId,h.service.player.currentMediaItem?.mediaId)
@@ -160,6 +160,7 @@ class NativeAutoMixServiceInstrumentedTest {
         private val files=mutableListOf<File>()
         private val fixtureIds=NativeServiceFixtureIds()
         private var bound=false
+        private var historyScope:NativeServiceHistoryScope?=null
         private var selectedMode=if(native)AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL else AutoMixEngineMode.LEGACY
         lateinit var service:MusicService
         val items:List<MediaItem>
@@ -173,7 +174,8 @@ class NativeAutoMixServiceInstrumentedTest {
         init {try {
             check(context.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true; normal Tinium must not be touched"}
             preferences("configure preferences") {context.dataStore.edit {
-                it[AutoMixEnabledKey]=true;it[AutoMixEngineModeKey]=(if(native)AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL else AutoMixEngineMode.LEGACY).name
+                // Disable before binding: the application may still own the previous service.
+                it[AutoMixEnabledKey]=false;it[AutoMixEngineModeKey]=AutoMixEngineMode.LEGACY.name
                 it[AutoMixPerformanceKey]=AutoMixPerformance.PERFORMANCE.name;it[PersistentQueueKey]=false
                 it[SkipSilenceKey]=false;it[AudioOffload]=false;it[RepeatModeKey]=Player.REPEAT_MODE_OFF
             }}
@@ -194,7 +196,17 @@ class NativeAutoMixServiceInstrumentedTest {
             }
             main {bound=context.bindService(Intent(context,MusicService::class.java),connection,Context.BIND_AUTO_CREATE);check(bound)}
             check(connected.await(15,TimeUnit.SECONDS)){"MusicService did not bind"}
-            await("service initialized",10_000){service.isPlayerReady.value && service.nativeServiceInspection().mode==selectedMode}
+            await("service initialized",10_000){service.isPlayerReady.value}
+            awaitDisabled()
+            main {service.player.pause();service.player.stop();service.player.clearMediaItems()}
+            await("old queue cleared",3000){service.player.mediaItemCount==0}
+            historyScope=NativeServiceHistoryScope(service.autoMixRecorder.snapshot())
+            preferences("enable selected mode") {context.dataStore.edit {
+                it[AutoMixEnabledKey]=true;it[AutoMixEngineModeKey]=selectedMode.name
+            }}
+            await("selected routing ready",5000){val s=service.nativeServiceInspection()
+                s.mode==selectedMode && s.outputs==1 && s.execution==null &&
+                    (if(native)s.nativeSelected else !s.nativeSelected && s.legacyEnabled)}
         }catch(error:Throwable){captureFailure(error);try {close()}catch(cleanup:Throwable){error.addSuppressed(cleanup)};throw error}}
         private fun stage(value:String) {
             phase=value
@@ -236,8 +248,12 @@ class NativeAutoMixServiceInstrumentedTest {
             main {service.player.play()}
         }
         fun mixing()=await("native mixing",20_000){service.nativeServiceInspection().execution?.status?.stage==NativeDjExecutionStage.MIXING}
-        fun completed()=service.autoMixRecorder.snapshot().attempts.count {a->a.records.any {it.native?.execution?.status?.stage==NativeDjExecutionStage.COMPLETED}}
-        fun report()=AutoMixRecorder.render(service.autoMixRecorder.snapshot(),MixReportHeader(com.music.vivi.BuildConfig.VERSION_NAME,com.music.vivi.BuildConfig.VERSION_CODE.toLong(),
+        fun history():MixHistory {
+            val snapshot=service.autoMixRecorder.snapshot()
+            return historyScope?.since(snapshot) ?: snapshot.copy(attempts=emptyList())
+        }
+        fun completed()=history().attempts.count {a->a.records.any {it.native?.execution?.status?.stage==NativeDjExecutionStage.COMPLETED}}
+        fun report()=AutoMixRecorder.render(history(),MixReportHeader(com.music.vivi.BuildConfig.VERSION_NAME,com.music.vivi.BuildConfig.VERSION_CODE.toLong(),
             android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,true,AutoMixPerformance.PERFORMANCE,engineMode=selectedMode))
         fun focus(value:Int)=main {MusicService::class.java.getDeclaredMethod("handleAudioFocusChange",Int::class.javaPrimitiveType).apply {isAccessible=true}.invoke(service,value)}
         fun await(label:String,timeoutMs:Long,condition:()->Boolean) {
@@ -265,6 +281,11 @@ class NativeAutoMixServiceInstrumentedTest {
                 stage("completed $label")}
             finally {handler.removeCallbacks(check)}
         }
+        private fun awaitDisabled()=await("disabled routing released all standby decks",5000) {
+            val s=service.nativeServiceInspection()
+            !s.nativeSelected && !s.legacyEnabled && s.execution==null && s.outputs==1 &&
+                service.autoMixStatus.value.phase==AutoMixPhase.DISABLED
+        }
         override fun close() {
             var failure:Throwable?=null
             fun cleanup(label:String,action:()->Unit) {
@@ -278,7 +299,8 @@ class NativeAutoMixServiceInstrumentedTest {
                     android.util.Log.i("TiniumNativeDj","NATIVE_SERVICE_ANDROID\n"+text)
                 }
                 cleanup("disable experiment") {preferences("disable experiment preferences"){context.dataStore.edit {it[AutoMixEnabledKey]=false}}}
-                cleanup("stop players") {main {service.player.pause();service.player.stop()}}
+                cleanup("await disabled routing") {awaitDisabled()}
+                cleanup("stop and clear test queue") {main {service.player.pause();service.player.stop();service.player.clearMediaItems()}}
             }
             if(bound)cleanup("unbind service") {main {
                 context.unbindService(connection);context.stopService(Intent(context,MusicService::class.java));bound=false

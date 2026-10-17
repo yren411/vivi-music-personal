@@ -2706,7 +2706,11 @@ class MusicService :
                             player.play()
                         }
                     }
-                } else nativeAutoMix?.playbackChanged(playWhenReady)
+                } else {
+                    // ListenerSet can deliver a queued notification after a newer request.
+                    // Forward the primary's current requested state, not a stale event value.
+                    nativeAutoMix?.playbackChanged(player.playWhenReady)
+                }
             }finally {nativeForwardingPlayback=false}
         }
         if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && nativeAutoMix?.ownsPlayback!=true) {
@@ -4195,9 +4199,9 @@ class MusicService :
         override fun pause(){nativePlayback?.pauseForUserOrFocus()}
         override fun resume(){
             if(nativeAutoMix?.currentExecutor?.status?.stage==NativeDjExecutionStage.PAUSED) {
-                // The service callback arrives after the primary's playWhenReady changed.
-                // Restore the paired paused state before the executor resumes both decks.
-                player.pause();nativePlayback?.resumeAfterUserOrFocus()
+                // The executor accepts an already-resumed primary and resumes its partner
+                // without a pause/play feedback loop through Media3's listener queue.
+                nativePlayback?.resumeAfterUserOrFocus()
             }
         }
         override fun refreshVolume(){nativePlayback?.refreshUserVolume()}

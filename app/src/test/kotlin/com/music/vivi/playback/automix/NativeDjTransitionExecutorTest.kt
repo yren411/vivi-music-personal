@@ -93,4 +93,64 @@ class NativeDjTransitionExecutorTest {
         }
     }
 
+    @Test fun serviceResumeAcceptsAlreadyResumedPrimaryWithoutAnotherPause() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000)
+        e.pause();h.a.play() // Media3 changes playWhenReady before notifying MusicService.
+        e.resume()
+        assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        assertTrue(h.a.playing);assertTrue(h.b.playing)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+
+    @Test fun synchronousPlaybackCallbacksCannotReenterPauseOrResumeCommands() {
+        val h=VirtualNativeDjHost(p)
+        lateinit var e:NativeDjTransitionExecutor
+        var callbacks=0
+        val host=object:NativeDjHost by h {
+            override val outgoing=object:NativeDjDeck by h.a {
+                override fun pause(){h.a.pause();check(++callbacks<=8);e.tick();e.pause()}
+                override fun play(){h.a.play();check(++callbacks<=8);e.tick();e.resume()}
+            }
+        }
+        e=NativeDjTransitionExecutor(host,{h.now});e.start(p);h.toStart(e);h.advance(e,1_000_000)
+        e.pause();assertEquals(NativeDjExecutionStage.PAUSED,e.status.stage)
+        e.resume();assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        assertEquals(2,callbacks);assertTrue(h.b.playing)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+
+    @Test fun deferredPlaybackNotificationsUseTheLatestPrimaryRequestWithoutRetoggling() {
+        val h=VirtualNativeDjHost(p);lateinit var e:NativeDjTransitionExecutor
+        val pending=ArrayDeque<()->Unit>();var commands=0
+        fun notifyLater(){pending.addLast {if(h.a.playing)e.resume() else e.pause()}}
+        val host=object:NativeDjHost by h {
+            override val outgoing=object:NativeDjDeck by h.a {
+                override fun pause(){commands++;h.a.pause();notifyLater()}
+                override fun play(){commands++;h.a.play();notifyLater()}
+            }
+        }
+        e=NativeDjTransitionExecutor(host,{h.now});e.start(p);h.toStart(e);h.advance(e,1_000_000)
+        e.pause();e.resume() // Both queued listener notifications arrive after the newer play request.
+        repeat(2){pending.removeFirst().invoke()}
+        assertTrue(pending.isEmpty());assertEquals(2,commands)
+        assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+    @Test fun serviceResumeStillRejectsASeekEvenWhenPrimaryIsAlreadyPlaying() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause()
+        h.a.position+=1_000_000;h.a.play();e.resume()
+        assertEquals(NativeDjExecutionReason.POSITION_DISCONTINUITY,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
+    }
+    @Test fun serviceResumeCannotExcuseAnUnexpectedlyPlayingIncomingDeck() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause();h.b.play();e.resume()
+        assertEquals(NativeDjExecutionReason.UNEXPECTED_PAUSE,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
+    }
+    @Test fun ordinaryPausedTickStillRejectsAnUnrequestedPrimaryResume() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause();h.a.play();e.tick()
+        assertEquals(NativeDjExecutionReason.UNEXPECTED_PAUSE,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
+    }
+
 }
