@@ -1,0 +1,87 @@
+{
+  "schema": "phase33-fixture-cache-followup-v1",
+  "source_commit": "03f317005e733da89b8cf919e739c6f967f4f41c",
+  "owner_device": "Samsung Galaxy S25 Ultra / Android 17 (owner report)",
+  "owner_runtime_evidence": {
+    "legacy_default_single_test": "owner reports completed first attempt; XML not independently inspected",
+    "codec_test": "failed before native planning; no native mix started",
+    "new_fix_device_rerun": "PENDING"
+  },
+  "observed_codec_failure": {
+    "requested_outgoing_us": [
+      8000000,
+      40000000
+    ],
+    "extractor_duration_us": 40000000,
+    "incoming_pcm_rate_hz": 22050,
+    "incoming_channels": 1,
+    "incoming_encoding": "PCM16",
+    "incoming_accepted_frames": 421653,
+    "incoming_covered_end_us": 19122585,
+    "native_plans": 0,
+    "native_mixes": 0
+  },
+  "independent_asset_ffprobe": [
+    {
+      "asset": "rhythm-128-48000.m4a",
+      "codec": "aac",
+      "rate_hz": 48000,
+      "channels": 2,
+      "duration_seconds": 30.0,
+      "bytes": 341588
+    },
+    {
+      "asset": "rhythm-128-44100.flac",
+      "codec": "flac",
+      "rate_hz": 44100,
+      "channels": 1,
+      "duration_seconds": 30.0,
+      "bytes": 843350
+    }
+  ],
+  "confirmed_cause": {
+    "reused_custom_keys": [
+      "phase33-generated-0",
+      "phase33-generated-1",
+      "phase33-generated-2"
+    ],
+    "cached_wav_frames_at_flac_byte_bound": 421653,
+    "cached_wav_duration_seconds_at_flac_byte_bound": 19.122585034013607,
+    "cached_wav_8s_seek_byte_offset": 352844,
+    "interpretation": "persistent Media3 cache identity reused across different fixture bytes; temporary URI does not invalidate custom key"
+  },
+  "repair": "fresh per-harness recording/cache identity; remove only owned resources; assert actual AAC playback format/duration and both corrected codec source formats/durations",
+  "host_validation": {
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "environment": "cloud Linux JVM/Android compile; no Android runtime",
+    "result": "BUILD SUCCESSFUL",
+    "elapsed_seconds": 152,
+    "gradle_tasks_executed": 30,
+    "gradle_tasks_up_to_date": 332,
+    "gms": {
+      "tests": 464,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "foss": {
+      "tests": 464,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "new_identity_tests_per_variant": 3,
+    "real_host_jni_tests_per_variant": 17,
+    "android_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ]
+  },
+  "limitations": [
+    "No Android execution in cloud",
+    "Codec rerun and full 11 service tests pending on owner device",
+    "Crackles acoustic cause not established",
+    "No production cache, decoder, DSP, thresholds or defaults changed",
+    "No uninstall, shared cache wipe or app data deletion required"
+  ]
+}

@@ -197,3 +197,32 @@ This is an unversioned draft for review. No release version or tag is assigned.
   Continue outgoing playback safely if an unverified early start is interrupted.
 - Track experimental overlap progress and stalls independently for each player clock,
   avoiding undercounts or false stalls when position snapshots update on different ticks.
+
+## Opt-in Native DJ AutoMix — experimental service integration
+
+- Add an explicit Native DJ AutoMix engine selection alongside legacy AutoMix. Existing
+  users retain legacy behavior; switching back does not erase preferences or playback data.
+- Connect corrected two-track native analysis, conservative planning and the validated
+  dual-deck executor to the normal service queue, with exclusive ownership and safe fallback.
+- Preserve bounded active-level gains, queue continuity and the service's existing effects
+  sessions; show native plans/fallbacks through the existing timeline and Stats for Nerds.
+- Extend deliberate diagnostic exports with privacy-safe native transition evidence and
+  add actual-service Android tests. Real-song, route/EQ listening and new device-runtime
+  validation remain required; this experimental mode is not a production-readiness claim.
+
+- Improve experimental service-test progress and timeout diagnostics, including bounded
+  main-thread waits and private failure reports when logcat is unavailable.
+- Isolate generated service-test media identities between runs so cached WAV fixtures cannot
+  replace AAC/FLAC or silence fixtures; remove only the current test's cache resources.
+
+- Experimental Native DJ AutoMix waits for the current audio output to initialize before
+  admitting a pair, and reports specific configuration-rejection reasons. Legacy mode
+  remains the default; native coverage, gain and timing safeguards are unchanged.
+
+- Fix corrected experimental PCM capture discarding a source frame for tiny FLAC timestamp
+  offsets. The new v4 preprocessing profile keeps cache results isolated; missing audio
+  still fails safely, and normal legacy AutoMix remains unchanged.
+
+- Add privacy-safe decoder input/output accounting and a silent generated-FLAC Android
+  diagnostic for unresolved experimental full-window EOS failures. Incomplete audio
+  continues to fall back; this diagnostic does not enable native mode or relax coverage.

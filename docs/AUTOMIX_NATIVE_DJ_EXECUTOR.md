@@ -93,7 +93,7 @@ installed here.** The controlled isolated path is the current executable integra
 ## Admission and provenance
 
 Admission checks planner version, native backend/profile, corrected preprocessing
-`sinc64-blackman-initial-preroll-mono-22050-v3`, required capability, rate 1.0, generation,
+`sinc64-blackman-preroll-frameclock-mono-22050-v4`, required capability, rate 1.0, generation,
 recording/rendition identities, durations, seekability, cue regions, analyzed intervals,
 remaining track time, bounded overlap and timing residuals. Pulse counts must be 8/16/32/64
 intervals; overlap length, rank summary and predicted rate-1.0 drift must be consistent with
@@ -607,3 +607,22 @@ all 14 v3 execution tests passing on the S25 Ultra / Android 17. This is owner-r
 player-level validation; Codex did not execute it or independently inspect raw test XML
 or the installed SHA. No production service, planner, DSP, gain policy, effect-session
 handling or analysis/preprocessing identity changed.
+
+
+## Phase 3.3 opt-in integration boundary
+
+[Phase 3.3](AUTOMIX_NATIVE_DJ_ACTIVATION.md) adds a separately gated MusicService caller.
+The default adapter still requires a single outgoing item; its explicit service queue
+option permits the service-owned playlist, pause-at-end and atomic queue transplantation
+without restarting the incoming player. Existing focus/output hooks remain authoritative.
+Normal AutoMix remains legacy unless the new engine preference is explicitly selected.
+Historical Phase 3.2 device passes do not validate the new service integration; see the
+Phase 3.3 evidence for its separate tests and outstanding runtime/listening requirements.
+
+### Phase 3.3 preprocessing identity update
+
+Current admission follows the corrected v4 frame-clock profile. Historical v3 PCM/plans
+are not interchangeable with it and are rejected. This changes the preprocessing identity,
+not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
+Earlier benchmark/device results retain their original build provenance and are not new
+v4 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).

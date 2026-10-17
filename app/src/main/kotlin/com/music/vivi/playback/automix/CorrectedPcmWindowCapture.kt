@@ -6,7 +6,8 @@ import kotlin.math.*
 
 /**
  * One bounded contiguous source region. Buffer PTS anchors a rational source frame clock.
- * <= quarter-frame (minimum 2us) jitter is snapped to that clock and counted. Whole-frame
+ * Sub-half-frame PTS quantization maps to the uniquely nearest source-frame clock.
+ * Exact half-frame ties are rejected. Adjustments are counted; whole-frame
  * overlaps are trimmed; real gaps/regressions remain failures, never filled with fake audio.
  */
 internal class CorrectedPcmWindowCapture(
@@ -62,14 +63,14 @@ internal class CorrectedPcmWindowCapture(
             pcm = FloatArray(ceil((interval.endUs - interval.startUs).toDouble() * rate / 1_000_000).toInt() + 2)
         }
         val step = 1_000_000.0 / rate
-        val tolerance = max(2.0, step / 4)
+        val tolerance = step / 2 // Unique nearest-frame cell; never enough to hide one missing frame.
         val expected = firstUs + size * step
         if (size > 0 && ptsUs < (previousBufferPts ?: ptsUs) - tolerance) fail(DecoderFailureSubtype.TIMESTAMP_REGRESSION)
         previousBufferPts = ptsUs
         var adjustedPts = ptsUs.toDouble()
-        if (size > 0 && abs(adjustedPts - expected) <= tolerance) {
+        if (size > 0 && abs(adjustedPts - expected) < tolerance) {
             val delta = abs(adjustedPts - expected)
-            if (delta > 0.001) { jitterBuffers++; maxJitter = max(maxJitter, ceil(delta).toLong()) }
+            recordJitter(delta)
             adjustedPts = expected
         }
         var from = max(0, floor((interval.startUs - adjustedPts) / step).toInt())
@@ -85,8 +86,11 @@ internal class CorrectedPcmWindowCapture(
         }
         var start = adjustedPts + from * step
         if (size > 0) {
-            if (start > expected + tolerance) { gaps++; fail(DecoderFailureSubtype.SOURCE_GAP) }
-            if (abs(start - expected) <= tolerance) start = expected
+            if (start >= expected + tolerance) { gaps++; fail(DecoderFailureSubtype.SOURCE_GAP) }
+            if (abs(start - expected) < tolerance) {
+                recordJitter(abs(start - expected))
+                start = expected
+            }
             else fail(DecoderFailureSubtype.TIMESTAMP_REGRESSION)
         } else firstUs = start
         val input = buffer.duplicate().order(ByteOrder.nativeOrder())
@@ -121,6 +125,10 @@ internal class CorrectedPcmWindowCapture(
         return DecodedWindow(result.samples, PcmFormat(22_050, 1, PcmEncoding.FLOAT32), request.interval,
             interval, origin, coverage, sourceFormats, duration, eos, request.identity,
             PcmPreprocessing.BANDLIMITED, 0, preparation)
+    }
+
+    private fun recordJitter(delta: Double) {
+        if (delta > 0.001) { jitterBuffers++; maxJitter = max(maxJitter, ceil(delta).toLong()) }
     }
 
     private fun fail(subtype: DecoderFailureSubtype): Nothing = throw PcmPreparationException(subtype)

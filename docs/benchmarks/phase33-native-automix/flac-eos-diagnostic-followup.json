@@ -1,0 +1,116 @@
+{
+  "schema": "phase33-flac-eos-diagnostic-followup-v1",
+  "source_commit": "1f5277b08b1b1b362af66ef0f20baaa098a3aede",
+  "status": "UNRESOLVED_ANDROID_FULL_WINDOW_FLAC_FAILURE",
+  "owner_v4_evidence": {
+    "device": "Samsung Galaxy S25 Ultra / Android 17 (owner report)",
+    "native_outgoing_bpm": 128.09228792352022,
+    "native_incoming_failure": "PARTIAL_SOURCE_COVERAGE",
+    "source_rate_hz": 44100,
+    "codec_source_frames": 1317888,
+    "accepted_source_frames": 1317887,
+    "output_frames": 658943,
+    "coverage_end_us": 29884058,
+    "requested_end_us": 30000000,
+    "endpoint_shortfall_us": 115942,
+    "dropped_overlap_frames": 1,
+    "jitter_buffers": 281,
+    "maximum_jitter_us_ceil": 12,
+    "gaps": 0,
+    "codec_eos": true,
+    "input_end": "NATURAL_EOS",
+    "source_bytes_read": 843350,
+    "codec_name": null,
+    "extractor_mime": null,
+    "queued_input_buffers": null,
+    "queued_input_bytes": null,
+    "native_plans": 0,
+    "native_mixes": 0
+  },
+  "independent_host_ffprobe": {
+    "command": "ffprobe -v error -select_streams a:0 -show_entries frame=pts_time,nb_samples -of csv=p=0 app/src/androidTest/assets/automix/rhythm-128-44100.flac",
+    "decoded_samples": 1323000,
+    "frames": 288,
+    "full_blocks": 287,
+    "full_block_samples": 4608,
+    "last_block_samples": 504,
+    "missing_codec_output_samples": 5112
+  },
+  "interpretation": {
+    "confirmed": "v4 avoided the earlier immediate SOURCE_GAP but did not establish complete FLAC output; strict coverage rejection remains necessary",
+    "unresolved": "which stage loses samples and why whole-stream PTS drifts; no root-cause repair claimed",
+    "prior_replay_limitation": "previous generated PCM replay injected one observed anomaly; it did not reproduce every actual device packet/timestamp or EOS"
+  },
+  "changes": {
+    "codec_progress_schema": 1,
+    "fields": "sanitized MIME/name, declared extractor format, queued buffer/byte counts and first/last PTS/size, observed extractor end sampleTime, output buffer/byte counts/PTS/EOS metadata",
+    "retention": "constant-size aggregate counters; no per-packet history, PCM, URLs, headers or source IDs",
+    "legacy_and_corrected_pcm_algorithms": "UNCHANGED",
+    "preprocessing": "sinc64-blackman-preroll-frameclock-mono-22050-v4 unchanged",
+    "legacy_default": "nearest-time-mono-22050-v1 unchanged",
+    "main_report_schema": "2 retained; additive codec progress extension"
+  },
+  "new_android_probe": {
+    "class": "com.music.vivi.playback.automix.NativeFlacEosInstrumentedTest",
+    "method": "fullFlacWindowPreservesExtractorFramesThroughCodec",
+    "tests": 1,
+    "starts_players": false,
+    "input": "existing generated 30s local FLAC",
+    "comparisons": [
+      "direct MediaExtractor initial read",
+      "direct MediaExtractor zero seek",
+      "actual legacy AndroidWindowDecoder full 30s",
+      "actual corrected AndroidWindowDecoder full 30s"
+    ],
+    "assertion": "complete 1323000 accepted source frames and 661500 output samples, no drops/gaps/repeated/synthetic audio",
+    "runtime_status": "NOT_RUN_IN_CLOUD; owner report needed",
+    "possible_assertion_failure": "useful reproduction, not an accepted partial window or service success",
+    "diagnostic_file": "phase33-flac-eos-diagnostic.txt",
+    "limits": "90s JUnit rule; 10s direct extractor / 25s decoder budgets; fixed 1MiB packet scratch; packet/byte count guards"
+  },
+  "host_validation": {
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "counts": {
+      "Arm64GmsDebug": {
+        "tests": 478,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 478,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "new_accounting_tests_per_variant": 3,
+    "actual_host_jni_tests_per_variant": 17,
+    "elapsed_seconds": 195,
+    "executed_tasks": 48,
+    "up_to_date_tasks": 314
+  },
+  "final_app_and_probe_compilation": {
+    "command": "bash gradlew :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "elapsed_seconds": 97,
+    "executed_tasks": 40,
+    "up_to_date_tasks": 329,
+    "jvm_semantic_changes_after_tests": false,
+    "android_probe_executed": false
+  },
+  "production_safety": [
+    "No further timestamp/coverage-policy changes",
+    "No fixture truncation or missing-audio padding",
+    "No default/mode/EQ/lyrics/signing/workflow change",
+    "No merge or release"
+  ],
+  "pending": [
+    "Physical-device decoder probe report",
+    "Evidence-based EOS/clock repair after identifying failing stage",
+    "All eleven service tests and prior 38 Android regressions",
+    "Real-song/listening validation",
+    "Current-head CI"
+  ]
+}

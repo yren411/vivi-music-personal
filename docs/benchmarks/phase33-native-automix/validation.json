@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "baseline": "f3c96b1adb7607dbf71bb4c41933010fecb47fc0",
+  "sourceCommit": "d7d9c40f8f4d595ebcb3b233ea961e37c370513d",
+  "environment": "Linux x86_64; Java 21; Gradle 9.3.1; AGP 9.1.1; SDK 37; NDK 27.0.12077973",
+  "unitTests": {
+    "testArm64GmsDebugUnitTest": {
+      "tests": 456,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "realHostJniTests": 17
+    },
+    "testUniversalFossDebugUnitTest": {
+      "tests": 456,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "realHostJniTests": 17
+    }
+  },
+  "gradleTasks": {
+    "testArm64GmsDebugUnitTest": "EXECUTED",
+    "testUniversalFossDebugUnitTest": "EXECUTED",
+    "assembleArm64GmsDebug": "AndroidTest UP-TO-DATE",
+    "assembleUniversalFossDebug": "AndroidTest UP-TO-DATE",
+    "assembleArm64GmsDebugAndroidTest": "UP-TO-DATE",
+    "assembleUniversalFossDebugAndroidTest": "UP-TO-DATE",
+    "compileArm64GmsReleaseKotlin": "EXECUTED",
+    "compileUniversalFossReleaseKotlin": "EXECUTED"
+  },
+  "gradleOutcome": "BUILD SUCCESSFUL in 3m 34s; 52 executed, 470 up-to-date",
+  "newServiceAndroidTests": {
+    "dexTestAnnotations": 11,
+    "compiledGmsAndFoss": true,
+    "executed": 0,
+    "failures": null,
+    "skips": null,
+    "reason": "No configured emulator/device; no KVM/system image; ADB enumeration failed on nonwritable Android home",
+    "finalReportMetadataCompile": "Both GMS/FOSS test APKs rebuilt successfully in 30s; 20 tasks executed, 312 up-to-date"
+  },
+  "prior38AndroidSourcesChanged": false,
+  "nativeCtest": {
+    "tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "elapsedSeconds": 21.61
+  },
+  "sanitizedNativeCtest": {
+    "tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "elapsedSeconds": 75.81,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer",
+      "LeakSanitizer"
+    ]
+  },
+  "nativePayloadUnchangedFromPhase32": true,
+  "realMusicTested": false,
+  "acousticMeasurements": false,
+  "ownerPhase33Feedback": null,
+  "phoneMemoryCpuBatteryMeasurements": null,
+  "lint": {
+    "task": "lintUniversalFossDebug",
+    "outcome": "BUILD SUCCESSFUL",
+    "elapsedSeconds": 237,
+    "errorSeverityFindings": 79,
+    "warnings": 777,
+    "hints": 5,
+    "policy": "Existing abortOnError=false unchanged",
+    "errorPrimarySourceLinesAllPresentAtBaseline": true,
+    "baselineLintRerun": false,
+    "sourceCommit": "5f70b625860b0dbbfb9f92c84d0dfe2b73c362f4"
+  }
+}

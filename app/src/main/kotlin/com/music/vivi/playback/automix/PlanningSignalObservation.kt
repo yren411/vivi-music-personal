@@ -79,17 +79,20 @@ class NativePlanningAnalysis<S>(
     init { require(engine.backend == BitChordNativeAnalysisEngine.BACKEND) }
     fun analyze(source: S, request: DecodeRequest, detail: AnalysisDetail, control: AnalysisControl): PlanningWindowEvidence {
         var observation: PlanningSignalObservation? = null
+        var level:NativeDjLevel?=null
         val observedDecoder = AnalysisWindowDecoder<S> { input, wanted, jobControl ->
             decoder.decode(input, wanted, jobControl).also { result ->
                 if (result is DecodeResult.Decoded && result.window.invalidReason() == null &&
                     result.window.preprocessingVersion == PcmPreprocessing.BANDLIMITED &&
                     result.window.coverage.status(result.window.decodeInterval) == CoverageStatus.FULL) {
                     observation = PlanningSignalObservation.measure(result.window, jobControl)
+                    level=try {NativeDjLevel.measure(result.window,jobControl)}catch(_:IllegalArgumentException){null}
                 }
             }
         }
         val result = WindowAnalysisPipeline(observedDecoder, engine, PcmPreprocessing.BANDLIMITED)
             .analyze(source, request, detail, control)
-        return PlanningWindowEvidence(result, if (result is AnalysisResult.Completed) observation else null)
+        return PlanningWindowEvidence(result, if (result is AnalysisResult.Completed) observation else null,
+            if(result is AnalysisResult.Completed)level else null)
     }
 }

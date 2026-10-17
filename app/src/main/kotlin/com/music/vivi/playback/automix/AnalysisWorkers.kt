@@ -4,7 +4,8 @@ import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicInteger
 
 /** One service-owned, bounded executor. No per-song executors, ML pools or unbounded queues. */
-class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED) : AutoCloseable {
+class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED,
+    private val budget:AnalysisConcurrencyBudget?=null) : AutoCloseable {
     private val lock = Any()
     private val sequence = AtomicInteger()
     private val executor = ThreadPoolExecutor(mode.workers, mode.workers, 1, TimeUnit.SECONDS,
@@ -23,7 +24,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
         private set
 
     private inner class AnalysisTask(val key: String, val cacheable: Boolean, work: () -> T) :
-        FutureTask<T>(Callable { work() }) {
+        FutureTask<T>(Callable { if(budget==null)work() else budget.run(work) }) {
         // Called only under lock, after completion (or an unsuccessful cancellation).
         fun cacheCompletedResult() {
             if (cacheable && isDone && !isCancelled) try { cache[key] = get() }
@@ -62,7 +63,7 @@ class AnalysisWorkers<T>(mode: AutoMixPerformance = AutoMixPerformance.BALANCED)
 
     /** Small aggregation/planning jobs share the SAME bounded pool, without feature-cache casts. */
     fun <R> submitTransient(work: () -> R): Future<R> = synchronized(lock) {
-        val task=object : FutureTask<R>(Callable { work() }) {
+        val task=object : FutureTask<R>(Callable { if(budget==null)work() else budget.run(work) }) {
             override fun done() = synchronized(lock) { transient.remove(this); Unit }
         }
         transient.add(task)

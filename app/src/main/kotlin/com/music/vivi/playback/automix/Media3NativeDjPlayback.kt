@@ -39,6 +39,8 @@ class Media3NativeDjPlayback(
     /** Caller records the real outgoing cold start before constructing/executing the attempt.
      * A prediction only; executor still checks incoming positions against the original plan. */
     private val startTiming: () -> NativeDjStartupObservation? = {null},
+    /** Service owns the full queue and pause-at-end; promotion must transplant it without seeking. */
+    private val allowServiceQueue:Boolean=false,
 ) : NativeDjHost, AutoCloseable {
     companion object {
         // Ownership across caller loopers is synchronized; player operations stay on their own looper.
@@ -76,7 +78,7 @@ class Media3NativeDjPlayback(
         require(master.isFinite() && master in 0f..1f && focus.isFinite() && focus in 0f..1f)
         // Refuse a stale/competing gain baseline rather than jumping to unity on acquisition.
         if(kotlin.math.abs(outgoingDeck.player.volume-master*focus)>.0001f)return false
-        require(outgoingDeck.player.mediaItemCount==1) {"Experimental session requires an isolated single-item outgoing deck"}
+        require(outgoingDeck.player.mediaItemCount==1 || (allowServiceQueue && outgoingDeck.player.currentMediaItem?.mediaId==outgoingTrack.source.recordingId)) {"Experimental session requires an isolated single-item outgoing deck"}
         synchronized(leases) {if(leases.containsKey(outgoingDeck.player))return false;leases[outgoingDeck.player]=this}
         originalPauseAtEnd=outgoingDeck.player.pauseAtEndOfMediaItems
         claimed=true
@@ -148,6 +150,11 @@ class Media3NativeDjPlayback(
     fun pauseForUserOrFocus(reason:NativeDjExecutionReason?=null) {thread();executor?.pause(reason)}
     fun resumeAfterUserOrFocus() {thread();executor?.resume();handler.removeCallbacks(tick);if(executor?.terminal==false)handler.post(tick)}
     fun invalidate(reason:NativeDjExecutionReason) {thread();executor?.cancel(reason);handler.removeCallbacks(tick)}
+    /** Service forwards Media3's explicit END_OF_MEDIA_ITEM callback, not a guessed position. */
+    internal fun outgoingItemReachedEnd() {thread();outgoingDeck.endedAtItemBoundary=true;executor?.tick()}
+    internal fun incomingSessionId():Int? {thread();return incomingDeck?.takeIf {!it.released}?.player?.audioSessionId}
+    internal fun incomingVolume():Float? {thread();return incomingDeck?.takeIf {!it.released}?.player?.volume}
+    internal fun incomingPlaying():Boolean? {thread();return incomingDeck?.takeIf {!it.released}?.player?.isPlaying}
     fun refreshUserVolume() {thread();if(!claimed || closed)return;outgoingDeck.refresh();incomingDeck?.refresh()}
     override fun close() {
         thread();if(closed)return
@@ -156,7 +163,7 @@ class Media3NativeDjPlayback(
         restore()
     }
     private inner class Deck(val player:ExoPlayer,val track:PlanningTrack):NativeDjDeck {
-        var released=false;private var relativeGain=1.0
+        var released=false;var endedAtItemBoundary=false;private var relativeGain=1.0
         override fun snapshot():NativeDjDeckState {
             thread()
             val itemMatches=!released && player.currentMediaItem?.mediaId==track.source.recordingId
@@ -164,7 +171,7 @@ class Media3NativeDjPlayback(
                 if(released || player.duration==C.TIME_UNSET)0 else player.duration*1000,
                 if(released)0 else player.currentPosition*1000,
                 !released && player.playbackState==Player.STATE_READY && player.playerError==null,
-                !released && player.isPlaying,released || player.playbackState==Player.STATE_ENDED,
+                !released && player.isPlaying,released || endedAtItemBoundary || player.playbackState==Player.STATE_ENDED,
                 released || player.playerError!=null,!released && player.isCurrentMediaItemSeekable,
                 if(released)1.0 else if(player.playbackParameters.pitch==1f)player.playbackParameters.speed.toDouble() else Double.NaN)
         }

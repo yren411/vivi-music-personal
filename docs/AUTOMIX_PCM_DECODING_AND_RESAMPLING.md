@@ -1,10 +1,18 @@
 # AutoMix PCM decoding and resampling — Phase 2.2
 
-**Subsequent Phase 2.3B correction:** the current internal corrected selector uses
+**Current Phase 3.3 follow-up:** corrected input now uses
+`sinc64-blackman-preroll-frameclock-mono-22050-v4`, retaining the same initial
+preroll, filter, downmix and source budgets but mapping sub-half-frame buffer PTS
+quantization to the uniquely nearest source-frame clock. Half-frame ties and
+missing whole frames remain failures. See the frame-clock follow-up below; all
+v2/v3 identities remain reserved and cannot enter the v4 native pipeline.
+Legacy production preprocessing remains unchanged.
+
+**Historical Phase 2.3B correction:** its internal corrected selector used
 `sinc64-blackman-initial-preroll-mono-22050-v3`. It omits the unnecessary zero-start
 extractor seek so negative-PTS AAC priming packets remain available to the codec.
 The v2 contract below documents the original Phase 2.2 implementation; its ID is
-reserved and never relabeled as v3. Filter/downmix arithmetic, nonzero seeks, source
+reserved and never relabeled as v3 or v4. Filter/downmix arithmetic, nonzero seeks, source
 budgets and the legacy production default are unchanged. See the
 [native integration device follow-up](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md)
 for observed phone geometry, regression tests and device validation status.
@@ -404,3 +412,63 @@ isolated **debug target** (`com.yren411.tinium.decodercheck`) alongside your bet
 This test-only packaging option changes neither normal app IDs/signing nor the
 legacy production preprocessing default. Four instrumentation methods still
 require Android execution; compilation is not a runtime pass.
+
+## Phase 3.3 FLAC frame-clock correction (v4)
+
+The owner's real service-connected run reached JNI for the outgoing AAC (128.0923 BPM)
+but rejected the incoming FLAC during PCM conversion at roughly 26.227s. Before the
+failing buffer, 1,156,608 source frames at 44,100Hz had been accepted from origin zero.
+The next 4,608-frame buffer ended at 26,331,422us in decoder telemetry. Its starting PTS
+was therefore `26331422 - floor(4608 * 1000000 / 44100) = 26226933us`.
+The expected anchored source clock was `1156608 * 1000000 / 44100 = 26226938.775510us`:
+only **5.775510us early**, approximately 0.255 source frame. The v3 quarter-frame rule
+allowed 5.668934us. It rounded this tiny excess into a one-frame overlap, discarded a
+real frame, then rejected the resulting +16.900227us displacement as SOURCE_GAP.
+The reported one dropped overlap frame and gap agree with this code path. A generated
+JVM replay of this state failed with SOURCE_GAP before repair. It is a PCM buffer replay,
+not another execution of the phone's codec; the source of the small codec PTS deviation
+itself was not measured.
+
+The v4 continuity policy is nearest-frame quantization against the **original anchored
+rational source-frame clock**. A PTS displacement strictly smaller than half one source
+frame has the same uniquely nearest frame index, so it is counted as timestamp jitter
+without discarding, repeating or synthesizing audio. At 44.1kHz that cell is strictly
+less than 11.337869us; at other rates it scales with the actual frame period. It is not
+a track-, device-, fixture- or time-dependent fudge factor. The clock never restarts
+from each rounded buffer PTS, so these adjustments cannot accumulate sample drift.
+Exact half-frame ties are ambiguous and rejected. Whole-frame overlaps are still
+trimmed; a missing whole frame even with sub-frame timestamp jitter is still rejected.
+Post-overlap residual quantization adjustments are counted too. `maximumJitterUs` is
+the ceiling of the observed absolute correction, not an acoustic measurement.
+
+All source coverage still comes exclusively from retained decoded frames. A fully
+materialized output array does not repair a missing interval; unknown/partial coverage,
+EOS and padding rules are unchanged. No decoder seek, byte budget, cache source,
+authentication, musical confidence, gain or player-alignment policy changed.
+
+The v4 ID is a separate preprocessing component of profiles, in-flight keys and completed
+cache keys. `BANDLIMITED_V2` and `BANDLIMITED_V3` preserve their exact old strings.
+Historical corrected windows remain structurally representable, but the current pipeline,
+native engine, planner and executor require **v4** and reject old profiles without
+relabeling. Existing in-memory cache bounds and legacy default remain unchanged.
+
+Six new signal/timeline tests cover the reported 30s FLAC geometry, both signs of sub-frame
+quantization across nine rates (8–192kHz), missing frames with jitter, exactly one duplicate
+frame with jitter, half-frame ties and sample-for-sample resampled PCM equality against
+an exact-clock reference. Two new pipeline tests verify v3/v4 in-flight and completed
+cache isolation and rejection of old PCM at the pipeline/JNI boundary. Historical v2/v3
+cache assertions are retained with explicit historical profiles; planner/executor version
+rejection cases now include v3. Existing single-frame gap and all prior tests remain.
+See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for actual outcomes.
+A new phone codec test and full regression run remain required before runtime acceptance.
+
+### Subsequent v4 device limitation: full-window EOS remains unresolved
+
+The next owner run advanced beyond SOURCE_GAP but returned only 1,317,888 codec source
+frames and 1,317,887 accepted frames from the 1,323,000-frame generated FLAC. EOS and
+file duration do not establish complete coverage. The original one-anomaly v4 PCM replay
+was not a replay of the entire actual codec stream. No further timestamp tolerance or
+window shortening is applied. Added packet-accounting diagnostics and the silent
+`NativeFlacEosInstrumentedTest` compare extraction/queue/output/EOS without altering
+preprocessing. The native service test still fails until complete valid PCM is established.
+See [the activation guide's EOS investigation](AUTOMIX_NATIVE_DJ_ACTIVATION.md).

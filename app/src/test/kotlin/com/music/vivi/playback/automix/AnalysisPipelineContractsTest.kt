@@ -100,7 +100,8 @@ class AnalysisPipelineContractsTest {
     }
 
     @Test fun initialPrerollVersionSeparatesInflightAndCompletedResultsFromV2() {
-        val profile=BitChordNativeAnalysisEngine.PROFILE
+        // Preserve the historical v2/v3 contract while the selected pipeline advances to v4.
+        val profile=BitChordNativeAnalysisEngine.PROFILE.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3)
         val w=window()
         assertEquals("sinc64-blackman-initial-preroll-mono-22050-v3",profile.preprocessingVersion)
         val oldKey=profile.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2)
@@ -130,12 +131,49 @@ class AnalysisPipelineContractsTest {
         }
     }
 
+    @Test fun nearestFrameClockVersionSeparatesInflightAndCompletedResultsFromV3() {
+        val profile=BitChordNativeAnalysisEngine.PROFILE;val w=window()
+        assertEquals("sinc64-blackman-preroll-frameclock-mono-22050-v4",profile.preprocessingVersion)
+        val profiles=listOf(PcmPreprocessing.LEGACY,PcmPreprocessing.BANDLIMITED_V2,PcmPreprocessing.BANDLIMITED_V3,
+            PcmPreprocessing.BANDLIMITED).map {profile.copy(preprocessingVersion=it)}
+        assertEquals(4,profiles.map{it.cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)}.distinct().size)
+        val oldKey=profiles[2].cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
+        val newKey=profile.cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
+        val entered=CountDownLatch(2);val release=CountDownLatch(1);val calls=AtomicInteger()
+        val oldValue=Any();val newValue=Any()
+        AnalysisWorkers<Any>(AutoMixPerformance.BALANCED).use {workers ->
+            fun work(v:Any):Any {calls.incrementAndGet();entered.countDown();check(release.await(5,TimeUnit.SECONDS));return v}
+            val old=workers.submit(oldKey){work(oldValue)};val current=workers.submit(newKey){work(newValue)}
+            try {
+                assertTrue(entered.await(5,TimeUnit.SECONDS));assertNotSame(old,current)
+                assertSame(current,workers.submit(newKey){error("Duplicate v4 work")})
+            }finally{release.countDown()}
+            assertSame(oldValue,old.get(5,TimeUnit.SECONDS));assertSame(newValue,current.get(5,TimeUnit.SECONDS))
+            workers.cancelAll()
+            assertSame(oldValue,workers.submit(oldKey){error("V3 cache miss")}.get(5,TimeUnit.SECONDS))
+            assertSame(newValue,workers.submit(newKey){error("V4 cache miss")}.get(5,TimeUnit.SECONDS))
+            assertEquals(2,calls.get())
+        }
+    }
+    @Test fun historicalV3PcmCannotEnterTheV4PipelineOrNativeBackend() {
+        val w=window().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3)
+        val engine=BitChordNativeAnalysisEngine(NativeDspBridge {_,_->error("Historical PCM reached native DSP")})
+        val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(w)},engine,PcmPreprocessing.BANDLIMITED)
+        val result=p.analyze(Unit,DecodeRequest(w.requested,w.identity),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed
+        assertEquals("WINDOW_IDENTITY_MISMATCH",result.failure.code)
+        val native=engine.analyze(w,AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed
+        assertEquals("NATIVE_REQUIRES_CORRECTED_PCM",native.failure.code)
+        // Historical corrected windows remain structurally honest; version compatibility is separate.
+        val origin=NativeAnalysisFixtures.window(origin=12_345_678).copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3)
+        assertNull(origin.invalidReason())
+        assertEquals("NATIVE_REQUIRES_CORRECTED_PCM",(engine.analyze(origin,AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed).failure.code)
+    }
     @Test fun historicalV2DecodedPcmCannotBeRelabeledAsCurrentPrerollInput() {
         val w=window().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2)
         val engine=object:AnalysisEngine {
             override val backend=BitChordNativeAnalysisEngine.BACKEND
             override fun analyze(window:DecodedWindow,detail:AnalysisDetail,control:AnalysisControl):AnalysisResult =
-                throw AssertionError("V2 PCM reached a V3 engine")
+                throw AssertionError("V2 PCM reached the current engine")
         }
         val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(w)},
             engine,PcmPreprocessing.BANDLIMITED)

@@ -111,6 +111,7 @@ class NativeAwareAutoMixPlannerTest {
                 coverage=AudioCoverage(listOf(AudioIntervalUs(151_000_000,180_000_000)),1),coverageStatus=CoverageStatus.PARTIAL)) },
             PlanningRejection.UNSUPPORTED_BACKEND to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(backend=LegacyKotlinAnalysisEngine.BACKEND)) },
             PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2)) },
+            PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3)) },
             PlanningRejection.SOURCE_DISCONTINUITY to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(repeatedOutputFrames=1)) })
         for((expected,a) in variants) assertEquals(expected,reason(plan(a)))
     }
