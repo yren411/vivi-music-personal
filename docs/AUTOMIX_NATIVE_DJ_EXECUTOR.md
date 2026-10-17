@@ -93,7 +93,7 @@ installed here.** The controlled isolated path is the current executable integra
 ## Admission and provenance
 
 Admission checks planner version, native backend/profile, corrected preprocessing
-`sinc64-blackman-preroll-frameclock-mono-22050-v4`, required capability, rate 1.0, generation,
+`sinc64-blackman-flacframes-mono-22050-v5`, required capability, rate 1.0, generation,
 recording/rendition identities, durations, seekability, cue regions, analyzed intervals,
 remaining track time, bounded overlap and timing residuals. Pulse counts must be 8/16/32/64
 intervals; overlap length, rank summary and predicted rate-1.0 drift must be consistent with
@@ -621,8 +621,8 @@ Phase 3.3 evidence for its separate tests and outstanding runtime/listening requ
 
 ### Phase 3.3 preprocessing identity update
 
-Current admission follows the corrected v4 frame-clock profile. Historical v3 PCM/plans
+Current admission follows the corrected v5 FLAC-frame profile. Historical v2/v3/v4 PCM/plans
 are not interchangeable with it and are rejected. This changes the preprocessing identity,
 not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
 Earlier benchmark/device results retain their original build provenance and are not new
-v4 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+v5 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).

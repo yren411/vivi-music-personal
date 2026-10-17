@@ -226,3 +226,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add privacy-safe decoder input/output accounting and a silent generated-FLAC Android
   diagnostic for unresolved experimental full-window EOS failures. Incomplete audio
   continues to fall back; this diagnostic does not enable native mode or relax coverage.
+
+- Correct experimental compressed-FLAC analysis packet framing and select an available
+  platform software decoder, while preserving strict source coverage. A separate v5
+  preprocessing profile isolates old analysis/cache results; legacy playback remains
+  unchanged. Host packet-preservation tests pass; Android repair validation is pending.

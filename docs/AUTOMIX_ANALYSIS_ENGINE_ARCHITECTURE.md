@@ -338,10 +338,11 @@ No native backend, musical algorithm, planner, gain, or playback/EQ change is ma
 
 ### Phase 3.3 current corrected profile
 
-The selected corrected profile now uses
-`sinc64-blackman-preroll-frameclock-mono-22050-v4`. It retains initial AAC preroll and
-adds nearest-source-frame quantization for sub-half-frame codec PTS offsets, rejecting
-ambiguous half-frame ties and missing frames. v2/v3 remain separate historical identities;
-structural representation does not grant compatibility with a v4 engine or cache key.
-See [the PCM follow-up](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md). Legacy production
-selection, worker/cancellation/cache bounds and native confidence semantics are unchanged.
+The selected corrected profile uses `sinc64-blackman-flacframes-mono-22050-v5`.
+It retains initial AAC preroll and v4 anchored nearest-source-frame quantization, and
+uses existing Media3 frame parsing plus platform software decoding for compressed FLAC.
+v2/v3/v4 remain separate historical identities; structural representation does not grant
+compatibility with a v5 engine, in-flight request or cache key. See
+[the PCM follow-up](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md). Legacy production selection,
+worker/cancellation/cache bounds and native confidence semantics are unchanged. Android
+runtime acceptance of v5 remains pending.

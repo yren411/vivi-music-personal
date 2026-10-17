@@ -143,7 +143,8 @@ be observed until the next authorized resolver open. The system waits/falls back
 inventing a rendition identity. For controlled comparison, select the mode **before** starting
 the pair. Unsupported providers/renditions may legitimately remain legacy.
 
-AAC priming, FLAC sample origins and PCM coverage use the existing corrected v3 decoder.
+AAC priming, FLAC sample origins and PCM coverage use the current corrected decoder
+(v5 after the follow-up below; initial Phase 3.3 fixtures used v3).
 There is no new timestamp offset or assumption that differently encoded renditions are sample
 identical. Real streaming/container differences and network failure rates remain device work.
 
@@ -484,7 +485,7 @@ misreported as a positive source gap. This was reproduced with generated PCM bef
 The native plan/executor had not run; the subsequent LOW_BEAT_CONFIDENCE belongs to the
 separate genuine legacy fallback, not to native evidence.
 
-The corrected selector now uses `sinc64-blackman-preroll-frameclock-mono-22050-v4`.
+At that revision, the corrected selector used `sinc64-blackman-preroll-frameclock-mono-22050-v4`.
 Sub-half-frame PTS offsets map to the uniquely nearest anchored source frame without
 dropping audio. Exact half-frame ties, missing whole frames, unknown/partial coverage,
 regressions and unsupported formats still fail safely. Source-frame counts and synthesized
@@ -556,3 +557,64 @@ regressions remain intact and required. New probe compilation is not a device pa
 See `benchmarks/phase33-native-automix/flac-eos-diagnostic-followup.json` for actual host
 validation and pending phone evidence. Keep the PR draft and legacy production default;
 full-window FLAC/native service acceptance remains unresolved.
+
+### Owner EOS probe: corrected FLAC packet/codec route and preprocessing v5
+
+The owner supplied `probe=v1`, generated October 17, 2026, 1:46pm America/Chicago.
+Both direct extractor paths emitted **267 packets / 835,064 bytes** with trailing PTS
+zero, and both decoders queued those same bytes to **`c2.sec.flac.decoder`**. Actual
+codec output was **1,317,888 frames**, not the fixture's **1,323,000**. Thus compressed
+bytes were preserved, while vendor packet framing/PTS and complete decoded output were
+not. The exact vendor codec internals remain unknown. This was a software-only codec
+according to the selection policy, not evidence of a hardware-codec regression.
+
+The corrected-only v5 route now parses compressed FLAC with the existing **Media3 1.7.1
+FlacExtractor** and chooses an available platform software FLAC decoder (`c2.android`
+or `OMX.google`). This pairs genuine one-frame packets/header timestamps with a suitable
+decoder; it does not guess new timestamps for malformed vendor chunks. A real JVM parser
+test yields **288 frames**, including the final 504-sample frame, and verifies compressed
+payload byte/order identity by SHA-256. A real 16s seek retains the preceding frame and
+reaches the final packet while reading 423,162 bytes. No mock codec is counted as Android
+validation. Existing authorized source/range/deadline/worker limits are retained; parser
+metadata/frame allocations have explicit bounds. See [the v5 PCM contract](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+
+New corrected profile: **`sinc64-blackman-flacframes-mono-22050-v5`**. v2/v3/v4 IDs stay
+reserved; completed and in-flight work cannot cross versions. Legacy remains
+`nearest-time-mono-22050-v1` and is still the default. Corrected AAC, resampler, musical
+analysis, confidence, gain, drift limits and all service/executor ownership rules are
+unchanged. Missing platform FLAC support is a controlled analysis failure with existing
+legacy fallback, not an excuse to label incomplete audio valid.
+
+**Phone validation is pending.** Update the PR branch and rerun the silent probe using
+the command in the preceding section. Expect **one test**, zero failures/skips and no
+audio. Its report should begin `NATIVE_FLAC_EOS probe=v2`; corrected diagnostics should
+identify preprocessing v5, `extractorImplementation=MEDIA3_FLAC_1_7_1`, a platform codec,
+288 input packets, 1,323,000 accepted source frames and 661,500 output samples, with zero
+dropped/gap/synthesized frames. Legacy diagnostics may still reproduce the original
+vendor shortfall; that path is intentionally unchanged and is not the probe's corrected
+coverage assertion. If the probe fails, retrieve the same `phase33-flac-eos-diagnostic.txt`
+file; no uninstall, data clearing, new signing configuration or normal app update is needed.
+
+Only after that succeeds, rerun the single actual-service AAC/FLAC case:
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#actualAacAndFlacSourcesUseThePinnedServiceNativePipeline" --no-configuration-cache --no-daemon --stacktrace
+```
+
+That second test plays generated audio and still requires genuine service/native planning
+and execution. A passing silent decoder probe alone does not establish service acceptance,
+acoustic alignment or a fix for audible crackles. The full eleven service tests and earlier
+38 Android regressions remain required. Evidence and actual host validation:
+`benchmarks/phase33-native-automix/flac-packetization-followup.json`. Keep the PR draft;
+there is no new successful native service/device listening result to report yet.
+
+
+V5 code repair: `9a4e5bf9b806a308fb52695c047f2351d81a0177`. After the cloud environment recovered, both complete JVM
+suites were explicitly rerun with the rebuilt genuine host JNI library: **487 GMS +
+487 FOSS = 974 passed**, zero failures/errors/skips. Current app/test APK outputs and
+lint were confirmed up-to-date; earlier compilations are not described as freshly
+executed Android tests. Both actual app APKs passed four-ABI ELF/ZIP alignment, JNI
+symbol and license-asset checks, with native hashes unchanged. Lint's existing
+nonblocking policy is retained (79 pre-existing primary error locations, 777 warnings,
+5 hints); no suppressions/workflow changes or clean-lint claim. These checks do not
+replace the pending phone probe/service/listening validation.

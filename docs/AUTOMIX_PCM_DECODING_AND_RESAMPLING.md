@@ -1,18 +1,18 @@
 # AutoMix PCM decoding and resampling — Phase 2.2
 
-**Current Phase 3.3 follow-up:** corrected input now uses
-`sinc64-blackman-preroll-frameclock-mono-22050-v4`, retaining the same initial
-preroll, filter, downmix and source budgets but mapping sub-half-frame buffer PTS
-quantization to the uniquely nearest source-frame clock. Half-frame ties and
-missing whole frames remain failures. See the frame-clock follow-up below; all
-v2/v3 identities remain reserved and cannot enter the v4 native pipeline.
-Legacy production preprocessing remains unchanged.
+**Current Phase 3.3 follow-up:** corrected input uses
+`sinc64-blackman-flacframes-mono-22050-v5`. Compressed FLAC uses the existing Media3
+1.7.1 frame parser and an available platform software FLAC decoder, through the same
+authorized, budgeted source. Initial AAC preroll, the v4 nearest-frame clock, downmix and
+sinc filter are retained. Historical v2/v3/v4 identities remain reserved and cannot enter
+the v5 native pipeline. Legacy production preprocessing remains unchanged. See the v5
+packetization follow-up below; Android runtime validation of that repair is pending.
 
 **Historical Phase 2.3B correction:** its internal corrected selector used
 `sinc64-blackman-initial-preroll-mono-22050-v3`. It omits the unnecessary zero-start
 extractor seek so negative-PTS AAC priming packets remain available to the codec.
 The v2 contract below documents the original Phase 2.2 implementation; its ID is
-reserved and never relabeled as v3 or v4. Filter/downmix arithmetic, nonzero seeks, source
+reserved and never relabeled as a later version. Filter/downmix arithmetic, nonzero seeks, source
 budgets and the legacy production default are unchanged. See the
 [native integration device follow-up](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md)
 for observed phone geometry, regression tests and device validation status.
@@ -448,8 +448,8 @@ authentication, musical confidence, gain or player-alignment policy changed.
 
 The v4 ID is a separate preprocessing component of profiles, in-flight keys and completed
 cache keys. `BANDLIMITED_V2` and `BANDLIMITED_V3` preserve their exact old strings.
-Historical corrected windows remain structurally representable, but the current pipeline,
-native engine, planner and executor require **v4** and reject old profiles without
+Historical corrected windows remain structurally representable, but at this revision the
+pipeline, native engine, planner and executor required **v4** and rejected old profiles without
 relabeling. Existing in-memory cache bounds and legacy default remain unchanged.
 
 Six new signal/timeline tests cover the reported 30s FLAC geometry, both signs of sub-frame
@@ -472,3 +472,83 @@ window shortening is applied. Added packet-accounting diagnostics and the silent
 `NativeFlacEosInstrumentedTest` compare extraction/queue/output/EOS without altering
 preprocessing. The native service test still fails until complete valid PCM is established.
 See [the activation guide's EOS investigation](AUTOMIX_NATIVE_DJ_ACTIVATION.md).
+
+
+## Phase 3.3 FLAC frame packetization and platform decoding (v5)
+
+### Measured device failure and scope of the repair
+
+The owner's silent `NATIVE_FLAC_EOS probe=v1` report (October 17, 2026, 1:46pm
+America/Chicago) identifies compressed `audio/flac` and `c2.sec.flac.decoder`. Direct
+platform extraction, both initially and after seeking to zero, emits 267 chunks totaling
+835,064 compressed bytes, with trailing PTS reset to zero. Both legacy and corrected
+decoding queue all those chunks/bytes and return 1,317,888 source frames at codec EOS.
+The complete generated source contains 288 FLAC frames: 287 × 4,608 + 504 = 1,323,000
+samples. Thus 5,112 source frames are missing before the separate v4 overlap drop.
+The compressed payload is present; this is not evidence of a lost network range or an
+incomplete fixture. The vendor pipeline's precise internal reason for truncation remains
+unknown. `isSoftwareOnly` admitted this vendor codec; it was not a hardware-codec selection.
+
+`BoundedFlacPackets` now uses the already-declared Media3 `FlacExtractor` for corrected
+**compressed FLAC** only. Its genuine frame boundaries and header-derived integer PTS
+replace the device extractor's arbitrary chunks/zero timestamps. `PlatformFlacCodecPolicy`
+selects supported software `c2.android.flac.decoder`, otherwise `OMX.google.flac.decoder`;
+absence fails safely instead of silently reusing the observed vendor pipeline. The reader
+requires a native `fLaC` stream (optionally ID3-prefixed); container-wrapped FLAC and
+large metadata/frames outside its bounds may fail analysis and use legacy fallback.
+No expanded source-format support is claimed. Both
+packetization and codec selection change together: merely changing codec names while
+feeding arbitrary chunks is insufficient for a one-frame-per-input decoder.
+
+The existing Android extractor still identifies the MIME initially. Other formats and all
+legacy paths retain their original selection, seeking, conversion and output behavior.
+The Media3 format supplies actual FLAC sample rate, channels, STREAMINFO duration and codec
+initialization data. The normal MediaCodec output-format and PCM checks still apply.
+No native DSP, confidence, gain, planner, executor or playback-source change is made.
+
+### Bounded reads, allocation guards and identity
+
+All parser reads use the same `RangeSource` bridge, authorization, network range handling,
+source byte limits, deadline and cancellation checkpoints. Seekable FLAC uses Media3's
+seek map/binary seeker; a nonseekable nonzero request fails rather than decoding a whole
+track sequentially. No whole-song PCM or compressed cache is added. Parser staging starts
+at 32KiB, is capped at **1MiB per compressed frame**, and holds at most one pending frame.
+Before Media3 can allocate embedded metadata, a header-only preflight caps aggregate
+metadata at **4MiB and 256 blocks**; the stricter existing fetched-byte budget still applies.
+Oversized declarations fail `FLAC_PARSER_BUDGET` (allocation byte guard), without reading
+or allocating their declared payload. This does not increase network budgets.
+
+`DecoderCodecProgress` adds controlled `extractorImplementation` values
+`ANDROID_MEDIA_EXTRACTOR` / `MEDIA3_FLAC_1_7_1`. Existing sanitized codec/MIME and stage
+counters remain available through schema-2 diagnostics (`codecProgressSchema=1`). Neither
+compressed byte counts nor frame-header duration are counted as decoded source coverage.
+Actual codec PCM alone supplies coverage. No missing samples are repeated, padded or
+hidden by shortening the requested interval. Full-window and zero-gap requirements remain.
+
+The new preprocessing ID is **`sinc64-blackman-flacframes-mono-22050-v5`**.
+`BANDLIMITED_V4` preserves the exact old string. Current corrected decoder/profile/native
+admission/planner/executor all require v5; historical windows stay structurally expressible
+but cannot be relabeled or share cache/in-flight identities. The sinc/filter delay,
+channel averaging, output Float32 mono/22,050Hz representation and v4 timestamp policy
+are unchanged. Even unchanged-format corrected jobs receive v5 to keep provenance uniform.
+Legacy remains `nearest-time-mono-22050-v1`, with no changed production default.
+
+### Verification and remaining acceptance
+
+Real host-JVM Media3 extraction of the existing generated FLAC yields all 288 frames,
+835,064 bytes and the final 295-byte / 504-sample frame at 29,988,571us. A SHA-256
+comparison of concatenated packets with the original compressed payload proves byte
+preservation and order. A real 16s seek starts at 15,986,938us, retains the preceding
+frame, reaches the same final packet and reads 423,162 bytes. These are parser tests,
+not Android decoding. Tests also exercise short reads, cooperative cancellation during
+actual parser reads, expired deadlines, oversized frame/metadata declarations, platform
+codec selection, historical profile rejection and exact cache object reuse after invalidation.
+The generated asset directory is declared as a JVM test input for Gradle cache correctness.
+
+The updated silent Android probe (`probe=v2`) still requires 1,323,000 accepted source
+frames, 661,500 output samples, full coverage and zero dropped/gap/synthesized frames.
+It additionally verifies Media3 frame extraction, 288 queued input packets and platform
+codec selection. Android runtime success, Samsung output timestamps and real service
+execution remain unverified until the owner runs this version. No broader codec, streaming,
+EQ or acoustic claim follows from host parser success. See
+`benchmarks/phase33-native-automix/flac-packetization-followup.json` for actual validation.

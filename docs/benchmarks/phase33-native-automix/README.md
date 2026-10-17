@@ -201,3 +201,29 @@ but did not verify the complete device PTS stream or EOS behavior. See
 `flac-eos-diagnostic-followup.json` for exact counts, independent ffprobe frame inspection,
 new input/output counters and the pending silent physical-device diagnostic. No claimed
 full-window fix, acoustic improvement or service Android pass is made from host tests.
+
+
+### Owner EOS probe and v5 corrected FLAC packet route
+
+The owner's `probe=v1` finally identifies `audio/flac`, `c2.sec.flac.decoder`, 267
+arbitrarily chunked packets and trailing zero PTS. All 835,064 compressed bytes reach
+the codec, but only 1,317,888 PCM frames emerge. The source has 288 FLAC frames and
+1,323,000 samples. This excludes a missing compressed byte range in that attempt;
+the exact vendor codec truncation mechanism is not proven.
+
+The v5 repair uses the already-available Media3 frame parser plus platform software
+FLAC decoding for corrected compressed FLAC only. Genuine host parser tests establish
+all 288 frames, complete payload hash/order identity, the short final frame, bounded
+random seeking, cancellation and metadata/frame allocation guards. Exact v4/v5 cache
+object identity/isolation and historical admission rejections are tested too. See
+`flac-packetization-followup.json` for test/build results and limits. The upgraded
+silent Android probe still demands complete actual decoded PCM; no threshold/window
+is weakened and no output is fabricated. It now reports `probe=v2` and preprocessing
+v5. Its phone run and subsequent service execution remain pending. Legacy is unchanged;
+host parser results are not substituted for Samsung MediaCodec execution.
+
+V5 source: `9a4e5bf9b806a308fb52695c047f2351d81a0177`. Recovery validation explicitly executed
+both complete JVM suites with rebuilt real host JNI: 487 tests per variant, zero
+failures/errors/skips. App/test APK outputs and lint were confirmed up-to-date;
+packaging checks executed again on both APKs. No cloud Android runtime tests ran.
+See the JSON's `recovered_environment_verification` for exact commands and distinctions.
