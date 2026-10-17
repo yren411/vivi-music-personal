@@ -1263,7 +1263,7 @@ class MusicService :
         }
     }
 
-    private fun createExoPlayer(publish: Boolean = true, autoMixDeck: Boolean = false, pinned:AnalysisSource?=null): ExoPlayer {
+    private fun createExoPlayer(publish: Boolean = true, autoMixDeck: Boolean = false, pinned:NativePlaybackSourcePin<AnalysisSource>?=null): ExoPlayer {
         val eqProcessor = CustomEqualizerAudioProcessor()
         equalizerService.addAudioProcessor(eqProcessor)
 
@@ -3543,11 +3543,11 @@ class MusicService :
         }
     }
 
-    private fun createDataSourceFactory(pinned:AnalysisSource?=null): DataSource.Factory {
+    private fun createDataSourceFactory(pinned:NativePlaybackSourcePin<AnalysisSource>?=null): DataSource.Factory {
         return ResolvingDataSource.Factory(createCacheDataSource()) { dataSpec ->
             val nativeEpoch=nativeSources.epoch
             val mediaId = dataSpec.key ?: error("No media id")
-            if(pinned!=null && mediaId==pinned.cacheKey)return@Factory dataSpec.withUri(pinned.uri)
+            pinned?.sourceFor(mediaId)?.let {return@Factory dataSpec.withUri(it.uri)}
             if(autoMixRequested && autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && dataSpec.uri.scheme=="file") {
                 val file=java.io.File(requireNotNull(dataSpec.uri.path))
                 val key="$mediaId|local|${file.length()}|${file.lastModified()}|${dataSpec.uri}"
@@ -3678,7 +3678,7 @@ class MusicService :
         }
     }
 
-    private fun createMediaSourceFactory(pinned:AnalysisSource?=null) =
+    private fun createMediaSourceFactory(pinned:NativePlaybackSourcePin<AnalysisSource>?=null) =
         DefaultMediaSourceFactory(
             createDataSourceFactory(pinned),
             ExtractorsFactory {
@@ -4141,10 +4141,12 @@ class MusicService :
             val original=player
             val nextItem=player.getMediaItemAt(player.nextMediaItemIndex).buildUpon()
                 .setUri(expected.incomingSource.uri).setCustomCacheKey(expected.incomingSource.cacheKey).build()
+            val sourcePin=NativePlaybackSourcePin(expected.incomingSource.cacheKey,expected.incomingSource)
             val playback=Media3NativeDjPlayback(original,plan.outgoing,plan.incoming,nextItem,
                 currentQueue={pair()?.queue ?: NativeDjQueue(-1,plan.outgoing.source,plan.incoming.source)},
-                createIncoming={createExoPlayer(publish=false,autoMixDeck=true,pinned=expected.incomingSource)},
-                commitPromotion={queue,incoming -> promoteNative(queue,incoming,original)},releasePlayer=::releaseAudioOutput,
+                createIncoming={createExoPlayer(publish=false,autoMixDeck=true,pinned=sourcePin)},
+                commitPromotion={queue,incoming -> promoteNative(queue,incoming,original).also {if(it)sourcePin.release()}},
+                releasePlayer={deck -> if(deck!==original)sourcePin.release();releaseAudioOutput(deck)},
                 userVolume={if(isMuted.value)0f else playerVolume.value},focusGain={autoMixFocusGain},
                 exclusiveControlAvailable={intelligentAutoMix?.mixing!=true && secondaryPlayer==null && !isCrossfading},
                 startTiming={nativeStartup},allowServiceQueue=true)
