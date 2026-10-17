@@ -321,7 +321,7 @@ Phase 3 work.
 
 Phase 2.3B subsequently versions corrected input as
 `sinc64-blackman-initial-preroll-mono-22050-v3` to preserve initial AAC priming
-packets rather than explicitly seeking to zero. Historical v2 and current v3
+packets rather than explicitly seeking to zero. Historical v2 and Phase 2.3B v3
 profiles/cache keys remain distinct; a v2 window cannot enter a v3 pipeline.
 Legacy production selection is unchanged. See the
 [Android integration follow-up](AUTOMIX_BITCHORD_ANDROID_INTEGRATION.md).
@@ -335,3 +335,13 @@ interval; legacy origin validation is unchanged. AnalysisMetadata and validation
 preserve the preparation and decoder diagnostic sidecars. Schema-2 exports add
 controlled decoder details without changing the existing export interaction.
 No native backend, musical algorithm, planner, gain, or playback/EQ change is made.
+
+### Phase 3.3 current corrected profile
+
+The selected corrected profile now uses
+`sinc64-blackman-preroll-frameclock-mono-22050-v4`. It retains initial AAC preroll and
+adds nearest-source-frame quantization for sub-half-frame codec PTS offsets, rejecting
+ambiguous half-frame ties and missing frames. v2/v3 remain separate historical identities;
+structural representation does not grant compatibility with a v4 engine or cache key.
+See [the PCM follow-up](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md). Legacy production
+selection, worker/cancellation/cache bounds and native confidence semantics are unchanged.

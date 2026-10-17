@@ -473,3 +473,26 @@ regression reproduction, post-fix host checks and the pending Android rerun. Dev
 execution is still required to determine whether another independent gate or later
 planning/execution issue exists. Neither the output race repair nor the cache repair
 establishes the acoustic cause of the previously reported crackles.
+
+### FLAC fractional-frame timestamp repair and v4 provenance
+
+The subsequent owner rerun passed native admission and decoded/analyzed the outgoing AAC
+through the actual JNI backend (128.0922879 BPM; raw uncalibrated score 0.9232841).
+Incoming FLAC conversion stopped at SOURCE_GAP. Its telemetry reproduces a v3 capture
+bug: a roughly 5.8us early buffer PTS was rounded into a whole-frame overlap/drop, then
+misreported as a positive source gap. This was reproduced with generated PCM before repair.
+The native plan/executor had not run; the subsequent LOW_BEAT_CONFIDENCE belongs to the
+separate genuine legacy fallback, not to native evidence.
+
+The corrected selector now uses `sinc64-blackman-preroll-frameclock-mono-22050-v4`.
+Sub-half-frame PTS offsets map to the uniquely nearest anchored source frame without
+dropping audio. Exact half-frame ties, missing whole frames, unknown/partial coverage,
+regressions and unsupported formats still fail safely. Source-frame counts and synthesized
+frame accounting remain explicit. Historical v2/v3 profiles cannot share cached or in-flight
+results with v4, enter its native engine, or pass planner/executor admission. The legacy
+preprocessing and production default remain untouched. Detailed geometry, tests and
+version semantics are in [the PCM document](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+
+This fixes a reproduced PCM conversion defect; a new owner device run is needed to establish
+Android success. No acoustic alignment, crackle repair or completed native service mix is
+claimed. See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for evidence.

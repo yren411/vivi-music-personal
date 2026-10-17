@@ -218,3 +218,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Experimental Native DJ AutoMix waits for the current audio output to initialize before
   admitting a pair, and reports specific configuration-rejection reasons. Legacy mode
   remains the default; native coverage, gain and timing safeguards are unchanged.
+
+- Fix corrected experimental PCM capture discarding a source frame for tiny FLAC timestamp
+  offsets. The new v4 preprocessing profile keeps cache results isolated; missing audio
+  still fails safely, and normal legacy AutoMix remains unchanged.

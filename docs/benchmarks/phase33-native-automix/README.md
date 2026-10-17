@@ -182,3 +182,12 @@ false capability condition. The initial-output admission race was reproduced on 
 JVM and repaired without changing the legacy gate or allowing unsupported processors.
 See `output-readiness-followup.json` and the activation guide. Device rerun remains
 required; no successful native service transition is counted from this attempt.
+
+### Subsequent device evidence: FLAC sub-frame PTS rejection
+
+The owner's next codec test reached native JNI for outgoing AAC (128.0922879 BPM) after
+the output-readiness fix, but incoming FLAC conversion failed with SOURCE_GAP. Its frame
+counts and codec end timestamp reproduce a ~5.8us negative PTS offset being converted into
+an artificial whole-frame drop. `flac-frameclock-followup.json` records the failing pre-fix
+PCM replay, the v4 frame mapping repair, version/cache safeguards and actual validation.
+No native plan, mix or successful service end-to-end execution is counted from that report.

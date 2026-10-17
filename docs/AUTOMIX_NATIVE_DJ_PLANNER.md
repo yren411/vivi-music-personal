@@ -55,7 +55,7 @@ planner never routes native confidence through that bridge.
 ## Native evidence admission
 
 The native adapter requires the exact current BitChord backend/version and
-`sinc64-blackman-initial-preroll-mono-22050-v3`. Backend IDs, confidence methods,
+`sinc64-blackman-preroll-frameclock-mono-22050-v4`. Backend IDs, confidence methods,
 PCM provenance and source/rendition identity must agree. Future backend or input
 versions require deliberate admission rather than an automatic confidence cast.
 
@@ -386,3 +386,11 @@ historical and does not establish new service-connected runtime success.
 The service caller can observe compact completed analysis evidence before candidate rejection
 through `onEvidence`; this records honest BPM/backend evidence without retaining PCM or
 changing planner scoring.
+
+### Phase 3.3 preprocessing identity update
+
+Current admission follows the corrected v4 frame-clock profile. Historical v3 PCM/plans
+are not interchangeable with it and are rejected. This changes the preprocessing identity,
+not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
+Earlier benchmark/device results retain their original build provenance and are not new
+v4 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
