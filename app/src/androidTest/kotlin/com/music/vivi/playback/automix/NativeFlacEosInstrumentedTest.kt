@@ -25,7 +25,7 @@ class NativeFlacEosInstrumentedTest {
         val instrumentation=InstrumentationRegistry.getInstrumentation()
         val context=instrumentation.targetContext
         check(context.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true"}
-        val report=StringBuilder("NATIVE_FLAC_EOS probe=v1 generated=${Instant.now()}\n")
+        val report=StringBuilder("NATIVE_FLAC_EOS probe=v2 generated=${Instant.now()}\n")
         val reportFile=File(context.filesDir,"phase33-flac-eos-diagnostic.txt")
         val file=File.createTempFile("phase33-eos-",".flac",context.cacheDir)
         try {
@@ -54,7 +54,10 @@ class NativeFlacEosInstrumentedTest {
             assertTrue(report.toString(),extractorChecks && w!=null && w.invalidReason()==null &&
                 w.coverage.status(w.decodeInterval)==CoverageStatus.FULL && w.frameCount==661500 &&
                 w.coverage.acceptedDecodedFrames==1_323_000L && w.preparation?.droppedOverlapFrames==0L &&
-                w.preparation.gapCount==0 && w.repeatedOutputFrames==0L && w.preparation.synthesizedTimelineFrames==0L)
+                w.preparation.gapCount==0 && w.repeatedOutputFrames==0L && w.preparation.synthesizedTimelineFrames==0L &&
+                w.decoderDiagnostic?.codecProgress?.extractor==DecoderExtractor.MEDIA3_FLAC_1_7_1 &&
+                w.decoderDiagnostic.codecProgress.inputBuffers==288L &&
+                w.decoderDiagnostic.codecProgress.codecName in listOf("c2.android.flac.decoder","OMX.google.flac.decoder"))
         }finally {
             reportFile.writeText(report.toString())
             android.util.Log.i("TiniumNativeDj",report.toString())
