@@ -231,3 +231,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
   platform software decoder, while preserving strict source coverage. A separate v5
   preprocessing profile isolates old analysis/cache results; legacy playback remains
   unchanged. Host packet-preservation tests pass; Android repair validation is pending.
+
+- Prevent experimental Native DJ pause/resume callbacks from repeatedly toggling the
+  playback decks. Keep strict queue/timing checks and isolate generated service-test
+  histories and queue cleanup. Legacy AutoMix remains the default; full device-suite
+  validation of this repair is pending.

@@ -606,7 +606,7 @@ and execution. A passing silent decoder probe alone does not establish service a
 acoustic alignment or a fix for audible crackles. The full eleven service tests and earlier
 38 Android regressions remain required. Evidence and actual host validation:
 `benchmarks/phase33-native-automix/flac-packetization-followup.json`. Keep the PR draft;
-there is no new successful native service/device listening result to report yet.
+that checkpoint had no successful repaired service/device result yet (see the later suite follow-up below).
 
 
 V5 code repair: `9a4e5bf9b806a308fb52695c047f2351d81a0177`. After the cloud environment recovered, both complete JVM
@@ -618,3 +618,68 @@ symbol and license-asset checks, with native hashes unchanged. Lint's existing
 nonblocking policy is retained (79 pre-existing primary error locations, 777 warnings,
 5 hints); no suppressions/workflow changes or clean-lint claim. These checks do not
 replace the pending phone probe/service/listening validation.
+
+
+### Eleven-test suite follow-up: history isolation and playback callbacks
+
+After the v5 repair, the owner reported the silent FLAC probe and the isolated
+`actualAacAndFlacSourcesUseThePinnedServiceNativePipeline` case passing on the
+S25 Ultra. No raw result XML or independently verified installed SHA accompanied those
+reports. The subsequent full eleven-test run had **six failures**; those isolated
+passes do not establish full-suite acceptance.
+
+The six reports expose two confirmed defects and two remaining device checks:
+
+| Report | Finding and repair | Verification limit |
+| --- | --- | --- |
+| Replacing the next track / non-rhythmic fallback expected zero completions but saw one | The harness counted every attempt retained by the service recorder. Test history now starts after disabled routing and an empty queue are acknowledged; completion/planning/rejection/codec assertions share that scope. | Must rerun the complete class on Android. |
+| Long-overlap completion wait returned while the outgoing fixture was still current | An earlier test's COMPLETED record could satisfy the wait immediately. The original cue, promotion, overlap-progress, volume and one-output assertions remain intact. | Per-test history tests exercise retained completion records on the JVM; real promotion still needs a phone rerun. |
+| Pause/resume main-thread timeout | The service paused an already-resuming primary, then resumed both decks from a Media3 callback. Queued play-state events could repeat that toggle; executor state was published after commands, allowing synchronous reentry as well. Two new regressions failed before repair. | No claim of phone recovery until the owner reruns this method. |
+| Successive transitions saw two outputs where one was required | The harness enabled native mode before resetting a potentially retained service queue, and did not await disabled routing before teardown. It now disables/awaits ownership release, clears only the isolated test queue, and then enables the selected mode. | A real output-resource leak is not excluded by the supplied count alone. The strict one-output assertion is unchanged. |
+| AAC/FLAC service case passed alone but failed in the suite with LOW_BEAT_CONFIDENCE | Its report retained eleven earlier pairs in one service session and was truncated before the current attempt. Scope reports to this test, reset its queue before activation, and retain unique fixture/cache identities. | The current pair's precise rejection is unavailable in the truncated attachment; do not claim a new codec or confidence fix. |
+
+Executor `tinium-native-dj-executor-v4-reentrant-playback-controls` retains v3's
+format-aware startup prediction and independent media-clock progress tracking. It
+publishes pause/resume state before deck commands, guards reentrant control/tick calls,
+and accepts the primary's already-applied play request **only during explicit resume**.
+Queue/source/rate/duration/paused-position and incoming-playing checks still apply.
+MusicService forwards the primary's current `playWhenReady` state rather than a queued
+stale value and no longer issues the extra pause. Ordinary paused ticks still reject an
+unexpectedly playing deck. There is no change to the 15ms cue, 120ms drift, gain, native
+confidence, PCM coverage, backend/cache or legacy-default policies.
+
+The Android harness does not assume `stopService` destroys a still-bound MediaSession
+service. It awaits disabled routing, clears its generated queue, captures the recorder
+session/attempt boundary, then opts in. Teardown awaits disable before clearing the queue
+and removing only this test's cache keys/files. It preserves the actual service recorder;
+`NativeServiceHistoryScope` exists only in shared test sources and rejects session changes.
+No app data, user cache, normal installation or saved owner preference is erased.
+
+First rerun the repaired pause/resume method (generated audible media; pause normal
+music and use a comfortable volume):
+
+```powershell
+git fetch origin
+git switch codex/automix-native-dj-service
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#pauseResumeVolumeAndInjectedFocusCallbacksReachBothRealDecks" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Expect one executed test, no failures or skips. Then rerun all eleven by selecting the
+same class without `#pauseResumeVolumeAndInjectedFocusCallbacksReachBothRealDecks`.
+The prior 38 Android regressions remain required. Keep the existing debug key and
+isolated `.decodercheck` package; no normal-app update or uninstall is required. Retrieve
+`files/phase33-service-last.txt` through `adb exec-out run-as com.yren411.tinium.decodercheck`
+if the suite fails again; this file now contains only the last test's attempts. A passing
+Gradle compile or host-JNI run is not a successful Android playback test.
+
+Repair source commit: `631c62012a242fbb6fe0b19527c256b3c32a3376`. Both full JVM tasks
+were explicitly rerun: **496 GMS + 496 FOSS = 992 passed**, zero failures/errors/skips,
+including 17 real host-JNI/comparison tests per variant. Nine new unique regressions
+cover callback control and retained history. Arm64 GMS and Universal FOSS app/test APKs
+compiled; both actual app APKs passed four-ABI ELF/ZIP 16KB alignment, JNI-symbol and
+license checks, with native DSP hashes unchanged. Lint is invoked under the existing
+nonblocking policy; this is not a clean-lint or Android runtime claim. Structured source,
+reproduction, command and test evidence: `benchmarks/phase33-native-automix/service-suite-callback-followup.json`.
+The repaired eleven-test Android suite remains **unexecuted in the cloud**; the PR stays
+draft pending phone regression. The earlier v5 targeted owner passes are retained above.

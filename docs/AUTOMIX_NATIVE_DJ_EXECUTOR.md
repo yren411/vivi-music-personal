@@ -626,3 +626,11 @@ are not interchangeable with it and are rejected. This changes the preprocessing
 not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
 Earlier benchmark/device results retain their original build provenance and are not new
 v5 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+
+
+Phase 3.3 service follow-up adds executor
+`tinium-native-dj-executor-v4-reentrant-playback-controls` for reentrant Media3
+pause/resume callbacks. It preserves v3 startup/progress/timing/gain policies.
+See [the service-suite follow-up](AUTOMIX_NATIVE_DJ_ACTIVATION.md#eleven-test-suite-follow-up-history-isolation-and-playback-callbacks).
+The owner-reported v3 Android results above remain historical; they do not validate
+v4 service pause/resume on a device.
