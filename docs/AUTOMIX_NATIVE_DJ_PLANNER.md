@@ -1,5 +1,12 @@
 # Phase 3.1 — experimental native-aware transition planning
 
+This document preserves the Phase 3.1 implementation and benchmark checkpoint.
+Phase 3.3 now connects it to MusicService behind explicit experimental opt-in, with
+legacy remaining default. The owner reports the later combined **49-test** Android
+selection passed, including all **six planner tests**, on S25 Ultra / Android 17.
+See [current Phase 3.3 validation](AUTOMIX_NATIVE_DJ_ACTIVATION.md#current-validation-status--phase-33)
+for reviewed-head CI/JVM provenance and the limits of that owner-reported evidence.
+
 ## Scope and source baseline
 
 Starting main: **`e76bfcdd0c6fa47580fd2b3b4fab427930546198`**, merged PR #20.
@@ -331,9 +338,11 @@ preserved. Do not uninstall your primary app or overwrite keys. Restore the same
 working debug key if the isolated install has a signature conflict. No new
 signing or application-ID changes are part of this phase.
 
-No emulator/system image, KVM or connected device is available in this cloud
-environment. New planner Android tests are compiled, **not reported as executed**.
-The owner's earlier 18 passes do not count as six new planner test passes.
+At the initial Phase 3.1 cloud checkpoint, no emulator/system image, KVM or connected
+device was available. Planner Android tests were compiled, **not executed by Codex**;
+the earlier 18 owner passes did not count as six planner passes. Subsequent owner-run
+planner validation and the final Phase 3.3 combined run supply separate device evidence.
+These later results do not rewrite the original benchmark measurements.
 
 ## Limitations and Phase 3.2 handoff
 
@@ -381,7 +390,8 @@ feasible outgoing time before planning starts. Compact source-matched active-RMS
 accompany selected plans; session cache keys include that method version. These additions
 retain the musical gates, timestamp coordinates and confidence semantics described above.
 There is no native-to-legacy plan conversion. Original benchmark/device evidence remains
-historical and does not establish new service-connected runtime success.
+historical. Separate later owner-reported service-connected runtime success is documented
+in the Phase 3.3 current validation summary; real-song musical quality remains unverified.
 
 The service caller can observe compact completed analysis evidence before candidate rejection
 through `onEvidence`; this records honest BPM/backend evidence without retaining PCM or

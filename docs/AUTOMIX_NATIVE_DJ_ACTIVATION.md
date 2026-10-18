@@ -4,17 +4,70 @@ Starting source: `f3c96b1adb7607dbf71bb4c41933010fecb47fc0` (merged PR #22).
 The BitChord/Orchard DSP remains pinned to `fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f`;
 no native algorithm, JNI, resampler, musical threshold or distribution configuration was changed.
 
+## Current validation status — Phase 3.3
+
+Native DJ AutoMix is integrated into **MusicService and the normal queue**. Legacy
+AutoMix remains the default; the native route requires explicit experimental opt-in.
+The implementation is **successfully validated for the tested Android integration
+scenarios and ready for experimental review**, not unrestricted production activation.
+
+Reviewed implementation head: **`84a97cba901e1ab98fddfcf95e8fdf941241b4db`**.
+PR #23 was verified **open and draft** before this documentation-only reconciliation.
+The following results belong to that reviewed implementation, not new executions on
+subsequent documentation commits:
+
+| Evidence | Latest verified or reported result | Attribution and limits |
+| --- | --- | --- |
+| [CI & Debug Build](https://github.com/yren411/vivi-music-personal/actions/runs/39079630570) | Passed on `84a97cba` | Universal GMS job, 9m42s |
+| [Build PR](https://github.com/yren411/vivi-music-personal/actions/runs/39079630450) | Passed on `84a97cba` | Universal FOSS job, 13m07s; existing nonblocking lint policy, not clean lint |
+| Complete local JVM suites | **497 Arm64 GMS + 497 Universal FOSS = 994 passed**; zero failures/errors/skips | Executed for completion-boundary repair `3d667e36`; subsequent changes through `84a97cba` are documentation/evidence only |
+| Actual host JNI | **17 tests per variant**, included in the JVM counts | Real native DSP on Linux; separate from Android execution |
+| Combined physical-device instrumentation | **49 executed, zero failures, zero skips**, owner-reported | Samsung Galaxy S25 Ultra, Android 17; all five categories in the same selection |
+
+The duplicate push-only GMS job was conditionally skipped under the existing workflow
+rule; that is neither a failed check nor a skipped instrumentation test. The local XML
+counts were rechecked during this documentation review; no JVM or Android suite was
+rerun solely for these edits. Native CTest/sanitizer results and Android APK compilation
+remain separate historical evidence in [the benchmark guide](benchmarks/phase33-native-automix/README.md).
+New documentation-head checks must be reported against their own SHA on the PR, rather
+than inheriting the two workflow results linked above.
+
+### Owner-reported final combined Android run
+
+| Test suite | Tests passed |
+| --- | ---: |
+| Corrected PCM decoder | 4 |
+| BitChord native analyzer | 14 |
+| Native-aware DJ planner | 6 |
+| Native DJ transition executor | 14 |
+| Native AutoMix MusicService integration | 11 |
+| **Total** | **49** |
+
+The owner reports this complete run after updating for the Phase 3.3 completion-boundary
+correction. Codex did **not** independently execute it; raw Android test XML and an
+independently verified installed commit SHA were not supplied. Targeted repairs addressed
+the earlier harness, fixture-cache, readiness, FLAC coverage, callback/history and
+successive-transition blockers. Their failed measurements and repair checkpoints remain
+below and in unchanged raw benchmark artifacts; their then-pending device statuses are
+superseded by this final owner report.
+
+Real-song listening quality, acoustic synchronization, Bluetooth/headphone behavior,
+audible Poweramp Equalizer processing and long-term resource/reliability behavior still
+require evaluation. No APK release or automatic merge is authorized. Native DJ AutoMix
+remains experimental and off by default.
+
 ## Scope and current evidence
 
 This phase connects the native pipeline to **MusicService and the normal queue**, behind
 an explicit experimental opt-in. It adds no second service, output sink, focus requester,
 remote flag, telemetry uploader or model. Legacy AutoMix remains the default.
 
-The earlier owner-run 38 Android decoder/native/planner/executor passes are historical
-prerequisite evidence. They do not validate this new service integration. New Android
-service tests bind the actual service, use its configured players and generated local files,
-and execute real corrected decoding/JNI/planning/execution. Compilation and execution are
-reported separately in [the evidence directory](benchmarks/phase33-native-automix/README.md).
+The earlier owner-run 38 Android decoder/native/planner/executor passes were historical
+prerequisites. The final combined run above additionally includes all eleven service tests
+and reruns those 38 regressions together. Service tests bind the actual service, use its
+configured players and generated local files, and execute real corrected decoding/JNI/
+planning/execution. Compilation, cloud execution and owner-reported device execution remain
+separate evidence in [the evidence directory](benchmarks/phase33-native-automix/README.md).
 No real-song, acoustic, Bluetooth, Poweramp or phone battery result is claimed here.
 
 ## Architecture and ownership
@@ -29,7 +82,7 @@ flowchart LR
     S --> A[Existing native planner]
     A --> C[NativeAutoMixServiceController]
     G --> C
-    C --> E[Existing v3 executor and Media3 adapter]
+    C --> E[Existing v4 executor and Media3 adapter]
     E --> D[Configured service players / existing output sessions]
     E --> H[Atomic queue and MediaSession promotion]
     C --> F[Release native ownership then independently enable legacy]
@@ -68,8 +121,8 @@ have not enabled it. Crossfade mutual exclusion and saved Crossfade preferences 
 The mode selector is visible only while AutoMix is enabled.
 
 Switching modes invalidates pending work and cancels an active native attempt through the
-v3 recovery/cleanup path. A healthy current outgoing deck continues at the current master/focus
-volume; a completed/promoted incoming primary is never released by old callbacks. Rollback
+current executor recovery/cleanup path (v4, retaining v3 timing policies). A healthy current
+outgoing deck continues at the current master/focus volume; a completed/promoted incoming primary is never released by old callbacks. Rollback
 can be audible, particularly late in a fade; seamless emergency reversal is not promised.
 Select Legacy or turn AutoMix off to stop experimentation without reinstalling or erasing data.
 Three recorded technical failures suspend further native attempts for the current service
@@ -278,10 +331,19 @@ audio using the actual service. Allow several minutes; the repeated-attempt test
 legitimately fall back while queue continuity and cleanup remain required. No online provider
 or copyrighted fixture is needed. Preferences are snapshotted/restored within the isolated app.
 
-Previous **38** regression tests (all four original classes; none weakened):
+Optional previous **38-test** regression selection (all four original classes; none weakened):
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Final combined regression selection: all five categories, **49 tests executed, zero
+failures, zero skips** expected. The owner reports this selection passed as summarized
+above. These commands remain available for future regression testing, not an outstanding
+acceptance blocker. Run only one invocation at a time; generated audio plays.
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
 
 To build/install the local isolated app for ordinary listening (not a signed distribution release):
@@ -325,27 +387,50 @@ file extraction is optional and does not access the normal Tinium installation.
 
 ## Verification, limitations and next phase
 
-See the evidence directory for actual commands/counts and host measurements. Native C++ is
-unchanged; host-JNI tests execute real DSP. Android service tests must actually run before a
-service-connected runtime pass is claimed. The cloud has no configured Android runtime; ADB
-could not enumerate devices because its home directory was not writable, and no KVM/system
-image was provisioned. Compilation is not phone validation. No legal real-song corpus was
-available in this environment; no ratings, acoustic results or phone performance are fabricated.
+Native analysis, planning, dual-deck execution and opt-in MusicService integration are
+implemented. Full local JVM/host-JNI validation and the reviewed-head GitHub checks passed;
+the owner reports all 49 generated-media Android regressions passed together. Native C++
+is unchanged. Codex ran no Android runtime: the cloud had no configured emulator/device,
+and compilation is not phone validation. No permitted real-song corpus was available here;
+no listening ratings, acoustic results or phone performance are fabricated.
 
 Phase 3.3 exposes experimental usability, not production readiness. Broader activation requires
-owner-run new 11 + prior 38 Android passes on the candidate integration, real authorized-song
-comparison, repeated queue/controls/background listening, supported-route focus/session and
-Poweramp checks, bounded resource observations and correction of common failures. Review
+real authorized-song comparison, repeated queue/controls/background listening, supported-route
+focus/session and Poweramp checks, bounded resource observations and correction of common failures. Review
 startup synchronization without stale calibration, cue/phrase/vocal suitability and metrical
 ambiguity as targeted Phase 3.4 work where real reports justify it. Do not broaden rollout or
 weaken timing/coverage gates to raise success counts.
+
+Remaining limitations are not cleared by generated-media regression success:
+
+- **Musical:** some native BPM estimates are wrong; half/double-time ambiguity and
+  uncalibrated confidence remain. Reliable vocals, verified phrases and harmonic
+  compatibility are unavailable. Cue suitability, intro/outro preservation, perceived
+  volume balance and natural longer overlaps need actual-song evaluation.
+- **Playback:** startup timing varies by format/route, and observations can expire
+  before a late transition. Independent ExoPlayer clocks can separate and legitimately
+  trigger drift fallback. Position telemetry does not prove acoustic beat alignment;
+  emergency rollback may be audible.
+- **Compatibility/resources:** Bluetooth/headphone behavior and audible Poweramp EQ
+  processing need listening tests; session-lifecycle assertions do not prove audible EQ
+  equivalence. Real streamed/cached sources can differ from generated fixtures.
+  Extended-use battery/thermal behavior and long-term reliability remain unmeasured.
 
 GPL/AGPL notices, source provenance and source-distribution obligations remain applicable.
 The owner's Musixmatch permission assumption supports this development task; it is not an
 independent public redistribution clearance. No lyrics changes, new BitChord import, public
 APK, release/version allocation, distribution signing or automatic merge is performed.
 
-## Device test hangs: bounded harness and progress capture
+## Historical debugging checkpoints — resolved for the tested scenarios
+
+The following sections preserve the sequence of failures, measurements and targeted
+repairs. References to pending reruns describe each earlier checkpoint, not current
+acceptance status. The final owner-reported 49-test pass above supersedes those runtime
+blockers for the tested scenarios; it does not establish the acoustic cause of earlier
+crackles or every vendor/route behavior. Raw JSON outcomes remain unchanged. Individual
+commands below are optional troubleshooting tools if a regression recurs.
+
+### Device test hangs: bounded harness and progress capture
 
 The owner reported two Phase 3.3 device invocations with audio but no completed test after
 approximately seven and three minutes. No matching logcat messages were available, so neither
@@ -375,7 +460,7 @@ $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 & $adb shell am force-stop com.yren411.tinium.decodercheck
 ```
 
-This does not uninstall either app or erase its data. Update the PR branch and first run the
+This does not uninstall either app or erase its data. For optional hang troubleshooting, update the branch and run the
 short single legacy-default test, which intentionally starts no audio:
 
 ```powershell
@@ -429,8 +514,9 @@ actual AAC playback format/duration and both corrected decoder source rates/dura
 cached material cannot silently satisfy the test. Existing mixing assertions remain required.
 
 This is a test-source identity defect, not evidence that coverage checks or native confidence
-should be relaxed. Production cache/decoder/analyzer code was not changed. The observed
-crackles have no established acoustic cause. Device reruns remain necessary after this fix.
+should be relaxed. Production cache/decoder/analyzer code was not changed by that repair.
+The observed crackles have no established acoustic cause. Reruns were needed at this
+checkpoint; the later final combined pass includes the repaired codec and service tests.
 
 ### Initial audio-output readiness and configuration diagnostics
 
@@ -470,10 +556,9 @@ attempt starts. A test timeout now also prints playback state and a controlled s
 reason, so this waiting state can be distinguished from a plan rejection.
 
 See `benchmarks/phase33-native-automix/output-readiness-followup.json` for the failing
-regression reproduction, post-fix host checks and the pending Android rerun. Device
-execution is still required to determine whether another independent gate or later
-planning/execution issue exists. Neither the output race repair nor the cache repair
-establishes the acoustic cause of the previously reported crackles.
+regression reproduction, post-fix host checks and the then-pending Android rerun.
+Later device runs advanced past readiness and exposed the separate FLAC issues below.
+Neither the output race repair nor the cache repair establishes the acoustic cause of the previously reported crackles.
 
 ### FLAC fractional-frame timestamp repair and v4 provenance
 
@@ -494,11 +579,11 @@ results with v4, enter its native engine, or pass planner/executor admission. Th
 preprocessing and production default remain untouched. Detailed geometry, tests and
 version semantics are in [the PCM document](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
 
-This fixes a reproduced PCM conversion defect; a new owner device run is needed to establish
-Android success. No acoustic alignment, crackle repair or completed native service mix is
-claimed. See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for evidence.
+This fixed a reproduced PCM conversion defect; Android success was not yet established
+at this checkpoint. No acoustic alignment, crackle repair or completed native service mix
+was claimed from this repair alone. See `benchmarks/phase33-native-automix/flac-frameclock-followup.json` for evidence.
 
-### Unresolved full-window FLAC EOS: diagnostic follow-up
+### Historical full-window FLAC EOS blocker: diagnostic follow-up
 
 The owner's next v4 run did not report SOURCE_GAP and again analyzed outgoing AAC at
 128.0922879 BPM. Incoming FLAC instead reached actual codec EOS with only 1,317,888
@@ -514,11 +599,11 @@ drop. The v4 replay verified the previously reported ~5.8us anomaly, not the pho
 entire unknown packet/PTS sequence. It did not establish full-window codec correctness;
 its favorable JVM result must not be substituted for this unfavorable device evidence.
 
-Do not widen the timestamp policy again, change the coverage requirement, shorten the
-fixture/window, pad missing audio or label this attempt successful. It is not yet known
-whether loss occurs in extraction, the MediaDataSource bridge, queued input, codec EOS,
-or a source-format-specific path. Platform extractors may expose FLAC as compressed
-frames or already-decoded raw PCM; the actual device MIME/codec must be measured.
+The investigation retained the timestamp policy, strict coverage requirement and full
+fixture/window; it did not pad missing audio or label this failed attempt successful.
+At this checkpoint it was not yet known whether loss occurred in extraction, the
+MediaDataSource bridge, queued input, codec EOS or a source-format-specific path.
+Platform extractors may expose FLAC as compressed frames or already-decoded raw PCM; the actual device MIME/codec must be measured.
 
 Decoder diagnostics now append `codecProgressSchema=1`: sanitized extractor MIME and
 codec name, declared extractor format, successfully queued data-buffer/byte counts and
@@ -536,7 +621,7 @@ not service end-to-end acceptance. Work is capped (90s overall; per-read/decode 
 1MiB direct packet scratch and at most 1,024 packets / 8MiB read in each extractor probe).
 It keeps the full 1,323,000 source-frame / 661,500 output-sample / zero-dropped-frame
 requirement, so an assertion failure can be the expected useful reproduction. There is
-one test; paste the entire `NATIVE_FLAC_EOS` message whether it passes or fails.
+one test; for optional future troubleshooting, retain the entire `NATIVE_FLAC_EOS` message whether it passes or fails.
 
 ```powershell
 git fetch origin
@@ -552,11 +637,12 @@ $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 & $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase33-flac-eos-diagnostic.txt
 ```
 
-No uninstall/data clearing is required. The eleven service tests and previous 38 Android
-regressions remain intact and required. New probe compilation is not a device pass.
-See `benchmarks/phase33-native-automix/flac-eos-diagnostic-followup.json` for actual host
-validation and pending phone evidence. Keep the PR draft and legacy production default;
-full-window FLAC/native service acceptance remains unresolved.
+No uninstall/data clearing is required. At this checkpoint the probe, eleven service
+tests and previous 38 regressions still needed device execution; compilation was not a
+device pass. `benchmarks/phase33-native-automix/flac-eos-diagnostic-followup.json` preserves
+that host validation and then-pending phone evidence. The blocker was investigated below
+and is superseded for the tested scenarios by the later owner probe/service/49-test passes.
+Legacy remains the production default.
 
 ### Owner EOS probe: corrected FLAC packet/codec route and preprocessing v5
 
@@ -585,8 +671,10 @@ analysis, confidence, gain, drift limits and all service/executor ownership rule
 unchanged. Missing platform FLAC support is a controlled analysis failure with existing
 legacy fallback, not an excuse to label incomplete audio valid.
 
-**Phone validation is pending.** Update the PR branch and rerun the silent probe using
-the command in the preceding section. Expect **one test**, zero failures/skips and no
+**At the v5 implementation checkpoint, phone validation was pending.** The owner later
+reported the silent probe and isolated service codec test passing, followed eventually
+by all 49 combined regressions. For optional regression diagnosis, the probe command is
+in the preceding section. Expect **one test**, zero failures/skips and no
 audio. Its report should begin `NATIVE_FLAC_EOS probe=v2`; corrected diagnostics should
 identify preprocessing v5, `extractorImplementation=MEDIA3_FLAC_1_7_1`, a platform codec,
 288 input packets, 1,323,000 accepted source frames and 661,500 output samples, with zero
@@ -595,7 +683,8 @@ vendor shortfall; that path is intentionally unchanged and is not the probe's co
 coverage assertion. If the probe fails, retrieve the same `phase33-flac-eos-diagnostic.txt`
 file; no uninstall, data clearing, new signing configuration or normal app update is needed.
 
-Only after that succeeds, rerun the single actual-service AAC/FLAC case:
+The next diagnostic step at that checkpoint was the single actual-service AAC/FLAC case
+(also subsequently reported passing; command retained for optional troubleshooting):
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#actualAacAndFlacSourcesUseThePinnedServiceNativePipeline" --no-configuration-cache --no-daemon --stacktrace
@@ -603,10 +692,11 @@ Only after that succeeds, rerun the single actual-service AAC/FLAC case:
 
 That second test plays generated audio and still requires genuine service/native planning
 and execution. A passing silent decoder probe alone does not establish service acceptance,
-acoustic alignment or a fix for audible crackles. The full eleven service tests and earlier
-38 Android regressions remain required. Evidence and actual host validation:
-`benchmarks/phase33-native-automix/flac-packetization-followup.json`. Keep the PR draft;
-that checkpoint had no successful repaired service/device result yet (see the later suite follow-up below).
+acoustic alignment or a fix for audible crackles. At that checkpoint the full eleven
+service tests and earlier 38 regressions were still required; the final combined pass
+now covers all 49. `benchmarks/phase33-native-automix/flac-packetization-followup.json`
+preserves the then-available host validation and the recommendation to keep the PR draft
+until repaired service/device results arrived (see the later suite follow-up below).
 
 
 V5 code repair: `9a4e5bf9b806a308fb52695c047f2351d81a0177`. After the cloud environment recovered, both complete JVM
@@ -617,7 +707,8 @@ executed Android tests. Both actual app APKs passed four-ABI ELF/ZIP alignment, 
 symbol and license-asset checks, with native hashes unchanged. Lint's existing
 nonblocking policy is retained (79 pre-existing primary error locations, 777 warnings,
 5 hints); no suppressions/workflow changes or clean-lint claim. These checks do not
-replace the pending phone probe/service/listening validation.
+replace the then-pending phone probe/service validation. Subsequent owner passes are
+recorded separately; listening validation remains outstanding.
 
 
 ### Eleven-test suite follow-up: history isolation and playback callbacks
@@ -628,7 +719,9 @@ S25 Ultra. No raw result XML or independently verified installed SHA accompanied
 reports. The subsequent full eleven-test run had **six failures**; those isolated
 passes do not establish full-suite acceptance.
 
-The six reports expose two confirmed defects and two remaining device checks:
+At that checkpoint the six reports exposed confirmed defects and outstanding device
+checks. The verification-limit column records the evidence available **then**, before
+the subsequent owner-reported combined pass:
 
 | Report | Finding and repair | Verification limit |
 | --- | --- | --- |
@@ -655,8 +748,8 @@ and removing only this test's cache keys/files. It preserves the actual service 
 `NativeServiceHistoryScope` exists only in shared test sources and rejects session changes.
 No app data, user cache, normal installation or saved owner preference is erased.
 
-First rerun the repaired pause/resume method (generated audible media; pause normal
-music and use a comfortable volume):
+Optional targeted regression command for the repaired pause/resume method (generated
+audible media; pause normal music and use a comfortable volume):
 
 ```powershell
 git fetch origin
@@ -667,8 +760,9 @@ git pull --ff-only
 
 Expect one executed test, no failures or skips. Then rerun all eleven by selecting the
 same class without `#pauseResumeVolumeAndInjectedFocusCallbacksReachBothRealDecks`.
-The prior 38 Android regressions remain required. Keep the existing debug key and
-isolated `.decodercheck` package; no normal-app update or uninstall is required. Retrieve
+The final combined owner pass now includes these eleven and the prior 38 regressions.
+Keep the existing debug key and isolated `.decodercheck` package; no normal-app update
+or uninstall is required. Retrieve
 `files/phase33-service-last.txt` through `adb exec-out run-as com.yren411.tinium.decodercheck`
 if the suite fails again; this file now contains only the last test's attempts. A passing
 Gradle compile or host-JNI run is not a successful Android playback test.
@@ -681,8 +775,10 @@ compiled; both actual app APKs passed four-ABI ELF/ZIP 16KB alignment, JNI-symbo
 license checks, with native DSP hashes unchanged. Lint is invoked under the existing
 nonblocking policy; this is not a clean-lint or Android runtime claim. Structured source,
 reproduction, command and test evidence: `benchmarks/phase33-native-automix/service-suite-callback-followup.json`.
-The repaired eleven-test Android suite remains **unexecuted in the cloud**; the PR stays
-draft pending phone regression. The earlier v5 targeted owner passes are retained above.
+The repaired eleven-test Android suite was **unexecuted in the cloud** and phone
+regression remained pending at this checkpoint. Codex still has not run Android tests;
+subsequent owner-reported passes, culminating in all 49, supply separate physical-device
+evidence. Earlier v5 targeted passes remain historical.
 
 
 ### Successive-transition completion boundary
@@ -713,7 +809,8 @@ exercises the real legacy controller with virtual media time: the incoming item 
 current while two decks remain owned, then the outgoing deck is released once and only
 the continuing incoming deck remains after fade/recovery. This characterizes the
 previously incorrect test assumption; it is not a claim of an Android resource-leak fix.
-The revised single service test and then the full suite still require owner execution.
+The revised single service test and full combined suite required owner execution at
+this checkpoint; both were subsequently reported passing.
 
 
 Completion-boundary repair source: `3d667e368d950fdd52d995a0299b0f5b5e199f22`.
@@ -722,11 +819,12 @@ failures/errors/skips, including the new real legacy-controller regression and 1
 host-JNI/comparison tests per variant. Both app/test APKs built (3m44s; 52 executed and
 345 up-to-date tasks). The actual app APKs passed four-ABI JNI/ELF/ZIP16KB/license checks;
 native hashes are unchanged. Local lint was not rerun for this read-only/test follow-up;
-the preceding head's two GitHub workflows and nonblocking lint passed, and latest-head
-CI must pass again. No Android tests were executed by Codex. Source/commands/evidence:
+the preceding head's two GitHub workflows and nonblocking lint had passed. Both workflows
+subsequently passed on reviewed head `84a97cba`, as linked in the current summary.
+No Android tests were executed by Codex. Source/commands/evidence:
 `benchmarks/phase33-native-automix/successive-completion-followup.json`.
 
-Run the remaining case after updating the PR branch (it uses roughly two minutes of
+Optional successive-transition regression command (it uses roughly two minutes of
 generated-media playback; its existing wait limit is unchanged):
 
 ```powershell
@@ -736,7 +834,8 @@ git pull --ff-only
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#successiveAttemptsPreserveQueueAndReleaseOldPlayers" --no-configuration-cache --no-daemon --stacktrace
 ```
 
-Expect one executed test, no failure/skip, then rerun the full eleven and prior 38
-regressions. A persistent extra output after ownership is idle is still a failure;
-report the expanded `Successive handoffs` message. No uninstall/data clearing or change
-to the normal Tinium installation/signing is needed.
+Expect one executed test, no failure/skip. The owner reported this targeted test
+passing and then all eleven plus the prior 38 in the final combined invocation.
+A persistent extra output after ownership is idle is still a failure; report the expanded
+`Successive handoffs` message. No uninstall/data clearing or change to the normal Tinium
+installation/signing is needed.

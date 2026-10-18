@@ -1,12 +1,41 @@
 # Phase 3.3 validation evidence
 
+## Current reconciled validation
+
+Reviewed implementation: **`84a97cba901e1ab98fddfcf95e8fdf941241b4db`**.
+PR #23 was open and draft when this documentation reconciliation began. This is ready
+for review as an **opt-in experimental integration**, with legacy AutoMix still default.
+
+| Evidence level | Latest result | Provenance / limits |
+| --- | --- | --- |
+| Complete local JVM suites | **497 GMS + 497 FOSS = 994 passed**, zero failures/errors/skips | Completion-boundary repair `3d667e36`; only documentation/evidence changed through `84a97cba` |
+| Host JNI | **17 per variant**, included above | Actual Linux JNI/DSP execution, not Android |
+| [CI & Debug Build](https://github.com/yren411/vivi-music-personal/actions/runs/39079630570) | Passed on `84a97cba`, 9m42s | Universal GMS; duplicate push-only job conditionally skipped |
+| [Build PR](https://github.com/yren411/vivi-music-personal/actions/runs/39079630450) | Passed on `84a97cba`, 13m07s | Universal FOSS; nonblocking lint, not clean lint |
+| Combined Android instrumentation | **Owner reports 49 executed, zero failures/skips** | S25 Ultra / Android 17; decoder 4 + native 14 + planner 6 + executor 14 + service 11, all in one selection |
+
+The final owner report followed the completion-boundary correction. Codex did not run
+Android instrumentation; raw Android XML and independently verified installed SHA were
+not supplied. No new tests were executed for this documentation-only reconciliation.
+The linked CI runs are for the reviewed implementation, not subsequent documentation
+commits; check the PR for those commits' own statuses. Compilation, historical CTest,
+host JNI and actual owner-run Android execution remain distinct evidence levels.
+
+The historical debugging outcomes below and in JSON are preserved unchanged. Their
+then-pending phone/CI statuses are superseded by the current results above for the tested
+scenarios. Real-song quality, acoustic sync, Bluetooth, audible EQ and extended phone
+resource/reliability validation remain outstanding. See [the activation guide](../../AUTOMIX_NATIVE_DJ_ACTIVATION.md)
+for the exact combined 49-test command and private listening workflow.
+
+## Historical initial implementation checkpoint
+
 Application implementation commit: `d7d9c40f` (see full hash in `validation.json`).
 Baseline: `f3c96b1adb7607dbf71bb4c41933010fecb47fc0`, merged PR #22.
 Environment: Linux x86_64, Java 21, Gradle 9.3.1, AGP 9.1.1, SDK 37,
 NDK 27.0.12077973. No Android runtime or permitted real-song corpus was available.
 This is engineering evidence for an **opt-in experiment**, not production readiness.
 
-## Executed and unexecuted checks
+## Historical executed and unexecuted checks
 
 | Evidence level | Result | Limits |
 |---|---|---|
@@ -131,17 +160,17 @@ python3 scripts/check_automix_native_apks.py \
   app/build/outputs/apk/universalFoss/debug/app-universal-foss-debug.apk
 ```
 
-## Required device and listening evidence
+## Device regression and remaining listening evidence
 
-Use the exact new **11-test** and prior **38-test** commands in
+Use the exact **49-test combined** or separate **11-test** and **38-test** commands in
 [the activation guide](../../AUTOMIX_NATIVE_DJ_ACTIVATION.md).
 The new tests bind actual MusicService and real configured Media3 players; one requires a
 substantial real overlap, promotion and active audio-session ownership. Focus and unexpected
 EOS callbacks are injected to validate forwarding, not OS arbitration or truncated codecs.
 Keep all failures, including format-specific startup drift and legitimate plan rejection.
 
-The unchanged v3 ten-second startup-observation expiry means long songs commonly reach their
-cue with **zero prediction lead**. Independent outputs may exceed the 120ms guard and fall
+The v4 executor retains the v3 ten-second startup-observation expiry, which means long
+songs commonly reach their cue with **zero prediction lead**. Independent outputs may exceed the 120ms guard and fall
 back. This limitation must be evaluated, not hidden by a wider tolerance or stale device delay.
 
 At the original evidence commit, owner feedback had not yet been supplied; see the
@@ -151,7 +180,14 @@ in the activation guide. No acoustic, Poweramp audibility, streaming success, or
 CPU, memory or battery claim is made. A passing generated-media test alone is insufficient for
 broader activation or public redistribution clearance.
 
-## Owner-reported hang and test-harness follow-up
+## Historical owner failures and targeted repairs
+
+These chronological checkpoints retain what was known at the time. None of their
+pending device instructions is a current blocker after the final owner-reported pass;
+individual commands remain optional troubleshooting tools. Failed measurements and
+original JSON statuses are not rewritten.
+
+### Owner-reported hang and test-harness follow-up
 
 After the initial evidence above, the owner reported no completed service tests after roughly
 seven minutes on one attempt and three minutes on another, with audio/crackles and no returned
@@ -162,7 +198,7 @@ The test-only follow-up removes unbounded main-thread/global-idle waits, bounds 
 operations, preserves original failures during cleanup, and emits private last-stage/filtered
 thread diagnostics. It does not alter MusicService, DSP, timing gates, gains or functional
 playback assertions. See `harness-hang-followup.json` for the follow-up's actual host checks,
-and the activation guide's single-test/ADB instructions for required device diagnosis.
+and the activation guide's optional single-test/ADB troubleshooting instructions.
 
 ### Subsequent device evidence: stale fixture bytes
 
@@ -180,8 +216,8 @@ but native admission rejected at 391ms as `UNSUPPORTED_PLAYER_CONFIGURATION`. Th
 was no native analysis, plan or mix. The generic reason cannot identify the individual
 false capability condition. The initial-output admission race was reproduced on the
 JVM and repaired without changing the legacy gate or allowing unsupported processors.
-See `output-readiness-followup.json` and the activation guide. Device rerun remains
-required; no successful native service transition is counted from this attempt.
+See `output-readiness-followup.json` and the activation guide. A device rerun was
+required then; this rejected attempt itself is not counted as a successful transition.
 
 ### Subsequent device evidence: FLAC sub-frame PTS rejection
 
@@ -199,7 +235,7 @@ FLAC output ended 5,112 source frames short of the original file, followed by on
 overlap drop. No native plan/mix started. The earlier one-anomaly PCM replay was useful
 but did not verify the complete device PTS stream or EOS behavior. See
 `flac-eos-diagnostic-followup.json` for exact counts, independent ffprobe frame inspection,
-new input/output counters and the pending silent physical-device diagnostic. No claimed
+new input/output counters and the then-pending silent physical-device diagnostic. No claimed
 full-window fix, acoustic improvement or service Android pass is made from host tests.
 
 
@@ -219,11 +255,40 @@ object identity/isolation and historical admission rejections are tested too. Se
 `flac-packetization-followup.json` for test/build results and limits. The upgraded
 silent Android probe still demands complete actual decoded PCM; no threshold/window
 is weakened and no output is fabricated. It now reports `probe=v2` and preprocessing
-v5. Its phone run and subsequent service execution remain pending. Legacy is unchanged;
-host parser results are not substituted for Samsung MediaCodec execution.
+v5. Its phone run and subsequent service execution were pending at this checkpoint;
+the owner subsequently reported both passing. Legacy is unchanged; host parser results
+are not substituted for Samsung MediaCodec execution.
 
 V5 source: `9a4e5bf9b806a308fb52695c047f2351d81a0177`. Recovery validation explicitly executed
 both complete JVM suites with rebuilt real host JNI: 487 tests per variant, zero
 failures/errors/skips. App/test APK outputs and lint were confirmed up-to-date;
 packaging checks executed again on both APKs. No cloud Android runtime tests ran.
 See the JSON's `recovered_environment_verification` for exact commands and distinctions.
+
+
+### Callback reentrancy, retained histories and successive completion
+
+The later full service class exposed six failures after isolated codec success.
+`service-suite-callback-followup.json` preserves that checkpoint: a retained service
+recorder could satisfy another test's completion wait, and pause/resume callbacks could
+reenter playback commands. Test-only session/attempt scoping and disabled-routing/queue
+barriers isolate generated fixtures without clearing the production recorder. Executor
+v4 publishes control state before commands, guards reentry and accepts the primary's
+already-applied play request only during explicit resume. Two regressions failed before
+repair. That source checkpoint executed **496 tests per JVM variant**, including real
+host JNI; it is not the final 497-per-variant count.
+
+The next owner run left only the successive-transition one-output assertion failing.
+`successive-completion-followup.json` retains the exact failure and repair: legacy
+promotion occurs at fade start while two decks are legitimately owned, whereas native
+promotion occurs at overlap completion. The test now waits for actual transition
+ownership to become idle, then independently retains the original exactly-one-output,
+queue, playback and volume assertions. It does not wait for the output count to become
+one, extend the deadline or change production release behavior. A new real legacy
+controller regression brings the complete suites to **497 + 497 = 994**.
+
+The owner then reported the targeted successive test passing and finally **all 49**
+combined Android regressions passing with zero failures/skips. Both required workflows
+also passed on `84a97cba`. These later results supersede historical pending statuses,
+without converting host measurements into phone data or erasing the unfavorable cases.
+No real-song ratings, acoustic alignment or audible EQ result is implied.
