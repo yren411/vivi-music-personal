@@ -43,4 +43,15 @@ class DecoderPacketAccountingTest {
         assertTrue(safe.contains("extractorMime=audio/flac"));assertTrue(safe.contains("codecName=c2.android.flac.decoder"))
         assertTrue(safe.contains("codecProgressSchema=1"));assertTrue(safe.length<1500)
     }
+    @Test fun opusSupportEvidenceIsNumericImmutableAndUnknownForOtherFormats() {
+        val p=DecoderPacketAccounting("audio/opus","c2.android.opus.decoder",PcmFormat(48000,1,PcmEncoding.PCM16))
+        val before=p.snapshot();assertNull(before.opusCodecDelayUs);assertNull(before.inputBoundaryUs)
+        fun ns(n:Long)=java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.nativeOrder()).putLong(n).apply{flip()}
+        p.opusWindow(OpusAnalysisWindow.create(2_000_000,7_000_000,ns(6_500_000),ns(80_000_000)))
+        val snapshot=p.snapshot();p.opusWindow(null)
+        assertEquals(6500L,snapshot.opusCodecDelayUs);assertEquals(80000L,snapshot.opusDeclaredPrerollUs)
+        assertEquals(80000L,snapshot.opusAppliedPrerollUs);assertEquals(7_006_500L,snapshot.inputBoundaryUs)
+        assertNull(before.opusCodecDelayUs);assertNull(p.snapshot().opusCodecDelayUs)
+        assertTrue(snapshot.reportFields().contains("opusWindowSchema=1"))
+    }
 }

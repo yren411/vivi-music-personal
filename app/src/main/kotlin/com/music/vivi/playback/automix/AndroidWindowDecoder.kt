@@ -141,7 +141,12 @@ class AndroidWindowDecoder(
             val lengthMs = min(requestedLengthMs, durationMs - startMs).coerceAtMost(32_000)
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
-            val seekTarget=if(flac!=null)startMs*1000 else DecoderSeekPolicy.targetUs(preprocessing,startMs*1000)
+            val mime = format.getString(MediaFormat.KEY_MIME)!!
+            val opusWindow = if (preprocessing == AnalysisPreprocessing.BANDLIMITED && mime == "audio/opus")
+                OpusAnalysisWindow.create(startMs * 1000, (startMs + lengthMs) * 1000,
+                    format.getByteBuffer("csd-1"), format.getByteBuffer("csd-2")) else null
+            val seekTarget=if(flac!=null)startMs*1000 else if(opusWindow!=null)opusWindow.seekTargetUs
+                else DecoderSeekPolicy.targetUs(preprocessing,startMs*1000)
             // Do not fetch the initial packet just to observe a pre-seek timestamp.
             // Nonzero tail seeks must retain the original bounded source-read behavior.
             if(flac==null)extractor.selectTrack(track)
@@ -150,7 +155,6 @@ class AndroidWindowDecoder(
                     extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
                 }
             }
-            val mime = format.getString(MediaFormat.KEY_MIME)!!
             // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
             observation.stage = DecoderStage.CODEC_SETUP
             val codecs=MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
@@ -179,6 +183,7 @@ class AndroidWindowDecoder(
             }
             observation.packets?.trim(encoderDelay,encoderPadding,configuredPadding)
             observation.packets?.seek(seekTarget,null,null)
+            observation.packets?.opusWindow(opusWindow)
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
@@ -193,7 +198,9 @@ class AndroidWindowDecoder(
             var encoding = C.ENCODING_PCM_16BIT
             var formatBasis = SourceFormatBasis.CONTAINER_WITH_ASSUMED_PCM16
             val info = MediaCodec.BufferInfo()
-            val endUs = (startMs + lengthMs) * 1000
+            // Opus output is shortened/shifted by its declared codec delay. A packet
+            // at the requested endpoint can still contain required real output PCM.
+            val endUs = opusWindow?.inputBoundaryUs ?: (startMs + lengthMs) * 1000
             observation.stage = DecoderStage.CODEC_OUTPUT
             observation.codecEos = false
             while (!outputEnded && (capture?.let { it.written < it.capacity } ?: !corrected!!.reachedEnd)) {

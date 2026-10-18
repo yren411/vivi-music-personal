@@ -48,7 +48,8 @@ object PcmPreprocessing {
     const val BANDLIMITED_V3 = "sinc64-blackman-initial-preroll-mono-22050-v3"
     const val BANDLIMITED_V4 = "sinc64-blackman-preroll-frameclock-mono-22050-v4"
     const val BANDLIMITED_V5 = "sinc64-blackman-flacframes-mono-22050-v5"
-    const val BANDLIMITED = "sinc64-blackman-aac-tailclock-mono-22050-v6"
+    const val BANDLIMITED_V6 = "sinc64-blackman-aac-tailclock-mono-22050-v6"
+    const val BANDLIMITED = "sinc64-blackman-opus-support-mono-22050-v7"
     const val IDENTITY = "identity-float-v1"
 }
 
@@ -90,7 +91,8 @@ data class DecodedWindow(
     fun invalidReason(): String? = when {
         !requested.valid || !decodeInterval.valid || !requested.contains(decodeInterval) -> "INVALID_INTERVAL"
         sampleTimelineStartUs < 0 || (sampleTimelineStartUs != decodeInterval.startUs &&
-            ((preprocessingVersion != PcmPreprocessing.BANDLIMITED && preprocessingVersion != PcmPreprocessing.BANDLIMITED_V4 && preprocessingVersion != PcmPreprocessing.BANDLIMITED_V3 &&
+            ((preprocessingVersion != PcmPreprocessing.BANDLIMITED && preprocessingVersion != PcmPreprocessing.BANDLIMITED_V6 &&
+                preprocessingVersion != PcmPreprocessing.BANDLIMITED_V4 && preprocessingVersion != PcmPreprocessing.BANDLIMITED_V3 &&
                 preprocessingVersion != PcmPreprocessing.BANDLIMITED_V2) || sampleTimelineStartUs !in decodeInterval.startUs until decodeInterval.endUs)) -> "INVALID_SAMPLE_ORIGIN"
         format.sampleRateHz == null || format.channels == null -> "MISSING_PCM_FORMAT"
         format.sampleRateHz !in 8_000..192_000 || format.channels !in 1..8 -> "UNSUPPORTED_PCM_FORMAT"

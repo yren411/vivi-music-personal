@@ -155,25 +155,25 @@ class AnalysisPipelineContractsTest {
             assertEquals(2,calls.get())
         }
     }
-    @Test fun aacTailClockVersionSeparatesV5CacheAndInflightResultsAndRejectsOldPcm() {
+    @Test fun opusSupportVersionSeparatesV6CacheAndInflightResultsAndRejectsOldPcm() {
         val profile=BitChordNativeAnalysisEngine.PROFILE;val w=window()
-        assertEquals("sinc64-blackman-aac-tailclock-mono-22050-v6",profile.preprocessingVersion)
-        val versions=listOf(PcmPreprocessing.LEGACY,PcmPreprocessing.BANDLIMITED_V2,PcmPreprocessing.BANDLIMITED_V3,PcmPreprocessing.BANDLIMITED_V4,PcmPreprocessing.BANDLIMITED_V5,PcmPreprocessing.BANDLIMITED)
-        assertEquals(6,versions.map{profile.copy(preprocessingVersion=it).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)}.distinct().size)
-        val oldKey=profile.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
+        assertEquals("sinc64-blackman-opus-support-mono-22050-v7",profile.preprocessingVersion)
+        val versions=listOf(PcmPreprocessing.LEGACY,PcmPreprocessing.BANDLIMITED_V2,PcmPreprocessing.BANDLIMITED_V3,PcmPreprocessing.BANDLIMITED_V4,PcmPreprocessing.BANDLIMITED_V5,PcmPreprocessing.BANDLIMITED_V6,PcmPreprocessing.BANDLIMITED)
+        assertEquals(7,versions.map{profile.copy(preprocessingVersion=it).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)}.distinct().size)
+        val oldKey=profile.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
         val newKey=profile.cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
         val entered=CountDownLatch(2);val release=CountDownLatch(1);val calls=AtomicInteger();val oldValue=Any();val newValue=Any()
         AnalysisWorkers<Any>(AutoMixPerformance.BALANCED).use {workers ->
             fun work(v:Any):Any {calls.incrementAndGet();entered.countDown();check(release.await(5,TimeUnit.SECONDS));return v}
             val old=workers.submit(oldKey){work(oldValue)};val current=workers.submit(newKey){work(newValue)}
-            try{assertTrue(entered.await(5,TimeUnit.SECONDS));assertNotSame(old,current);assertSame(current,workers.submit(newKey){error("Duplicate v6 work")})}
+            try{assertTrue(entered.await(5,TimeUnit.SECONDS));assertNotSame(old,current);assertSame(current,workers.submit(newKey){error("Duplicate v7 work")})}
             finally{release.countDown()}
             assertSame(oldValue,old.get(5,TimeUnit.SECONDS));assertSame(newValue,current.get(5,TimeUnit.SECONDS));workers.cancelAll()
-            assertSame(oldValue,workers.submit(oldKey){error("V5 cache miss")}.get(5,TimeUnit.SECONDS))
-            assertSame(newValue,workers.submit(newKey){error("V6 cache miss")}.get(5,TimeUnit.SECONDS));assertEquals(2,calls.get())
+            assertSame(oldValue,workers.submit(oldKey){error("V6 cache miss")}.get(5,TimeUnit.SECONDS))
+            assertSame(newValue,workers.submit(newKey){error("V7 cache miss")}.get(5,TimeUnit.SECONDS));assertEquals(2,calls.get())
         }
-        val old=w.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5)
-        val engine=BitChordNativeAnalysisEngine(NativeDspBridge {_,_->error("V5 PCM reached current native DSP")})
+        val old=w.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6)
+        val engine=BitChordNativeAnalysisEngine(NativeDspBridge {_,_->error("V6 PCM reached current native DSP")})
         val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(old)},engine,PcmPreprocessing.BANDLIMITED)
         assertEquals("WINDOW_IDENTITY_MISMATCH",(p.analyze(Unit,DecodeRequest(w.requested,w.identity),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed).failure.code)
         assertEquals("NATIVE_REQUIRES_CORRECTED_PCM",(engine.analyze(old,AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Failed).failure.code)

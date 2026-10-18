@@ -401,7 +401,8 @@ changing planner scoring.
 
 Reviewed Phase 3.3 admission used corrected v5 FLAC-frame PCM. The subsequent
 [Phase 3.3.1 AAC repair](AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) advances corrected
-admission to v6, retaining that FLAC route. Historical v2/v3/v4/v5 PCM/plans are not
-interchangeable with v6 and are rejected. Planner/executor algorithms, alignment
+admission to v6, retaining that FLAC route. The subsequent bounded Opus
+preroll/endpoint-support repair advances it to v7. Historical v2/v3/v4/v5/v6
+PCM/plans are not interchangeable with v7 and are rejected. Planner/executor algorithms, alignment
 thresholds, confidence and gain policy remain unchanged. Earlier benchmark/device
-results retain their original provenance; they are not v6 Android validation.
+results retain their original provenance; they are not v6/v7 Android validation.

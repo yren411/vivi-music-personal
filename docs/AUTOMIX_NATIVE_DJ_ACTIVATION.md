@@ -59,11 +59,13 @@ remains experimental and off by default.
 ## Phase 3.3.1 decoder follow-up
 
 [Real-world decoder reliability](AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) introduces
-corrected preprocessing **`sinc64-blackman-aac-tailclock-mono-22050-v6`** to preserve AAC
-tail-buffer timestamp ownership. The Phase 3.3 owner-reported 49-test pass and reviewed CI
+corrected preprocessing v6 for AAC tail-buffer timestamp ownership, followed by
+**`sinc64-blackman-opus-support-mono-22050-v7`** for bounded Opus seek/preroll and
+endpoint-support packets. The Phase 3.3 owner-reported 49-test pass and reviewed CI
 results above retain their original **v5** provenance; they are not new device validation
-of v6. The follow-up keeps the DSP, planner/executor gates, opt-in and legacy default intact.
-Its ten new decoder/device tests and v6 prior-49 rerun are reported separately.
+of v6/v7. The follow-up keeps the DSP, planner/executor gates, opt-in and legacy default intact.
+The owner reported one Opus failure among the ten new decoder methods on v6;
+the v7 repair and required prior-49 rerun are reported separately.
 
 ## Scope and current evidence
 

@@ -22,9 +22,9 @@ class BitChordNativeAnalysisEngineTest {
         val keys=listOf(native,legacy,native.copy(preprocessingVersion=PcmPreprocessing.LEGACY),
             native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2),
             native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3),
-            native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V4),native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5),
+            native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V4),native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5),native.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6),
             native.copy(backend=native.backend.copy(version="future-jni2"))).map { it.cacheKey(id,0,8000,AnalysisDetail.SCAN) }
-        assertEquals(8,keys.distinct().size);assertFalse(keys.any { it.contains(id.renditionKey) })
+        assertEquals(9,keys.distinct().size);assertFalse(keys.any { it.contains(id.renditionKey) })
     }
     @Test fun evidenceUsesNativeSemanticsAndNeverInventsOtherFeatures() {
         val r=engine().analyze(w(),AnalysisDetail.SCAN,AnalysisControl()) as AnalysisResult.Completed
@@ -76,7 +76,7 @@ class BitChordNativeAnalysisEngineTest {
     }
     @Test fun invalidInputFormatAndLegacyPreprocessingAreRejected() {
         val variants=listOf(w().copy(preprocessingVersion=PcmPreprocessing.LEGACY),
-            w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V4),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5),w().copy(format=PcmFormat(44100,1,PcmEncoding.FLOAT32)),
+            w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V2),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V4),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5),w().copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6),w().copy(format=PcmFormat(44100,1,PcmEncoding.FLOAT32)),
             w().copy(format=PcmFormat(22050,2,PcmEncoding.FLOAT32)),w().copy(samples=floatArrayOf()),
             w().copy(format=PcmFormat(22050,1,PcmEncoding.PCM16)))
         for (v in variants)assertTrue(engine().analyze(v,AnalysisDetail.SCAN,AnalysisControl()) is AnalysisResult.Failed)

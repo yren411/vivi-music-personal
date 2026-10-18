@@ -114,7 +114,12 @@ class RealWorldDecoderInstrumentedTest {
             val w=decode(s,start,start+5_000_000)
             assertTrue(w.frameCount!!>22050*4)
             assertTrue(w.coverage.acceptedDecodedFrames!!>0)
-            assertEquals(start+5_000_000,w.actualEndUs)
+            val diagnostic = requireNotNull(w.decoderDiagnostic).reportFields()
+            assertEquals(diagnostic,start+5_000_000,w.actualEndUs)
+            assertEquals(diagnostic,start,w.actualStartUs)
+            assertEquals(diagnostic,CoverageStatus.FULL,w.coverageStatus)
+            assertEquals(diagnostic,240_000L,w.coverage.acceptedDecodedFrames)
+            assertEquals(diagnostic,110_250,w.frameCount)
             assertEquals("audio/opus",w.decoderDiagnostic!!.codecProgress!!.extractorMime)
         }
     }

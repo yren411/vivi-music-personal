@@ -101,7 +101,7 @@ class PcmPreprocessingIntegrationTest {
     @Test fun v5AndV6CacheAndInflightKeysRemainDistinct() {
         val source=AnalysisSourceIdentity("recording","rendition")
         val old=BitChordNativeAnalysisEngine.PROFILE.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5)
-        val fresh=BitChordNativeAnalysisEngine.PROFILE
+        val fresh=BitChordNativeAnalysisEngine.PROFILE.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6)
         assertNotEquals(old,fresh)
         val a=old.cacheKey(source,0,32000,AnalysisDetail.DETAIL)
         val b=fresh.cacheKey(source,0,32000,AnalysisDetail.DETAIL)

@@ -4,6 +4,11 @@ Baseline: **`d17b094f8b6ba74bc33579c9821bc0b32b3245bc`**, current main containin
 merged Phase 3.3 / PR #23. Repair branch: `codex/automix-real-world-decoder`.
 BitChord remains pinned to `fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f`.
 
+Current follow-up: **v7 Opus support-window repair**. The owner reported one failure
+among ten v6 decoder tests; its supplied diagnostic establishes missing head/tail
+coverage at a nonzero Opus request. Post-repair Android execution remains pending.
+See the dedicated Opus section below; earlier v6 validation counts remain historical.
+
 ## Scope and evidence limits
 
 This is a corrected **analysis decoder** repair, not a musical-gate, playback, provider,
@@ -111,7 +116,9 @@ full evidence.
 
 ## Versioning and resource bounds
 
-New corrected preprocessing: **`sinc64-blackman-aac-tailclock-mono-22050-v6`**.
+The initial AAC repair introduced corrected preprocessing
+**`sinc64-blackman-aac-tailclock-mono-22050-v6`**. The later Opus follow-up below
+advances the current profile to v7 without relabeling v6 results.
 It includes v5's FLAC frame/codec route and the same arithmetic mono Float32 / 22050Hz
 sinc64 Blackman conversion, plus corrected AAC tail timestamp ownership and natural-vs-
 request EOS semantics. This can change samples, source coverage and resulting musical
@@ -119,8 +126,9 @@ features, so v5 is preserved as `BANDLIMITED_V5` and is never relabeled.
 
 `AnalysisPreprocessing`, native profile, planning/execution admission, worker cache keys,
 in-flight identities and signal/active-level observations already reference the common
-preprocessing identity. They now select v6 together. Tests distinguish v5/v6 futures and
-cached object identities and reject historical v5 PCM/plans at native boundaries. Signal
+preprocessing identity. The initial repair selected v6 together; the Opus follow-up
+selects v7. Tests distinguish historical/current futures and cached object identities
+and reject historical v5/v6 PCM/plans at native boundaries. Signal
 observation **method** versions stay unchanged: the measurement algorithm did not change,
 and its profile/cache identity already includes preprocessing. No persistent cache migration,
 unbounded cache, second scheduler or native algorithm change is introduced.
@@ -135,13 +143,89 @@ metadata fails safely. Control checkpoints guard conversion/emission/finish; no 
 threads or playback-thread work. Existing worker 1/2/4, queue 8, cache 64 and source byte,
 window, retry and network limits remain unchanged.
 
+## Owner Opus regression and bounded window repair (v7)
+
+After the v6 handoff, the owner reported **one failure among the ten new Android
+methods** on the Galaxy S25 Ultra / Android 17. A single-method rerun supplied this
+actual codec signature (not Codex-executed Android testing):
+
+```text
+requestedUs=2000000..7000000 coverage=PARTIAL sourceUs=2001000..6994500
+codecFrames=239688 acceptedFrames=239688 outputFrames=110106
+queuedInputBuffers=250 firstInputPtsUs=2001000 lastInputPtsUs=6981000
+extractorEndSampleTimeUs=7001000 outputDataBuffers=250 outputBytes=479376
+firstOutputPtsUs=2001000 lastOutputPtsUs=6974500 lastCodecEndUs=6994500
+codecEos=true inputEnd=REQUEST_BOUNDARY gaps=0 synthesizedTimelineFrames=0
+```
+
+There are **two missing edges**, not an interior gap: generic seeking delivered the
+first packet 1ms after the request, and request-boundary input EOS excluded the real
+7001000µs packet. The decoder produced 250×960 − 312 = 239688 source frames at 48kHz.
+The committed WebM's OpusHead independently declares 312 pre-skip frames (6.5ms).
+The output clock is continuous after the 2001000µs first output, and ends at
+2001000 + 239688/48000 seconds = **6994500µs**. Applying the compressed packet cutoff
+at 7000000µs therefore did not guarantee decoded coverage through 7000000µs.
+This is distinct from the original real-song Opus reports of **zero** PCM at natural EOS;
+those reports remain unresolved without their source/seek evidence.
+
+`OpusAnalysisWindow` is applied **only to corrected audio/opus analysis**:
+
+- Request an earlier seek using the declared `csd-2` seek preroll, with the Opus
+  80ms decoder-convergence minimum (RFC 7845 §4.6). Near zero, read the fresh track
+  without an explicit zero seek, preserving real initial packets.
+- Permit compressed input through requested end + the declared `csd-1` codec delay,
+  rounded up to microseconds. For the fixture's 6.5ms delay this admits the previously
+  discarded 7001000µs packet, but excludes 7021000µs. Actual capture completion can
+  stop decoding sooner. Missing delay remains explicitly unknown and adds no lookahead.
+- Keep original codec output PTS and sample order. Corrected capture trims actual PCM
+  to the **unchanged** requested/effective interval; no timestamp shifting, silence,
+  repeated samples or extended coverage is introduced.
+- Validate native-endian eight-byte timing declarations; reject malformed, negative,
+  overflowing or excessive support with `UNSUPPORTED_OPUS_TIMING`. Support is bounded
+  by the largest 16-bit OpusHead pre-skip at 48kHz (1365312500ns, about 1.365s).
+  This is a conservative analysis support limit, not a claim that every legal stream
+  must have preroll below it. Existing 3/12MiB byte, 32s accepted-window, deadline,
+  cancellation and 1/2/4-worker limits are unchanged.
+
+This changes which real source packets can contribute PCM, so current preprocessing is
+**`sinc64-blackman-opus-support-mono-22050-v7`**. Historical v6 remains
+`BANDLIMITED_V6`; v5/v6 results, in-flight jobs and plans cannot be relabeled as v7.
+The common profile propagates to native analysis, signal evidence, planning/execution
+admission and cache keys. AAC tail ownership and FLAC extraction/codec policy are retained.
+Legacy analysis, positioning and packet cutoff are unchanged.
+
+Host regression replays the **measured packet grid and aggregate output-frame clock**,
+not libopus or MediaCodec. Its first-buffer 312-frame reduction is inferred from the
+measured total, not a supplied per-buffer XML trace. It checks the exact original
+239688-frame partial result and the new bounded support policy, compares trimmed PCM
+sample-exactly with contiguous reference PCM, and retains rejection of a genuine missing
+source frame. Android endpoint assertions are retained and strengthened to require both
+edges, FULL coverage, 240000 accepted source frames and 110250 output frames in each
+5s window. The repaired Android behavior still requires the owner's rerun.
+
+The subsequent v7 complete local JVM tasks passed **514 Arm64 GMS + 514 Universal
+FOSS = 1028 tests**, zero failures/errors/skips, including the same 17 actual
+host-JNI/comparison executions per variant. Five Opus policy/replay tests and one
+Opus diagnostic test were added per variant. These counts are one complete run per
+variant, not the sum of focused/full reruns; they do not claim Android execution.
+Both GMS/FOSS app and test APKs built in **4m31s** (60 executed tasks, 337 up-to-date).
+Actual app APK inspections again passed four JNI ABIs, ELF/ZIP16KB alignment, symbols
+and license assets; both contain `OpusAnalysisWindow` and the v7 identity in DEX.
+Unchanged native-library hashes and prior raw benchmark artifacts are preserved.
+
+Additive `opusWindowSchema=1` diagnostics report declared codec delay, declared/applied
+preroll and compressed input cutoff. They do not invent unknown metadata, fetch extra
+packets solely for logging, or include paths/URLs/audio. The complete owner diagnostic
+and separate post-repair host/build results are recorded in
+[the evidence directory](benchmarks/phase331-native-decoder/README.md).
+
 ## Cache assessment, Opus, coverage and deadline findings
 
 | Issue | Finding | What remains unverified |
 | --- | --- | --- |
 | Owner says both tracks cached but incoming flag false | `fullyCached` is a source-publication snapshot. MusicService tests a **whole known-length rendition** in either downloadCache or playerCache; normal playback can use only a cached chunk. A fresh resolved source can also carry the conservative default false, and the two caches' union can contain bytes even if neither alone passes the full-span predicate. | The incoming rendition's actual spans/publication timing were not supplied. No claim that the owner was mistaken or that cache caused this PTS gap. |
-| Source access | The same authorized, read-only nested Media3 cache/range factory remains in use. `bytesRead` counts bridge bytes, which can come from cache; it is not a measured cellular/network byte count. | New instrumentation compares actual full/partial/empty Media3 caches over a local ranged encoded fixture. It models range semantics, not real HTTP/CDN/auth/expiry behavior; device execution pending. |
-| Opus late empty output | The reported legacy attempts reached natural extractor EOS with zero PCM. Existing seeking is generic previous-sync; no verified Opus-specific preroll is established from the excerpts. | Incorrect duration, beyond-end seek, packet/range loss and format-specific preroll remain alternatives. No additional byte budget or speculative Opus seek change. New local WebM near-end/EOS tests and before/after seek PTS diagnostics distinguish the next failure. |
+| Source access | The same authorized, read-only nested Media3 cache/range factory remains in use. `bytesRead` counts bridge bytes, which can come from cache; it is not a measured cellular/network byte count. | New instrumentation compares actual full/partial/empty Media3 caches over a local ranged encoded fixture. It models range semantics, not real HTTP/CDN/auth/expiry behavior. The subsequent owner report identifies one failing Opus method in the ten-method run; no individual raw cache-test report was supplied. |
+| Opus late empty output | The reported legacy attempts reached natural extractor EOS with zero PCM. Existing seeking is generic previous-sync; no verified Opus-specific preroll is established from the excerpts. | Incorrect duration, beyond-end seek, packet/range loss and format-specific preroll remain alternatives. The separate v7 owner-fixture regression above confirms a nonzero seek/head and artificial packet-cutoff defect. Its bounded preroll/delay-support repair does not establish the cause of these original zero-output natural-EOS reports; no byte budget increase. |
 | PARTIAL_SOURCE_COVERAGE | Can indicate missing head, actual early EOS, mismatched duration, packet loss or preparation failure. AAC tail retention can also truncate an artificial analysis endpoint. Effective, requested and materialized intervals remain distinct. | Other original attempts lack sufficient per-buffer/source evidence. They are not automatically attributed to the AAC mechanism or relabeled successful. |
 | DEADLINE_EXCEEDED | Service starts with finite `min(20s, max(4s, measuredCost×3), remainingPlayback−4s)`; initial estimate gives 6s. Decode and native work share that deadline and the existing worker budget. Outgoing native time ~2.604s alone does not establish where either timed-out attempt spent its time. | No original stage breakdown or worker-wait measurement. New per-stage elapsed values separate extractor/cache setup, codec setup/output, PCM and resampling; native diagnostics already report JNI time. No deadline increase or claim of timeout repair. |
 
@@ -173,7 +257,7 @@ rerun for this Kotlin-only repair. Their previous results are not new passes her
 No emulator/system image/KVM or connected Android device is available to execute tests
 in this cloud environment. Android compilation is not a Samsung runtime pass.
 
-Latest complete local validation: **508 Arm64 GMS + 508 Universal FOSS = 1016 passed**,
+The complete v6 fixture-contract validation was **508 Arm64 GMS + 508 Universal FOSS = 1016 passed**,
 zero failures/errors/skips. This includes **17 actual host-JNI/comparison tests per
 variant** (34 included executions, not additional to 1016). Eight rate/channel/encoding
 PCM parity cases measured **maximum absolute Float32 error 0.0**, accepting exactly
@@ -205,7 +289,7 @@ and payload hash, preventing an unrelated valid-AAC case from satisfying this re
 The initial fixture hash/defect remain in the fixture manifest as historical evidence.
 After that fixture-contract addition, both full suites passed **508 + 508**, and both
 app/test variants built successfully in **2m47s** (22 executed tasks, 375 up-to-date).
-This is the latest complete run; earlier 507-per-variant runs above retain their own counts.
+This was the complete v6 fixture-contract run; the separate v7 follow-up evidence records its own executions. Earlier 507-per-variant runs above retain their own counts.
 
 New class: **10 tests**, using genuine generated AAC and Opus. One direct MediaCodec
 probe explicitly configures 14-frame padding to reproduce the original 1010/1024 buffer
@@ -215,6 +299,13 @@ PTS, full/partial/empty caches, seek/coverage, Opus near-end/EOS, cancellation, 
 and strict missing-source rejection before JNI, including a real omitted compressed AAC
 access unit with unchanged remaining extractor timestamps. No internet or audio playback is needed
 for this new decoder class. Existing 49 tests remain intact.
+
+For the current v7 Opus repair, first select
+`com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest#opusEarlierAndNearEndWindowsContainActualDecodedAudio`
+in the class argument below: expect **one executed, zero failures/skips**. Then rerun
+the full ten-method class and the prior 49 regressions. The diagnostic file now also
+records Opus delay/preroll and the actual compressed cutoff. No v7 Android pass is
+claimed before that rerun.
 
 PowerShell from the repository root in Android Studio; keep the working debug key and
 isolated `com.yren411.tinium.decodercheck` package. No normal-app uninstall, data deletion,
@@ -255,7 +346,7 @@ real-listening diagnostic path, not unrestricted logcat or automatic telemetry.
 
 ## Authorized real-song rerun after device regressions
 
-The retained-test-APK command installs the isolated v6 app, not an update to the normal
+The retained-test-APK command installs the isolated current-profile app, not an update to the normal
 Tinium installation. To update only that isolated app for ordinary listening:
 
 ```powershell
@@ -273,7 +364,7 @@ attempt/session in the export; do not count cumulative retained history as new f
    existing signing; the isolated debug app has separate preferences/accounts/cache.
 2. Queue **Oye Como Va — Banda M1 → Eva Maria — Banda Maguey**, using sources you are
    authorized to play. Keep the same volume/route/EQ conditions. Do not erase cached songs.
-3. Export Stats for Nerds after the attempt. Check **v6** preprocessing and both actual
+3. Export Stats for Nerds after the attempt. Check **v7** preprocessing and both actual
    source identities, outgoing full corrected coverage and incoming full coverage without
    false SOURCE_GAP. Inspect encoder-padding/configured-padding and frame-boundary evidence.
 4. Confirm both native results reach planning, or retain accurate rejection reasons. A

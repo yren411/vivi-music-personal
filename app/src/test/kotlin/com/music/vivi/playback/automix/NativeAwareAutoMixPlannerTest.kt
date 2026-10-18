@@ -114,6 +114,7 @@ class NativeAwareAutoMixPlannerTest {
             PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V3)) },
             PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V4)) },
             PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5)) },
+            PlanningRejection.UNSUPPORTED_PREPROCESSING to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6)) },
             PlanningRejection.SOURCE_DISCONTINUITY to fixtures.withAnalysis(base) { it.copy(metadata=it.metadata.copy(repeatedOutputFrames=1)) })
         for((expected,a) in variants) assertEquals(expected,reason(plan(a)))
     }

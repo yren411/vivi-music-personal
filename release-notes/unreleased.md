@@ -247,7 +247,11 @@ This is an unversioned draft for review. No release version or tag is assigned.
   corrected analysis, rather than assigning older retained samples the next packet's
   time. Apply declared tail trimming at natural EOS, without treating an analysis-window
   endpoint as the end of the song. Keep strict source-gap rejection and legacy fallback.
-- Version corrected analysis PCM/cache identity as v6; retain historical v5 identity.
-  Add bounded trim, seek, source-frame boundary and stage-time diagnostics plus generated
+- Version corrected analysis PCM/cache identity separately for AAC tail ownership (v6)
+  and bounded Opus preroll/endpoint support (v7); retain historical identities.
+- Preserve real Opus support packets around requested analysis windows so valid
+  decoded audio can reach both endpoints without padding or relaxed coverage checks.
+  Android validation of this Opus follow-up remains pending.
+- Add bounded trim, seek, source-frame boundary and stage-time diagnostics plus generated
   AAC/Opus regressions. Legacy remains default; original real-song metadata and new Android
   runtime validation remain owner-device follow-ups, not claimed listening-quality fixes.
