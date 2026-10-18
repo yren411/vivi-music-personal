@@ -206,8 +206,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 if(clocks.querySpanUs>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.CLOCK_OBSERVATION_UNCERTAIN)
                 if(!a.ready || !a.playing || !b.ready || b.playing || abs(b.positionUs-c.incomingCueUs)>config.cueToleranceUs)
                     return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.SEEK_FAILED)
-                if(a.positionUs-dispatchTarget+(now-clocks.outgoing.beforeUs)>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
-                dispatchPosition=a.positionUs;dispatchedAt=nowUs();commandTime=dispatchedAt;lastIncomingProgressAtUs=dispatchedAt
+                val commandAt=nowUs() // include capability/format-query work since the snapshots
+                if(a.positionUs-dispatchTarget+(commandAt-clocks.outgoing.beforeUs)>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
+                dispatchPosition=a.positionUs;dispatchedAt=commandAt;commandTime=dispatchedAt;lastIncomingProgressAtUs=dispatchedAt
                 next.play();stage(if(a.positionUs<c.outgoingCueUs)NativeDjExecutionStage.STARTING else NativeDjExecutionStage.MIXING)
             }
             if(status.stage==NativeDjExecutionStage.STARTING || status.stage==NativeDjExecutionStage.MIXING) {

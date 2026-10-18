@@ -11,7 +11,7 @@
             "bpm": 147.95433486768678,
             "incomingBpm": 146.44518730720463,
             "ANALYZED_REGION": {
-                "hostPlannerNanos": 246881,
+                "hostPlannerNanos": 231041,
                 "candidates": 192,
                 "truncated": false,
                 "outgoingCueUs": 132097200,
@@ -34,7 +34,7 @@
                 }
             },
             "PRESERVE_OUTGOING": {
-                "hostPlannerNanos": 619135,
+                "hostPlannerNanos": 423009,
                 "candidates": 192,
                 "truncated": false,
                 "outgoingCueUs": 160484337,
@@ -62,7 +62,7 @@
             "bpm": 120.0,
             "incomingBpm": 120.0,
             "ANALYZED_REGION": {
-                "hostPlannerNanos": 264563,
+                "hostPlannerNanos": 266978,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 148232200,
@@ -81,7 +81,7 @@
                 }
             },
             "PRESERVE_OUTGOING": {
-                "hostPlannerNanos": 257280,
+                "hostPlannerNanos": 291344,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 163732200,
@@ -108,7 +108,7 @@
             "bpm": 120.0,
             "incomingBpm": 120.0,
             "ANALYZED_REGION": {
-                "hostPlannerNanos": 125124,
+                "hostPlannerNanos": 138078,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 232200,
@@ -127,7 +127,7 @@
                 }
             },
             "PRESERVE_OUTGOING": {
-                "hostPlannerNanos": 97732,
+                "hostPlannerNanos": 122268,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 3732200,
@@ -153,7 +153,7 @@
             "bpm": 120.0,
             "incomingBpm": 120.0,
             "ANALYZED_REGION": {
-                "hostPlannerNanos": 246880,
+                "hostPlannerNanos": 260245,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 1168232200,
@@ -172,7 +172,7 @@
                 }
             },
             "PRESERVE_OUTGOING": {
-                "hostPlannerNanos": 237393,
+                "hostPlannerNanos": 250518,
                 "candidates": 128,
                 "truncated": false,
                 "outgoingCueUs": 1183732200,
@@ -199,7 +199,7 @@
             "bpm": 120.0,
             "incomingBpm": 140.0,
             "ANALYZED_REGION": {
-                "hostPlannerNanos": 79769,
+                "hostPlannerNanos": 101700,
                 "candidates": 0,
                 "truncated": false,
                 "fallback": "INCOMPATIBLE_TEMPO",
@@ -209,7 +209,7 @@
                 "laterCandidateRejections": {}
             },
             "PRESERVE_OUTGOING": {
-                "hostPlannerNanos": 42730,
+                "hostPlannerNanos": 85660,
                 "candidates": 0,
                 "truncated": false,
                 "fallback": "INCOMPATIBLE_TEMPO",
@@ -221,8 +221,8 @@
         }
     ],
     "clockIterations": 100000,
-    "clockHostNanos": 8997639,
+    "clockHostNanos": 13209459,
     "routeIterations": 100000,
-    "routeHostNanos": 14424576,
+    "routeHostNanos": 14082988,
     "routeCancellations": 0
 }

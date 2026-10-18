@@ -107,5 +107,12 @@ class NativeCuePreservationTest {
         assertEquals(176_000_000L,p.expectedEndpointUs);assertEquals(4_000_000L,p.allowedLossUs)
         assertEquals(8L,p.endDistancePulses)
         assertThrows(ArithmeticException::class.java){NativeCuePreservation.describe(Long.MAX_VALUE,Long.MAX_VALUE-2,4,120.0)}
+        // Existing octave hypotheses may use an effective pulse rate below the
+        // measured detector's 60 BPM lower bound. Do not reject that hypothesis
+        // just because placement uses its pulse period instead of measured BPM.
+        val half=selected(run(180_000_000,119.5,60.0))
+        assertEquals(MetricalRelation.OUTGOING_DOUBLE_PULSE,half.candidate.tempo.relation)
+        assertEquals(59.75,half.candidate.tempo.effectiveOutgoingBpm,0.0)
+        assertTrue(half.candidate.uncertainties.contains(PlanningUncertainty.OCTAVE_HYPOTHESIS_UNVERIFIED))
     }
 }

@@ -51,7 +51,7 @@
     "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
   },
   "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
-  "buildResult": "BUILD SUCCESSFUL in 4m 17s; 397 actionable tasks, 43 executed, 354 up-to-date",
+  "buildResult": "BUILD SUCCESSFUL in 3m 30s; 397 actionable tasks: 44 executed, 353 up-to-date",
   "environment": {
     "host": "Linux x86_64",
     "java": 21,
@@ -67,5 +67,16 @@
     "tests": 192,
     "failures": 2,
     "cause": "Initial ranking prioritized endpoint before overlap and shortened valid long mixes; ranking fixed, original assertions retained."
+  },
+  "historicalHalfPulsePreRepair": {
+    "tests": 1,
+    "failures": 1,
+    "reason": "INVALID_EVIDENCE",
+    "measuredBpm": [
+      119.5,
+      60.0
+    ],
+    "effectiveOutgoingBpm": 59.75,
+    "fixed": "placement accepts existing effective pulse range; measured native BPM gate unchanged"
   }
 }

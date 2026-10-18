@@ -68,6 +68,8 @@ crosses the limit ambiguously, fallback is `CLOCK_OBSERVATION_UNCERTAIN`. Neithe
 The independent progress, buffering, discontinuity, first-start and stall guards remain.
 At a stopped outgoing EOS the clock is not projected. Slow query age also counts against
 the unchanged 40 ms start-command guard; a wide query cannot authorize a late start.
+The final command-time reading includes intervening prepared-format/capability checks,
+so a slow check after snapshots cannot use a stale tick timestamp to pass admission.
 
 Executor version is **`tinium-native-dj-executor-v5-bracketed-media-clocks`**. Diagnostics
 separate first offset, raw peak offset, guarded peak drift, query span/brackets, steady
@@ -124,8 +126,10 @@ string representation is redacted. Reports contain route categories, notificatio
 changed-deck/replacement flags, material/known/deferred flags, and session/focus notification
 flags. Existing event monotonic time supplies chronology. A session/focus flag records the
 notification kind; it does not assert that physical routing changed. Active incoming is
-required once it has observable progress. Unknown/unstable routes do not trigger an
-unbounded retry loop; unchanged repeated observations do not create a new generation.
+required once it has observable progress. Unknown routes block new admission; unchanged
+repeated observations do not create a new generation. Repeated genuinely different
+known routes still invalidate; device traces must establish whether additional stabilization
+is needed for a physically flapping output. No arbitrary retry/debounce timer is installed.
 
 This fixes the demonstrated notification-policy defect. Whether Samsung screen recording
 changes actual routing, sessions or clock behavior still requires the manual procedure below.
@@ -152,6 +156,9 @@ one smallest supported eight-pulse overlap unheard. This is an explicit conserva
 listening policy, **not** verified phrasing or outro detection. It makes the early regression
 inadmissible (budget about 3.244 s), but does not assert that a safe later cue exists in those
 actual songs. Fallback is preferable when later beats, coverage or transient evidence fail.
+The pulse period uses the selected hypothesis's effective BPM, which can fall below
+60 BPM after halving measured native BPM. Measured evidence still requires 60–220 BPM;
+the placement helper must not reject an already valid octave hypothesis on that basis.
 
 Search reserves the latest feasible start for each supported overlap/stride, ending at
 supplied real beats, then fills the same bounded anchor budget from late sampled anchors.
@@ -224,9 +231,9 @@ remain unchanged. These are local results for this implementation, not phone exe
 
 ### Resource observations
 
-The archived final host run measured 100,000 clock-bound evaluations in 8.998 ms
-(about 90 ns/evaluation) and 100,000 identical route notifications in 14.425 ms
-(about 144 ns/observation), with zero material cancellations. Generated planner cases
+The archived final host run measured 100,000 clock-bound evaluations in 13.209 ms
+(about 132 ns/evaluation) and 100,000 identical route notifications in 14.083 ms
+(about 141 ns/observation), with zero material cancellations. Generated planner cases
 complete within the individual host nanosecond timings in the JSON; these microbenchmarks
 exclude Android player calls, scheduling, AudioTrack queries, capture and audio effects.
 They are not Android CPU/battery estimates. Existing executor callbacks remain 10 ms

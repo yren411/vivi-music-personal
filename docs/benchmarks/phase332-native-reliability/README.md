@@ -43,7 +43,7 @@ Completed locally: **546 GMS + 546 FOSS = 1,092 JVM tests passed**, zero failure
 skips; includes 17 actual host-JNI cases per variant. Both app and instrumentation APK
 variants built. All four JNI ABIs, ELF/ZIP 16 KB alignment and license assets passed
 inspection. No Android runtime tests executed here. The final host microbenchmark is
-about 90 ns per clock calculation and 144 ns per unchanged route decision; these do not
+about 132 ns per clock calculation and 141 ns per unchanged route decision; these do not
 include Android position/timestamp calls or characterize phone audio latency.
 
 Environment: JDK 21, Gradle 9.3.1, AGP 9.1.1, Kotlin 2.3.10, SDK 37, NDK 27.0.12077973.
@@ -102,6 +102,13 @@ The initial focused run exposed an overlap-ranking regression: prioritizing endp
 distance before supported overlap shortened valid long mixes. Ranking was corrected
 and both the new long-ending assertion and existing ≥29-second host-JNI service assertion
 were retained. This unfavorable intermediate result is not a device failure.
+
+Final review also reproduced one new placement-helper defect before repair: measured
+119.5 vs 60 BPM can form the existing 59.75 vs 60 effective-pulse hypothesis, but using
+the measured 60 BPM lower bound for placement wrongly returned `INVALID_EVIDENCE`.
+The regression failed before the helper accepted the existing effective 30–220 range;
+native measured-BPM validation and all alignment gates remain unchanged. That octave
+remains explicitly unverified, not forcibly treated as the song's true tempo.
 
 No full-recording commercial audio or private diagnostics are committed. No telemetry is
 uploaded. Speaker/Bluetooth/acoustic/EQ listening and extended resource observations are

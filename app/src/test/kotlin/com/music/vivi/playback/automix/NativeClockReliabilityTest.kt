@@ -72,6 +72,17 @@ class NativeClockReliabilityTest {
         val e=NativeDjTransitionExecutor(host,{h.now});e.start(h.plan);delayQuery=true;h.toStart(e)
         assertEquals(NativeDjExecutionReason.CLOCK_OBSERVATION_UNCERTAIN,e.status.reason)
         assertFalse(h.b.playing);assertEquals(0,h.promotions)
+        // Also count time spent on prepared-format compatibility AFTER snapshots.
+        val g=VirtualNativeDjHost(plan);g.now=1_000_000
+        g.startup=NativeDjStartupObservation(g.a.source,g.generation,g.now-30_000,g.a.position-30_000,g.now,g.a.position)
+        var slowFormat=false
+        val formatHost=object:NativeDjHost by g {
+            override fun startupTimingCompatible():Boolean {if(slowFormat)g.now+=40_001;return true}
+        }
+        val delayed=NativeDjTransitionExecutor(formatHost,{g.now});delayed.start(g.plan)
+        slowFormat=true;g.toStart(delayed)
+        assertEquals(NativeDjExecutionReason.START_MISSED,delayed.status.reason)
+        assertFalse(g.b.playing);assertEquals(0,g.promotions);assertEquals(1,g.b.releaseCount)
     }
     @Test fun uncertaintyCannotHideAnActualOffsetAtTheGuardBoundary() {
         val h=VirtualNativeDjHost(plan);var uncertain=false
