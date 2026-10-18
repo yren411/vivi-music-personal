@@ -1,5 +1,8 @@
 package com.music.vivi.ui.component
 
+import com.music.vivi.utils.dataStore
+import kotlinx.coroutines.flow.first
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -112,7 +115,8 @@ fun PlayerDiagnostics(connection: PlayerConnection, modifier: Modifier=Modifier,
                 val report=withContext(Dispatchers.IO) {
                     val installed=com.music.vivi.vivimusic.updater.installedVersion(context)
                     AutoMixRecorder.render(connection.service.autoMixRecorder.snapshot(),MixReportHeader(installed.name,installed.code,
-                        android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,enabled,mode))
+                        android.os.Build.VERSION.RELEASE,android.os.Build.MODEL,enabled,mode,
+                        engineMode=com.music.vivi.playback.automix.AutoMixEngineMode.read(context.dataStore.data.first()[com.music.vivi.constants.AutoMixEngineModeKey])))
                 }
                 val filename=MixLogWriter.filename()
                 if(android.os.Build.VERSION.SDK_INT>=29) {
@@ -164,6 +168,12 @@ private fun autoMixDescription(state: AutoMixStatus): String {
         AutoMixPhase.RECOVERING -> R.string.automix_status_recovering
         AutoMixPhase.UNAVAILABLE -> R.string.automix_status_unavailable
     })
+    if(state.nativeMode) {
+        val p=state.nativePlan
+        return "${stringResource(R.string.automix_engine_native)} · ${state.nativeExecutionStage?.name ?: phase}" + (p?.let {
+            " · ${makeTimeString(it.candidate.outgoingCueUs/1000)} → ${makeTimeString(it.candidate.incomingCueUs/1000)} · ${it.candidate.overlapUs/1_000_000.0}s"
+        } ?: "") + (state.reason?.let { " · $it" } ?: "")
+    }
     val plan=state.plan
     val technique=plan?.let { stringResource(when(it.technique) {
         MixTechnique.BEAT_BLEND -> R.string.automix_technique_beat
@@ -172,7 +182,8 @@ private fun autoMixDescription(state: AutoMixStatus): String {
         MixTechnique.ENERGY_FADE -> R.string.automix_technique_energy
         MixTechnique.SAFE_FADE -> R.string.automix_technique_fallback
     }) }
-    val base=if(plan!=null) stringResource(R.string.automix_plan_summary,phase,technique ?: "",
+    val fallbackPrefix=state.nativeFallback?.let {"Native DJ → Legacy ($it) · "} ?: ""
+    val base=fallbackPrefix + if(plan!=null) stringResource(R.string.automix_plan_summary,phase,technique ?: "",
         makeTimeString(plan.outgoingStartMs),makeTimeString(plan.incomingCueMs),plan.durationMs/1000.0)
         else stringResource(R.string.automix_status_summary,phase)
     val summary=if(plan!=null) "$base · ${stringResource(when(plan.tier) {

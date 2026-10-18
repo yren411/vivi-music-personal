@@ -1,9 +1,9 @@
 # Experimental native DJ transition execution — Phase 3.2
 
 Base: merged PR #21, `a87611de2188436b7cc951afe4999199210b9d40`.
-This phase adds an **explicitly invoked experimental executor**, not production activation.
+At the Phase 3.2 checkpoint, this added an **explicitly invoked experimental executor**, not production activation.
 `MusicService`, its legacy planner/controller, PCM selection, gains, filters, equalizers,
-settings, notifications and queue remain unchanged. No release version is allocated.
+settings, notifications and queue were unchanged by Phase 3.2. No release version was allocated.
 
 **Owner-reported Android validation passed.** After earlier excessive player-clock drift
 and follow-up startup/progress-accounting failures, targeted repairs produced executor
@@ -24,8 +24,10 @@ results for the reviewed implementation, not a claim about future documentation 
 This validates the reported generated-media player-level tests, **not production listening
 readiness**. Acoustic/sample-accurate alignment, comprehensive real-song listening,
 Bluetooth/output latency, Poweramp/external-EQ processing and long-term reliability
-remain unverified. Normal `MusicService` AutoMix still uses the legacy path. Phase 3.3
-owns further real-song validation and separately authorized controlled integration/activation.
+remain unverified. Normal `MusicService` AutoMix still defaults to legacy. Phase 3.3 now
+provides explicit experimental service opt-in, with its own owner-reported 49-test pass;
+see [current integration validation](AUTOMIX_NATIVE_DJ_ACTIVATION.md#current-validation-status--phase-33).
+That later result does not change the historical Phase 3.2 measurements below.
 The historical failures and probe measurements below remain part of the investigation.
 
 ## Implemented path
@@ -93,7 +95,7 @@ installed here.** The controlled isolated path is the current executable integra
 ## Admission and provenance
 
 Admission checks planner version, native backend/profile, corrected preprocessing
-`sinc64-blackman-initial-preroll-mono-22050-v3`, required capability, rate 1.0, generation,
+`sinc64-blackman-flacframes-mono-22050-v5`, required capability, rate 1.0, generation,
 recording/rendition identities, durations, seekability, cue regions, analyzed intervals,
 remaining track time, bounded overlap and timing residuals. Pulse counts must be 8/16/32/64
 intervals; overlap length, rank summary and predicted rate-1.0 drift must be consistent with
@@ -557,15 +559,17 @@ pause/resume and Poweramp/internal-EQ enabled/disabled separately, recording rou
 
 The owner-reported 14-test v3 pass completes the reported generated-execution check;
 it does not authorize production activation. Comprehensive real-song listening and
-long-term normal-listening reliability remain unverified. Phase 3.3 must validate the
-controlled service integration before any separately authorized activation: retain/rerun
-the 14 execution tests and previous 24 regressions on the candidate integration; evaluate
+long-term normal-listening reliability remain unverified. At the Phase 3.2 checkpoint,
+controlled service integration was the next gate; the later Phase 3.3 owner-reported
+49-test pass now includes the 14 executor tests, previous 24 regressions and 11 service
+tests. Before broader activation, evaluate
 allowed real-song pairs, gain/timing/rollback listening, focus/session integration through the
 existing service and external EQ on actual routes; consider captured-output timing; resolve
 source duration discrepancies; validate startup/drift limits and longer overlaps under load.
 Phrase/vocal/harmonic confidence, half-time ambiguity and active-content preservation remain
 limitations inherited from Phase 3.1. An early exit is explicitly flagged, never proof that a
-whole song's musical structure was understood. No rollout or public toggle is implemented.
+whole song's musical structure was understood. Phase 3.2 added no rollout or public toggle;
+Phase 3.3 adds explicit experimental opt-in while retaining legacy as the default.
 
 Existing Orchard/BitChord notices and AGPLv3-or-later source obligations are preserved. New
 experimental native-planning glue follows that provenance; root terms are unchanged. The owner's
@@ -607,3 +611,34 @@ all 14 v3 execution tests passing on the S25 Ultra / Android 17. This is owner-r
 player-level validation; Codex did not execute it or independently inspect raw test XML
 or the installed SHA. No production service, planner, DSP, gain policy, effect-session
 handling or analysis/preprocessing identity changed.
+
+
+## Phase 3.3 opt-in integration boundary
+
+[Phase 3.3](AUTOMIX_NATIVE_DJ_ACTIVATION.md) adds a separately gated MusicService caller.
+The default adapter still requires a single outgoing item; its explicit service queue
+option permits the service-owned playlist, pause-at-end and atomic queue transplantation
+without restarting the incoming player. Existing focus/output hooks remain authoritative.
+Normal AutoMix remains legacy unless the new engine preference is explicitly selected.
+Historical Phase 3.2 device passes alone did not validate service integration. The owner
+subsequently reported all 49 combined regressions passing, including the 14 executor and
+11 actual-service tests, on S25 Ultra / Android 17 after the completion-boundary repair.
+Codex did not run those Android tests; raw XML and verified installed SHA were not supplied.
+See Phase 3.3 for reviewed-head CI/JVM provenance and remaining listening requirements.
+
+### Phase 3.3 preprocessing identity update
+
+Current admission follows the corrected v5 FLAC-frame profile. Historical v2/v3/v4 PCM/plans
+are not interchangeable with it and are rejected. This changes the preprocessing identity,
+not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
+Earlier benchmark/device results retain their original build provenance and are not new
+v5 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+
+
+Phase 3.3 service follow-up adds executor
+`tinium-native-dj-executor-v4-reentrant-playback-controls` for reentrant Media3
+pause/resume callbacks. It preserves v3 startup/progress/timing/gain policies.
+See [the service-suite follow-up](AUTOMIX_NATIVE_DJ_ACTIVATION.md#eleven-test-suite-follow-up-history-isolation-and-playback-callbacks).
+The owner-reported v3 Android results above remain historical. The later combined
+49-test owner pass separately covers v4 service pause/resume; it does not establish
+acoustic synchronization, audible EQ equivalence or broad production readiness.

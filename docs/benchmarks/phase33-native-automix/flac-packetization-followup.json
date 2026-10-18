@@ -1,0 +1,215 @@
+{
+  "schema": "phase33-flac-packetization-followup-v1",
+  "source_commit": "9a4e5bf9b806a308fb52695c047f2351d81a0177",
+  "status": "V5_IMPLEMENTED_HOST_VALIDATED_ANDROID_RUNTIME_PENDING",
+  "owner_probe": {
+    "version": "v1",
+    "generated_at": "2026-10-17T13:46:21.152337-05:00",
+    "time_zone": "America/Chicago",
+    "device": "Samsung Galaxy S25 Ultra / Android 17 (owner report)",
+    "extractor_mime": "audio/flac",
+    "codec_name": "c2.sec.flac.decoder",
+    "direct_extraction_initial_and_zero_seek": {
+      "packets": 267,
+      "compressed_bytes": 835064,
+      "last_pts_us": 0,
+      "last_size": 5000,
+      "trailing_pts": "zero despite early nonzero frame times"
+    },
+    "legacy_and_corrected_queued_input_buffers": 267,
+    "legacy_and_corrected_queued_input_bytes": 835064,
+    "legacy_and_corrected_output_buffers": 286,
+    "legacy_and_corrected_codec_source_frames": 1317888,
+    "expected_source_frames": 1323000,
+    "source_frames_missing_before_capture": 5112,
+    "corrected_accepted_frames": 1317887,
+    "corrected_dropped_overlap_frames": 1,
+    "corrected_output_frames": 658943,
+    "corrected_coverage_end_us": 29884058,
+    "corrected_coverage": "PARTIAL",
+    "codec_eos": true,
+    "input_end": "NATURAL_EOS",
+    "native_plans": 0,
+    "native_mixes": 0,
+    "corrected_preprocessing": "sinc64-blackman-preroll-frameclock-mono-22050-v4",
+    "exact_checkout_sha": null,
+    "first_queued_pts_us": 0,
+    "last_queued_pts_us": 0,
+    "legacy_data_source_bytes_read": 900268,
+    "corrected_data_source_bytes_read": 843350,
+    "fully_cached": true,
+    "byte_counter_semantics": "DataSource reads, including cache; not measured network transfers"
+  },
+  "interpretation": {
+    "confirmed": "All compressed audio bytes were queued; vendor extraction emitted different frame boundaries and trailing zero PTS, and selected vendor software codec returned incomplete PCM.",
+    "unknown": "Exact vendor codec internal truncation mechanism. Host parser success does not prove full Samsung PCM output after repair.",
+    "not_supported_by_evidence": [
+      "network byte loss in this cached local attempt",
+      "hardware decoder selected",
+      "native confidence caused this failure",
+      "v4 full-window Android success"
+    ]
+  },
+  "fixture": {
+    "asset": "app/src/androidTest/assets/automix/rhythm-128-44100.flac",
+    "bytes": 843350,
+    "sha256": "83ed050f64f01cb7a57ac21a547aa8846a6b28a70b9ca8f130f03d809892a23d",
+    "compressed_payload_offset": 8286,
+    "payload_sha256": "c44f1003aca4fe2d29ad605f37009228cf0f4fe4fba2b74fafce9610902c40b2",
+    "duration_us": 30000000,
+    "rate_hz": 44100,
+    "channels": 1,
+    "full_blocks": 287,
+    "full_block_samples": 4608,
+    "last_block_samples": 504
+  },
+  "real_host_media3_parser": {
+    "implementation": "existing androidx.media3 extractor 1.7.1 FlacExtractor; no mocks",
+    "packets": 288,
+    "compressed_bytes": 835064,
+    "last_pts_us": 29988571,
+    "last_packet_bytes": 295,
+    "payload_sha256_and_order_equal": true,
+    "short_read_chunk_bytes": 977,
+    "seek": {
+      "requested_us": 16000000,
+      "first_packet_pts_us": 15986938,
+      "last_packet_pts_us": 29988571,
+      "read_bytes": 423162
+    },
+    "tests": [
+      "full payload/packet count/integer PTS/final short frame",
+      "bounded random seek",
+      "cooperative cancellation during actual reads and expired deadline",
+      "oversized frame declaration",
+      "oversized metadata rejected before payload read/allocation"
+    ],
+    "tests_passed_per_variant": 5
+  },
+  "repair": {
+    "scope": "corrected compressed FLAC only; platform MediaExtractor still identifies initial MIME",
+    "packet_source": "BoundedFlacPackets using existing Media3 through authorized RangeSource",
+    "codec_preference": [
+      "c2.android.flac.decoder",
+      "OMX.google.flac.decoder"
+    ],
+    "missing_platform_codec": "controlled software-decoder-unavailable; existing legacy fallback",
+    "new_preprocessing": "sinc64-blackman-flacframes-mono-22050-v5",
+    "reserved_v4": "sinc64-blackman-preroll-frameclock-mono-22050-v4",
+    "legacy_default": "nearest-time-mono-22050-v1 unchanged",
+    "cache_and_inflight_version_isolation": true,
+    "new_failure_subtype": "FLAC_PARSER_BUDGET allocation guard; not a measured network fetch overrun",
+    "new_diagnostic_field": "controlled extractorImplementation, in existing codecProgressSchema=1",
+    "unchanged": [
+      "source authorization/range/byte budgets",
+      "maximum decode window and deadlines",
+      "legacy and non-FLAC codec/source selection",
+      "PCM filter/downmix/anchored frame-clock math",
+      "native DSP/JNI",
+      "planner/executor algorithms and coverage/drift/confidence/gain gates",
+      "lyrics/EQ/signing/workflows/versioning"
+    ]
+  },
+  "bounds": {
+    "initial_packet_staging_bytes": 32768,
+    "max_compressed_frame_bytes": 1048576,
+    "max_declared_aggregate_metadata_bytes": 4194304,
+    "max_metadata_blocks": 256,
+    "source_fetched_bytes_cached": 12582912,
+    "source_fetched_bytes_uncached": 3145728,
+    "worker_limits": [
+      1,
+      2,
+      4
+    ],
+    "max_window_seconds": 32,
+    "note": "Declaration/allocation guards, not measured whole-process peak memory. Existing stricter source fetch limit remains active. No whole-track PCM or new scheduler."
+  },
+  "host_validation": {
+    "environment": "Linux desktop JVM Java 21; no Android execution",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "duration": "3m15s",
+    "tasks_executed": 46,
+    "tasks_up_to_date": 316,
+    "counts": {
+      "testArm64GmsDebugUnitTest": {
+        "tests": 487,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testUniversalFossDebugUnitTest": {
+        "tests": 487,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "real_host_jni_tests_per_variant": 17,
+    "new_tests_per_variant": 9,
+    "new_tests_detail": {
+      "actual_media3_parser": 5,
+      "platform_codec_selection": 3,
+      "v4_v5_cache_inflight_and_boundary": 1
+    },
+    "preserved_android_sources": "11 service tests and earlier 38 decoder/native/planner/executor tests unchanged by this repair",
+    "app_build_and_lint": {
+      "command": "bash gradlew :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:lintUniversalFossDebug -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+      "result": "BUILD SUCCESSFUL",
+      "duration": "4m53s",
+      "tasks_executed": 25,
+      "tasks_up_to_date": 424,
+      "lint_policy": "existing nonblocking; not a clean report",
+      "lint_errors": 79,
+      "all_error_primary_lines_exist_in_starting_main": true,
+      "lint_warnings": 778,
+      "lint_hints": 5,
+      "snapshot": "Earlier completed verification before the explicit no-op RESULT_CONTINUE cleanup; superseded by recovery verification below."
+    },
+    "packaging": {
+      "jni_hashes_unchanged_for_all_four_abis_in_both_apps": true,
+      "both_apks_zipalign_16kb_check_passed": true,
+      "new_native_code": false
+    },
+    "recovered_environment_verification": {
+      "reason": "Workspace survived cloud restart; temporary log/native-library files did not. Rebuilt actual host JNI and explicitly reran both full JVM suites.",
+      "host_jni_configure": "/workspace/toolchains/native-host/cmake/data/bin/cmake -S app/src/main/cpp -B /tmp/tinium-android-jni-host -DCMAKE_BUILD_TYPE=Release",
+      "host_jni_build": "/workspace/toolchains/native-host/cmake/data/bin/cmake --build /tmp/tinium-android-jni-host -j4",
+      "host_compiler": "GNU 14.2.0",
+      "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:lintUniversalFossDebug -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+      "result": "BUILD SUCCESSFUL",
+      "duration": "2m42s",
+      "tasks_executed": 11,
+      "tasks_up_to_date": 547,
+      "unit_tests": "Both test tasks actually executed (--rerun); 487 each, zero failures/errors/skips, including 17 genuine host-JNI cases each.",
+      "app_and_test_apks": "Previously built current-source outputs confirmed UP-TO-DATE after recovery; no new Android runtime execution.",
+      "lint": "Analysis/report tasks UP-TO-DATE, final lint task successful under existing nonblocking policy. Persisted final report: 79 error findings / 777 warnings / 5 hints; all primary error source lines exist in starting main. No new parser lint error or warning.",
+      "packaging_command": "python3 scripts/check_automix_native_apks.py --readelf /workspace/android-sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf --zipalign /workspace/android-sdk/build-tools/37.0.0/zipalign --output /workspace/phase33-flac-v5-packaging.json app/build/outputs/apk/arm64Gms/debug/app-arm64-gms-debug.apk app/build/outputs/apk/universalFoss/debug/app-universal-foss-debug.apk",
+      "packaging": "PASS: all four actual ABI ELFs, JNI symbols, 16KB ELF/ZIP alignment and license assets in both app APKs; hashes equal prior Phase 3.3 packaging evidence.",
+      "android_tests_executed": 0,
+      "ci_for_this_commit": "Pending push; earlier-head checks are historical."
+    }
+  },
+  "android_probe": {
+    "class": "com.music.vivi.playback.automix.NativeFlacEosInstrumentedTest",
+    "method": "fullFlacWindowPreservesExtractorFramesThroughCodec",
+    "probe_version": "v2",
+    "tests": 1,
+    "starts_players": false,
+    "assertions": "full coverage; 1323000 accepted source frames; 661500 output samples; no dropped/gap/repeated/synthesized frames; Media3 FLAC extractor; 288 queued input frames; platform codec",
+    "runtime_status": "NOT_RUN_IN_CLOUD; no usable connected device/emulator; owner rerun required",
+    "report_file": "files/phase33-flac-eos-diagnostic.txt"
+  },
+  "remaining": [
+    "Android MediaCodec setup/output correctness for v5 and full-window EOS",
+    "single service AAC/FLAC native pipeline rerun",
+    "eleven actual service tests plus prior 38 Android regressions",
+    "streaming/other FLAC metadata/format compatibility",
+    "real-song listening, acoustic alignment, EQ routes and resource measurements",
+    "Native fLaC streams only in this reader; container-wrapped FLAC or oversized metadata/frames may fall back. No expanded format support claimed."
+  ],
+  "merged": false,
+  "released": false,
+  "default_activated": false
+}

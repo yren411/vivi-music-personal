@@ -1,0 +1,100 @@
+{
+  "schema": "phase33-output-readiness-followup-v1",
+  "source_commit": "f7f13d1c3302f7c79f7af6ab7cc3351703d3c6e3",
+  "owner_evidence": {
+    "device": "Samsung Galaxy S25 Ultra / Android 17 (owner report)",
+    "method": "actualAacAndFlacSourcesUseThePinnedServiceNativePipeline",
+    "outcome": "NATIVE_SERVICE_ANDROID native mixing assertion failed",
+    "actual_aac_playback_assertion": "passed before mixing await",
+    "native_admission_at_ms": 391,
+    "native_fallback": "UNSUPPORTED_PLAYER_CONFIGURATION",
+    "native_plans": 0,
+    "native_mixes": 0,
+    "actual_sources_in_legacy_decoder": [
+      {
+        "sample_rate_hz": 48000,
+        "channels": 2,
+        "duration_us": 30000000
+      },
+      {
+        "sample_rate_hz": 44100,
+        "channels": 1,
+        "duration_us": 30000000
+      }
+    ],
+    "individual_false_configuration_condition": "UNKNOWN; old code did not collect it"
+  },
+  "confirmed_code_defect": "resolved source/duration could claim and permanently reject a pair before renderer/sink setup; inactive unconfigured PCM processor was indistinguishable from unsupported output",
+  "device_causality": "startup processor timing is a strong hypothesis; generic device reason cannot prove the individual false condition",
+  "before_fix_regression": {
+    "method": "unresolvedOutputDoesNotLatchTransientProcessorRejectionAndSamePairCanPlanWhenReady",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --tests com.music.vivi.playback.automix.NativeAutoMixServiceControllerTest.unresolvedOutputDoesNotLatchTransientProcessorRejectionAndSamePairCanPlanWhenReady -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "tests": 1,
+    "failures": 1,
+    "expected": "WAITING_PLAYER_OUTPUT",
+    "actual": "PCM_PROCESSOR_UNAVAILABLE",
+    "elapsed_seconds": 55
+  },
+  "repair": {
+    "native_admission": "defer until READY and actual current-item input format and AudioTrack observations; do not claim/mark pair attempted while pending",
+    "hard_restrictions": "still reject with specific controlled codes, including PCM_PROCESSOR_UNAVAILABLE after output setup",
+    "scheduler": "existing service tick; no sleeps or new jobs",
+    "legacy_host_gate": "unchanged",
+    "new_jvm_tests_per_variant": 3,
+    "android_test_assertions": "retained; failure header adds player state and safe status reason"
+  },
+  "post_fix_validation": {
+    "environment": "cloud Linux / Java 21 / Gradle 9.3.1; host JNI is actual native DSP",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "counts": {
+      "Arm64GmsDebug": {
+        "tests": 467,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 467,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "elapsed_seconds": 189,
+    "tasks_executed": 46,
+    "tasks_up_to_date": 316,
+    "host_jni_tests_per_variant": 17,
+    "controller_tests_per_variant": 23,
+    "instrumentation_apks_compiled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "android_executed": false
+  },
+  "app_build": {
+    "command": "bash gradlew :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "elapsed_seconds": 56,
+    "tasks_executed": 14,
+    "tasks_up_to_date": 273,
+    "installed_or_published": false
+  },
+  "pending": [
+    "Physical-device codec rerun",
+    "All eleven service tests on candidate build",
+    "Prior 38 Android regressions and listening/focus/EQ review",
+    "Current-head GitHub checks"
+  ],
+  "unchanged": [
+    "Legacy production default and preprocessing",
+    "DSP, JNI, corrected decoder and preprocessing versions",
+    "Coverage, confidence, gain, drift and executor thresholds",
+    "Lyrics, EQ/session handling, signing, workflows and releases"
+  ],
+  "limitations": [
+    "No usable Android runtime in cloud",
+    "No successful native service mix established from new owner report",
+    "Acoustic cause of crackles remains unknown"
+  ]
+}

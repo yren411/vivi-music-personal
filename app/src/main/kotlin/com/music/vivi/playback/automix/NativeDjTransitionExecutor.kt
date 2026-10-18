@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private val nowUs: () -> Long = { System.nanoTime()/1000 },
     private val config: NativeDjExecutionConfig = NativeDjExecutionConfig()) : AutoCloseable {
-    companion object { const val VERSION = "tinium-native-dj-executor-v3-format-aware-clock-progress" }
+    companion object { const val VERSION = "tinium-native-dj-executor-v4-reentrant-playback-controls" }
     var status=NativeDjExecutionStatus(); private set
     private var plan:NativeTransitionPlan?=null
     private var incoming:NativeDjDeck?=null
@@ -36,6 +36,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private var outGain=1.0
     private var inGain=0.0
     private var content=NativeDjContentGains()
+    private var changingPlayback=false
     private var pausedAt=0L
     private var pausedStage=NativeDjExecutionStage.ARMED
     private val events=ArrayDeque<NativeDjExecutionMetric>()
@@ -124,7 +125,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
         return null
     }
 
-    @Synchronized fun tick():NativeDjExecutionStatus {
+    @Synchronized fun tick():NativeDjExecutionStatus = if(changingPlayback)status else tick(resumingPrimary=false)
+
+    private fun tick(resumingPrimary:Boolean):NativeDjExecutionStatus {
         if(status.stage==NativeDjExecutionStage.IDLE || terminal)return status
         try {
             val p=requireNotNull(plan);val c=p.candidate;val next=requireNotNull(incoming)
@@ -142,7 +145,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 (b.durationUs>0 && abs(b.durationUs-p.incoming.durationUs)>1000))
                 return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.DURATION_MISMATCH)
             if(status.stage==NativeDjExecutionStage.PAUSED) {
-                if(a.playing || b.playing)return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.UNEXPECTED_PAUSE)
+                if((a.playing && !resumingPrimary) || b.playing)return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.UNEXPECTED_PAUSE)
                 if(lastOut!=null && (abs(a.positionUs-lastOut!!)>config.cueToleranceUs || abs(b.positionUs-lastIn!!)>config.cueToleranceUs))
                     return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.POSITION_DISCONTINUITY)
                 lastTick=now;return status
@@ -220,31 +223,43 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     }
 
     @Synchronized fun pause(reason:NativeDjExecutionReason?=null) {
-        if(terminal || status.stage !in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING,NativeDjExecutionStage.PREPARING))return
-        pausedStage=status.stage;pausedAt=nowUs()
-        if(pausedStage in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.PREPARING)) {
-            startupReference=null;startupLead=0
-        }
-        try { host.outgoing.pause();incoming?.pause();lastOut=host.outgoing.snapshot().positionUs;lastIn=incoming?.snapshot()?.positionUs
-            stage(NativeDjExecutionStage.PAUSED,reason) } catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
+        if(changingPlayback || terminal || status.stage !in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING,NativeDjExecutionStage.PREPARING))return
+        changingPlayback=true
+        try {
+            pausedStage=status.stage;pausedAt=nowUs()
+            if(pausedStage in setOf(NativeDjExecutionStage.ARMED,NativeDjExecutionStage.PREPARING)) {
+                startupReference=null;startupLead=0
+            }
+            // Media3 may synchronously call MusicService back from pause/play. Publish the
+            // state before issuing commands; a reentrant callback must not repeat them.
+            stage(NativeDjExecutionStage.PAUSED,reason)
+            host.outgoing.pause();incoming?.pause()
+            lastOut=host.outgoing.snapshot().positionUs;lastIn=incoming?.snapshot()?.positionUs
+        }catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
+        finally {changingPlayback=false}
     }
     @Synchronized fun resume() {
-        if(status.stage!=NativeDjExecutionStage.PAUSED)return
-        tick();if(status.stage!=NativeDjExecutionStage.PAUSED)return
+        if(changingPlayback || status.stage!=NativeDjExecutionStage.PAUSED)return
+        changingPlayback=true
         try {
+            // A service listener receives the primary's play request after Media3 applies
+            // it. Permit that requested state only here; paused tick/seek/queue/source and
+            // incoming-player checks remain strict. Never toggle the primary back to pause.
+            tick(resumingPrimary=true);if(status.stage!=NativeDjExecutionStage.PAUSED)return
             val now=nowUs();val pauseDuration=now-pausedAt
             if(pausedStage==NativeDjExecutionStage.PREPARING)preparedAt+=pauseDuration
             dispatchedAt+=pauseDuration
-            // Pausing an as-yet-unpresented early start destroys the pending startup timing.
-            // Resume normal outgoing music rather than restart an unverifiable incoming cue.
             if(pausedStage==NativeDjExecutionStage.STARTING && estimatedOffset==null) {
-                host.outgoing.play()
                 stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.STARTUP_INTERRUPTED)
+                host.outgoing.play()
                 return
             }
-            host.outgoing.play();if(pausedStage in setOf(NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING))incoming?.play()
-            lastTick=now;lastOutgoingProgressAtUs=now;lastIncomingProgressAtUs=now;stage(pausedStage)
+            lastTick=now;lastOutgoingProgressAtUs=now;lastIncomingProgressAtUs=now
+            stage(pausedStage)
+            host.outgoing.play()
+            if(!terminal && pausedStage in setOf(NativeDjExecutionStage.STARTING,NativeDjExecutionStage.MIXING))incoming?.play()
         }catch(_:Exception){stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)}
+        finally {changingPlayback=false}
     }
     @Synchronized fun cancel(reason:NativeDjExecutionReason=NativeDjExecutionReason.CANCELED):NativeDjExecutionStatus =
         if(terminal || status.stage==NativeDjExecutionStage.IDLE)status else stop(NativeDjExecutionStage.CANCELED,reason)

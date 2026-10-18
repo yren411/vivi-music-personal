@@ -1,0 +1,139 @@
+{
+  "schema": "phase33-flac-frameclock-followup-v1",
+  "source_commit": "fce56bfb9ed898559675f852447afd18974d5420",
+  "owner_device_evidence": {
+    "device": "Samsung Galaxy S25 Ultra / Android 17 (owner report)",
+    "test": "actualAacAndFlacSourcesUseThePinnedServiceNativePipeline",
+    "native_admission_at_ms": 462,
+    "outgoing_native_bpm": 128.09228792352022,
+    "outgoing_uncalibrated_raw_confidence": 0.9232841393632192,
+    "outgoing_coverage": "FULL",
+    "incoming_failure": "PCM_CONVERSION/SOURCE_GAP",
+    "incoming_accepted_source_frames": 1156608,
+    "incoming_codec_output_frames": 1161216,
+    "incoming_rate_hz": 44100,
+    "first_codec_pts_us": 0,
+    "last_codec_frame_end_us": 26331422,
+    "dropped_overlap_frames": 1,
+    "gaps": 1,
+    "source_bytes_read": 843350,
+    "native_plans": 0,
+    "native_mixes": 0,
+    "legacy_fallback": "genuine independent legacy analysis; subsequent LOW_BEAT_CONFIDENCE is not a native rejection"
+  },
+  "derived_geometry": {
+    "failing_buffer_frames": 4608,
+    "failing_buffer_pts_us": 26226933,
+    "expected_source_frame_clock_us": 26226938.775510203,
+    "raw_offset_us": -5.77551020309329,
+    "old_quarter_frame_us": 5.668934240362812,
+    "old_post_drop_offset_us": 16.90022675693035,
+    "new_unique_nearest_frame_cell_us": 11.337868480725623,
+    "codec_pts_quantization_origin": "UNKNOWN; not attributed to a specific Android implementation"
+  },
+  "before_fix_reproduction": {
+    "kind": "generated PCM replay of observed capture geometry, not MediaCodec execution",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --tests com.music.vivi.playback.automix.CorrectedPcmWindowCaptureTest.reportedFlacSubFrameOffsetDoesNotDropAFrameAndManufactureASourceGap -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "tests": 1,
+    "failures": 1,
+    "failure": "PcmPreparationException: SOURCE_GAP",
+    "elapsed_seconds": 26
+  },
+  "repair": {
+    "preprocessing_version": "sinc64-blackman-preroll-frameclock-mono-22050-v4",
+    "historical_v3": "sinc64-blackman-initial-preroll-mono-22050-v3",
+    "clock_policy": "sub-half-frame displacement snaps to uniquely nearest original source-frame clock; ties rejected; whole-frame overlaps trimmed and gaps fail",
+    "filter_and_downmix": "unchanged sinc64 Blackman mono 22050; initial preroll preserved",
+    "source_network_budgets": "unchanged",
+    "legacy_production_default": "nearest-time-mono-22050-v1 unchanged",
+    "cache": "v3 and v4 distinct in-flight/completed keys; old PCM rejected at pipeline/native/planner/executor boundaries"
+  },
+  "new_tests": {
+    "capture_cases": 6,
+    "pipeline_version_cases": 2,
+    "rates_hz": [
+      8000,
+      11025,
+      16000,
+      22050,
+      32000,
+      44100,
+      48000,
+      96000,
+      192000
+    ],
+    "sub_frame_polarity_cases": 18,
+    "missing_frame_with_jitter_cases": 18,
+    "duplicate_frame_with_jitter_cases": 18,
+    "half_frame_tie_cases": 2,
+    "reported_30s_replay": {
+      "coverage": "FULL",
+      "accepted_source_frames": 1323000,
+      "output_frames": 661500,
+      "dropped_frames": 0,
+      "gaps": 0,
+      "maximum_jitter_us_ceil": 6,
+      "synthesized_frames": 0,
+      "repeated_frames": 0
+    },
+    "resampled_pcm_parity": {
+      "reference": "exact source clock, same generated PCM",
+      "output_samples": 22050,
+      "absolute_difference": 0.0
+    }
+  },
+  "post_fix_validation": {
+    "environment": "cloud Linux JVM with actual host JNI library; no Android runtime",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest :app:testUniversalFossDebugUnitTest :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "counts": {
+      "Arm64GmsDebug": {
+        "tests": 475,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 475,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "elapsed_seconds": 200,
+    "tasks_executed": 46,
+    "tasks_up_to_date": 316,
+    "host_jni_tests_per_variant": 17,
+    "instrumentation_apks_compiled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "android_executed": false
+  },
+  "app_build": {
+    "command": "bash gradlew :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "result": "BUILD SUCCESSFUL",
+    "elapsed_seconds": 22,
+    "tasks_executed": 14,
+    "tasks_up_to_date": 273,
+    "installed_or_published": false
+  },
+  "pending": [
+    "Targeted codec Android rerun",
+    "All eleven service tests and prior 38 Android regressions on candidate build",
+    "Current-head GitHub checks",
+    "Real-song, acoustic and EQ listening evaluation"
+  ],
+  "unchanged": [
+    "Legacy default and legacy PCM path",
+    "BitChord DSP/JNI algorithms",
+    "Coverage completeness requirement",
+    "Musical confidence and player-alignment gates",
+    "Gain envelopes, output/session lifecycle, lyrics, signing and release workflows"
+  ],
+  "limitations": [
+    "Generated replay does not execute Samsung MediaCodec",
+    "No completed native service mix established in this device report",
+    "Cause of crackles remains unmeasured"
+  ]
+}

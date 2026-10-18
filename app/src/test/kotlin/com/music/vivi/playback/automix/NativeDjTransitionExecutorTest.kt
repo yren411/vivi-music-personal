@@ -27,7 +27,7 @@ class NativeDjTransitionExecutorTest {
         val (h,e)=run(p.copy(requiredFutureCapability="unknown"));assertEquals(NativeDjExecutionReason.UNSUPPORTED_CAPABILITY,e.status.reason);assertFalse(h.claimed);assertFalse(h.b.released)
     }
     @Test fun rejectsUnverifiedSignalReadiness(){val (_,e)=run(p.copy(readiness=NativePlanReadiness.TIMING_ONLY_SIGNAL_UNVERIFIED));assertEquals(NativeDjExecutionReason.UNVERIFIED_SIGNAL,e.status.reason)}
-    @Test fun rejectsWrongBackendAndLegacyPcmProfiles(){for(profile in listOf(AnalysisProfile(LegacyKotlinAnalysisEngine.BACKEND,PcmPreprocessing.LEGACY),AnalysisProfile(BitChordNativeAnalysisEngine.BACKEND,PcmPreprocessing.BANDLIMITED_V2))){val (_,e)=run(p.copy(outgoingProfile=profile));assertEquals(NativeDjExecutionReason.INVALID_PLAN,e.status.reason)}}
+    @Test fun rejectsWrongBackendAndLegacyPcmProfiles(){for(profile in listOf(AnalysisProfile(LegacyKotlinAnalysisEngine.BACKEND,PcmPreprocessing.LEGACY),AnalysisProfile(BitChordNativeAnalysisEngine.BACKEND,PcmPreprocessing.BANDLIMITED_V2),AnalysisProfile(BitChordNativeAnalysisEngine.BACKEND,PcmPreprocessing.BANDLIMITED_V3),AnalysisProfile(BitChordNativeAnalysisEngine.BACKEND,PcmPreprocessing.BANDLIMITED_V4))){val (_,e)=run(p.copy(outgoingProfile=profile));assertEquals(NativeDjExecutionReason.INVALID_PLAN,e.status.reason)}}
     @Test fun rejectsStaleQueueBeforeClaim(){val (_,e)=run(change={it.generation++});assertEquals(NativeDjExecutionReason.STALE_QUEUE,e.status.reason)}
     @Test fun rejectsInsufficientPreparationLead(){val (_,e)=run(change={it.a.position=p.candidate.outgoingCueUs-1});assertEquals(NativeDjExecutionReason.START_MISSED,e.status.reason)}
     @Test fun rejectsMissingExclusiveOwnership(){val (h,e)=run(change={it.canClaim=false});assertEquals(NativeDjExecutionReason.OWNERSHIP_BUSY,e.status.reason);assertEquals(0,h.restores)}
@@ -91,6 +91,66 @@ class NativeDjTransitionExecutorTest {
             assertEquals(0,h.promotions);assertEquals(1,h.b.releaseCount)
             assertTrue(h.a.playing);assertEquals(1.0,h.a.applied,0.0)
         }
+    }
+
+    @Test fun serviceResumeAcceptsAlreadyResumedPrimaryWithoutAnotherPause() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000)
+        e.pause();h.a.play() // Media3 changes playWhenReady before notifying MusicService.
+        e.resume()
+        assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        assertTrue(h.a.playing);assertTrue(h.b.playing)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+
+    @Test fun synchronousPlaybackCallbacksCannotReenterPauseOrResumeCommands() {
+        val h=VirtualNativeDjHost(p)
+        lateinit var e:NativeDjTransitionExecutor
+        var callbacks=0
+        val host=object:NativeDjHost by h {
+            override val outgoing=object:NativeDjDeck by h.a {
+                override fun pause(){h.a.pause();check(++callbacks<=8);e.tick();e.pause()}
+                override fun play(){h.a.play();check(++callbacks<=8);e.tick();e.resume()}
+            }
+        }
+        e=NativeDjTransitionExecutor(host,{h.now});e.start(p);h.toStart(e);h.advance(e,1_000_000)
+        e.pause();assertEquals(NativeDjExecutionStage.PAUSED,e.status.stage)
+        e.resume();assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        assertEquals(2,callbacks);assertTrue(h.b.playing)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+
+    @Test fun deferredPlaybackNotificationsUseTheLatestPrimaryRequestWithoutRetoggling() {
+        val h=VirtualNativeDjHost(p);lateinit var e:NativeDjTransitionExecutor
+        val pending=ArrayDeque<()->Unit>();var commands=0
+        fun notifyLater(){pending.addLast {if(h.a.playing)e.resume() else e.pause()}}
+        val host=object:NativeDjHost by h {
+            override val outgoing=object:NativeDjDeck by h.a {
+                override fun pause(){commands++;h.a.pause();notifyLater()}
+                override fun play(){commands++;h.a.play();notifyLater()}
+            }
+        }
+        e=NativeDjTransitionExecutor(host,{h.now});e.start(p);h.toStart(e);h.advance(e,1_000_000)
+        e.pause();e.resume() // Both queued listener notifications arrive after the newer play request.
+        repeat(2){pending.removeFirst().invoke()}
+        assertTrue(pending.isEmpty());assertEquals(2,commands)
+        assertEquals(NativeDjExecutionStage.MIXING,e.status.stage)
+        h.finish(e);assertEquals(1,h.promotions)
+    }
+    @Test fun serviceResumeStillRejectsASeekEvenWhenPrimaryIsAlreadyPlaying() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause()
+        h.a.position+=1_000_000;h.a.play();e.resume()
+        assertEquals(NativeDjExecutionReason.POSITION_DISCONTINUITY,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
+    }
+    @Test fun serviceResumeCannotExcuseAnUnexpectedlyPlayingIncomingDeck() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause();h.b.play();e.resume()
+        assertEquals(NativeDjExecutionReason.UNEXPECTED_PAUSE,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
+    }
+    @Test fun ordinaryPausedTickStillRejectsAnUnrequestedPrimaryResume() {
+        val (h,e)=run();h.toStart(e);h.advance(e,1_000_000);e.pause();h.a.play();e.tick()
+        assertEquals(NativeDjExecutionReason.UNEXPECTED_PAUSE,e.status.reason)
+        assertEquals(0,h.promotions);assertTrue(h.b.released)
     }
 
 }

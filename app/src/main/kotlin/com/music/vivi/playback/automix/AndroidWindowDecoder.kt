@@ -45,6 +45,7 @@ class AndroidWindowDecoder(
             val subtype = if (error is MediaCodec.CodecException) DecoderFailureSubtype.CODEC_ERROR
                 else DecoderFailureClassification.subtype(error)
             val category = if (error is PcmPreparationException) when (subtype) {
+                DecoderFailureSubtype.FLAC_PARSER_BUDGET -> AutoMixFailure.ANALYSIS_BYTE_BUDGET
                 DecoderFailureSubtype.SOURCE_GAP, DecoderFailureSubtype.TIMESTAMP_REGRESSION,
                 DecoderFailureSubtype.EMPTY_OUTPUT, DecoderFailureSubtype.PARTIAL_SOURCE_COVERAGE,
                 DecoderFailureSubtype.UNKNOWN_COVERAGE -> AutoMixFailure.INSUFFICIENT_AUDIO_DATA
@@ -72,6 +73,7 @@ class AndroidWindowDecoder(
         var inputEnd = DecoderInputEnd.UNKNOWN
         var range = DecoderRangeStatus.UNKNOWN
         var fetched = 0L
+        var packets: DecoderPacketAccounting? = null
         var codecOutputFrames: Long? = null
         var firstCodecPtsUs: Long? = null
         var lastCodecFrameEndUs: Long? = null
@@ -83,7 +85,7 @@ class AndroidWindowDecoder(
                 window?.sourceFormats ?: corrected?.sourceFormats ?: legacyWindow?.sourceFormats ?: emptyList(),
                 duration, codecEos, inputEnd, fetched, cached, range, (System.nanoTime() - began) / 1000,
                 window?.preparation ?: corrected?.preparation, window?.repeatedOutputFrames ?: legacyWindow?.repeatedOutputFrames,
-                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs)
+                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot())
         }
     }
 
@@ -93,6 +95,7 @@ class AndroidWindowDecoder(
         val extractor = MediaExtractor()
         val bridge = RangeSource(source, control)
         var codec: MediaCodec? = null
+        var flac: BoundedFlacPackets? = null
         try {
             control.checkpoint()
             if (!source.fullyCached && source.uri.scheme in listOf("http", "https")) {
@@ -111,7 +114,19 @@ class AndroidWindowDecoder(
             val track = (0 until extractor.trackCount).firstOrNull {
                 extractor.getTrackFormat(it).getString(MediaFormat.KEY_MIME)?.startsWith("audio/") == true
             } ?: throw AnalysisUnavailable("no-audio-track")
-            val format = extractor.getTrackFormat(track)
+            val platformFormat = extractor.getTrackFormat(track)
+            // Some vendor extractors re-chunk FLAC frames and reset trailing PTS to zero.
+            // Use the existing Media3 frame parser only for corrected FLAC input; keep the
+            // authorized bridge, byte/deadline budgets and all legacy source handling intact.
+            if (preprocessing == AnalysisPreprocessing.BANDLIMITED && platformFormat.getString(MediaFormat.KEY_MIME)=="audio/flac")
+                flac = BoundedFlacPackets(source.length, control, bridge::readAt)
+            val format = flac?.let { reader ->
+                MediaFormat.createAudioFormat("audio/flac",reader.format.sampleRate,reader.format.channelCount).apply {
+                    setLong(MediaFormat.KEY_DURATION,reader.durationUs)
+                    if(reader.format.maxInputSize>0)setInteger(MediaFormat.KEY_MAX_INPUT_SIZE,reader.format.maxInputSize)
+                    reader.format.initializationData.forEachIndexed {i,data -> setByteBuffer("csd-$i",java.nio.ByteBuffer.wrap(data))}
+                }
+            } ?: platformFormat
             val durationUs = if (format.containsKey(MediaFormat.KEY_DURATION)) format.getLong(MediaFormat.KEY_DURATION) else 0
             observation.duration = AudioDuration(durationUs.takeIf { it > 0 }, if (durationUs > 0) DurationBasis.EXTRACTOR else DurationBasis.UNKNOWN)
             val durationMs = durationUs / 1000
@@ -119,19 +134,31 @@ class AndroidWindowDecoder(
             val lengthMs = min(requestedLengthMs, durationMs - startMs).coerceAtMost(32_000)
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
-            extractor.selectTrack(track)
-            DecoderSeekPolicy.targetUs(preprocessing, startMs * 1000)?.let {
-                extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+            if (flac != null) flac.seek(startMs * 1000) else {
+                extractor.selectTrack(track)
+                DecoderSeekPolicy.targetUs(preprocessing, startMs * 1000)?.let {
+                    extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                }
             }
             val mime = format.getString(MediaFormat.KEY_MIME)!!
             // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
             observation.stage = DecoderStage.CODEC_SETUP
-            val software = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.firstOrNull { info ->
-                !info.isEncoder && info.supportedTypes.any { it.equals(mime, true) } &&
-                    (if (Build.VERSION.SDK_INT >= 29) info.isSoftwareOnly
-                     else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
-            } ?: throw AnalysisUnavailable("software-decoder-unavailable")
+            val codecs=MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+            fun supported(info:android.media.MediaCodecInfo)=!info.isEncoder && info.supportedTypes.any {it.equals(mime,true)} &&
+                (if(Build.VERSION.SDK_INT>=29)info.isSoftwareOnly else info.name.startsWith("OMX.google.") || info.name.startsWith("c2.android."))
+            val software = if(flac!=null) {
+                val name=PlatformFlacCodecPolicy.select(codecs.filter(::supported).map {it.name})
+                codecs.firstOrNull {it.name==name}
+            } else codecs.firstOrNull(::supported)
+            if(software==null)throw AnalysisUnavailable("software-decoder-unavailable")
             codec = MediaCodec.createByCodecName(software.name)
+            observation.packets = DecoderPacketAccounting(mime, software.name, PcmFormat(
+                format.getInteger(MediaFormat.KEY_SAMPLE_RATE), format.getInteger(MediaFormat.KEY_CHANNEL_COUNT),
+                if (!format.containsKey(MediaFormat.KEY_PCM_ENCODING)) PcmEncoding.UNKNOWN else when (format.getInteger(MediaFormat.KEY_PCM_ENCODING)) {
+                    C.ENCODING_PCM_16BIT -> PcmEncoding.PCM16
+                    C.ENCODING_PCM_FLOAT -> PcmEncoding.FLOAT32
+                    else -> PcmEncoding.UNKNOWN
+                }), if(flac!=null)DecoderExtractor.MEDIA3_FLAC_1_7_1 else DecoderExtractor.ANDROID_MEDIA_EXTRACTOR)
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
@@ -155,15 +182,25 @@ class AndroidWindowDecoder(
                     val index = codec.dequeueInputBuffer(5000)
                     if (index >= 0) {
                         val buffer = codec.getInputBuffer(index)!!
-                        val size = extractor.readSampleData(buffer, 0)
-                        if (size < 0 || extractor.sampleTime >= endUs) {
+                        val packet=flac?.next()
+                        val size=if(flac!=null) {
+                            if(packet==null)-1 else {
+                                buffer.clear()
+                                if(packet.bytes.size>buffer.remaining())throw AnalysisUnavailable("unsupported-decoded-pcm")
+                                buffer.put(packet.bytes);packet.bytes.size
+                            }
+                        } else extractor.readSampleData(buffer,0)
+                        val sampleTime=if(flac!=null)packet?.ptsUs ?: -1L else extractor.sampleTime
+                        if (size < 0 || sampleTime >= endUs) {
                             codec.queueInputBuffer(index, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
                             inputEnded = true
+                            observation.packets?.inputEnd(sampleTime)
                             observation.inputEnd = if (size < 0) DecoderInputEnd.NATURAL_EOS else DecoderInputEnd.REQUEST_BOUNDARY
                         } else {
-                            if ((extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw AnalysisUnavailable("encrypted-source")
-                            codec.queueInputBuffer(index, 0, size, extractor.sampleTime, 0)
-                            extractor.advance()
+                            if (flac==null && (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw AnalysisUnavailable("encrypted-source")
+                            codec.queueInputBuffer(index, 0, size, sampleTime, 0)
+                            observation.packets?.input(size, sampleTime)
+                            if(flac==null)extractor.advance()
                         }
                     }
                 }
@@ -178,6 +215,7 @@ class AndroidWindowDecoder(
                 } else if (output >= 0) {
                     // This flag is already observed even if conversion/cancellation then fails.
                     observation.codecEos = (info.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0
+                    observation.packets?.output(info.size, info.presentationTimeUs, observation.codecEos == true)
                     try {
                         val buffer = DecoderPcmBuffers.readable(if (info.size == 0) null else codec.getOutputBuffer(output),
                             info.offset, info.size, corrected != null)
@@ -224,7 +262,7 @@ class AndroidWindowDecoder(
         } finally {
             observation.fetched = bridge.fetchedBytes
             runCatching { codec?.stop() }; runCatching { codec?.release() }
-            runCatching { extractor.release() }; runCatching { bridge.close() }
+            runCatching { flac?.close() }; runCatching { extractor.release() }; runCatching { bridge.close() }
         }
     }
 

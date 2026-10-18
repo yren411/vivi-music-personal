@@ -8,7 +8,7 @@ enum class AnalysisPreprocessing(val version: String) {
 
 enum class DecoderStage { SOURCE, EXTRACTOR, CODEC_SETUP, CODEC_OUTPUT, PCM_CONVERSION, RESAMPLING, COMPLETE }
 enum class DecoderFailureSubtype {
-    NONE, SOURCE_ACCESS, RANGE_UNSUPPORTED, BYTE_BUDGET, NO_AUDIO_TRACK, DURATION_UNAVAILABLE,
+    NONE, SOURCE_ACCESS, RANGE_UNSUPPORTED, BYTE_BUDGET, FLAC_PARSER_BUDGET, NO_AUDIO_TRACK, DURATION_UNAVAILABLE,
     REQUEST_TOO_SHORT, SOFTWARE_CODEC_UNAVAILABLE, CODEC_ERROR, UNSUPPORTED_PCM,
     MALFORMED_PCM_BUFFER, NONFINITE_PCM, FORMAT_CHANGED, TIMESTAMP_REGRESSION, SOURCE_GAP,
     UNKNOWN_COVERAGE, EMPTY_OUTPUT, TRUNCATED_WINDOW, PARTIAL_SOURCE_COVERAGE,
@@ -28,7 +28,8 @@ data class PcmPreparationMetadata(
     val synthesizedTimelineFrames: Long = 0,
 )
 
-/** No free-form strings, track IDs, exception messages, URLs, or PCM. null = not observed. */
+/** No source IDs, exception messages, URLs or PCM. Platform codec/MIME text is filtered
+ * by the export formatter; null means not observed. */
 data class DecoderDiagnostic(
     val preprocessing: AnalysisPreprocessing,
     val stage: DecoderStage,
@@ -51,6 +52,7 @@ data class DecoderDiagnostic(
     val codecOutputFrames: Long? = null,
     val firstCodecPtsUs: Long? = null,
     val lastCodecFrameEndUs: Long? = null,
+    val codecProgress: DecoderCodecProgress? = null,
 ) {
     fun reportFields(): String = buildString {
         append(" preprocessing=" + preprocessing.version + " decoderStage=" + stage + " subtype=" + subtype)
@@ -67,6 +69,7 @@ data class DecoderDiagnostic(
         if (duration?.durationUs != null && acceptedEnd != null) append(" durationMinusAcceptedEndUs=" + (duration.durationUs - acceptedEnd))
         append(" codecEos=" + codecEos + " inputEnd=" + inputEnd + " bytesRead=" + sourceBytesRead)
         append(" fullyCached=" + fullyCached + " range=" + rangeStatus + " elapsedUs=" + elapsedUs)
+        codecProgress?.let { append(it.reportFields()) }
         preparation?.let { append(" droppedOverlapFrames=" + it.droppedOverlapFrames + " jitterBuffers=" + it.jitterAdjustedBuffers +
             " maxJitterUs=" + it.maximumJitterUs + " gaps=" + it.gapCount + " filterEdgeFrames=" + it.edgeSupportedOutputFrames +
             " synthesizedTimelineFrames=" + it.synthesizedTimelineFrames) }

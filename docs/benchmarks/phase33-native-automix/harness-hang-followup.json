@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "sourceFixCommit": "45ed998cacefe11fe2dc77a30da2ff2da21cac61",
+  "ownerDeviceReport": {
+    "method": "UNKNOWN",
+    "completedTestsReported": 0,
+    "approximateWaitMinutes": [
+      7,
+      3
+    ],
+    "symptoms": [
+      "audio started",
+      "separate crackles",
+      "no test completed"
+    ],
+    "filteredLogcatMessages": "none returned",
+    "playbackCause": "UNKNOWN"
+  },
+  "confirmedHarnessDefects": [
+    "unbounded runOnMainSync",
+    "unbounded waitForIdleSync in cleanup",
+    "cleanup could mask constructor failure"
+  ],
+  "repairScope": "tests and documentation only; production service/DSP/gains/thresholds unchanged",
+  "fullUnitTestsWithRealHostJni": {
+    "testArm64GmsDebugUnitTest": {
+      "tests": 461,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "testUniversalFossDebugUnitTest": {
+      "tests": 461,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "focusedBoundedCallTests": {
+    "perVariant": 5,
+    "passedGms": 5,
+    "passedFoss": 5,
+    "failed": 0,
+    "skipped": 0
+  },
+  "testApks": "GMS and FOSS assembled successfully",
+  "gradleOutcome": "BUILD SUCCESSFUL in 2m 30s; 22 executed, 340 up-to-date",
+  "androidTestsExecutedHere": 0,
+  "newServiceTestMethods": 11,
+  "ownerRerun": "PENDING",
+  "prior38AndroidClassesChanged": false,
+  "nativeCtestRerun": "Not rerun; no native code or ABI/build changes"
+}

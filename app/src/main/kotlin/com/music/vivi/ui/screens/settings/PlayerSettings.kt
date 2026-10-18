@@ -79,6 +79,8 @@ import com.music.vivi.ui.component.ActionPromptDialog
 import com.music.vivi.ui.component.CrossfadeCurvePreview
 import com.music.vivi.ui.component.DefaultDialog
 import com.music.vivi.ui.component.EnumDialog
+import com.music.vivi.constants.AutoMixEngineModeKey
+import com.music.vivi.playback.automix.AutoMixEngineMode
 import com.music.vivi.constants.AutoMixEnabledKey
 import com.music.vivi.constants.AutoMixPerformanceKey
 import com.music.vivi.playback.automix.AutoMixPerformance
@@ -99,6 +101,8 @@ fun PlayerSettings(
 ) {
     val (autoMixEnabled, onAutoMixEnabledChange) = rememberPreference(AutoMixEnabledKey, false)
     val (autoMixPerformance, onAutoMixPerformanceChange) = rememberEnumPreference(AutoMixPerformanceKey, AutoMixPerformance.BALANCED)
+    val (autoMixEngineMode, onAutoMixEngineModeChange) = rememberEnumPreference(AutoMixEngineModeKey, AutoMixEngineMode.LEGACY)
+    var showAutoMixEngineMode by remember { mutableStateOf(false) }
     val autoMixSettings = AutoMixSettings(autoMixEnabled, autoMixPerformance)
     var showAutoMixPerformance by remember { mutableStateOf(false) }
     val (audioQuality, onAudioQualityChange) = rememberEnumPreference(
@@ -238,6 +242,11 @@ fun PlayerSettings(
         mutableStateOf(false)
     }
 
+    if (showAutoMixEngineMode && autoMixEnabled) {
+        EnumDialog(onDismiss={showAutoMixEngineMode=false}, onSelect={onAutoMixEngineModeChange(it);showAutoMixEngineMode=false},
+            title=stringResource(R.string.automix_engine), current=autoMixEngineMode,
+            values=AutoMixEngineMode.entries, valueText={stringResource(if(it==AutoMixEngineMode.LEGACY)R.string.automix_engine_legacy else R.string.automix_engine_native)})
+    }
     if (showAutoMixPerformance && autoMixSettings.showPerformance) {
         EnumDialog(
             onDismiss = { showAutoMixPerformance = false },
@@ -411,6 +420,14 @@ fun PlayerSettings(
                     },
                     trailingContent = { Switch(checked = autoMixEnabled, onCheckedChange = onAutoMixEnabledChange) },
                     onClick = { onAutoMixEnabledChange(!autoMixEnabled) },
+                ))
+                if (autoMixEnabled) add(Material3SettingsItem(
+                    icon=painterResource(R.drawable.settings),
+                    title={Text(stringResource(R.string.automix_engine))},
+                    description={Column {
+                        Text(stringResource(if(autoMixEngineMode==AutoMixEngineMode.LEGACY)R.string.automix_engine_legacy else R.string.automix_engine_native))
+                        Text(stringResource(R.string.automix_engine_description),style=MaterialTheme.typography.bodySmall)
+                    }},onClick={showAutoMixEngineMode=true},
                 ))
                 if (autoMixSettings.showPerformance) add(Material3SettingsItem(
                     icon = painterResource(R.drawable.settings),

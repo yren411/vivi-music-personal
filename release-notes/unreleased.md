@@ -120,7 +120,7 @@ This is an unversioned draft for review. No release version or tag is assigned.
 
 - Add a separately versioned, internally selectable anti-aliased PCM preparation
   path with explicit source timing, gap and overlap handling; keep the existing
-  preprocessing as the production default pending Android device validation.
+  preprocessing as the production default; corrected preprocessing remains experimental.
 - Include structured decoder coverage, EOS, format, timing and failure details in
   the existing sanitized AutoMix diagnostic export, without changing its UI.
 - Add generated signal tests and Android decoder test fixtures for future analyzer
@@ -135,7 +135,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
   tests, without replacing permanent keys or changing signing configuration.
 - Add sanitized decoder-test diagnostics and correct a seek-test assumption
   exposed by Samsung's reported 8 ms missing head. Test honest partial coverage
-  and rejection before musical analysis; the updated device rerun remains pending.
+  and rejection before musical analysis. The owner later reported all four decoder tests
+  passing in the final combined 49-test S25 Ultra / Android 17 regression.
 
 ## Standalone native analysis experiment
 
@@ -197,3 +198,45 @@ This is an unversioned draft for review. No release version or tag is assigned.
   Continue outgoing playback safely if an unverified early start is interrupted.
 - Track experimental overlap progress and stalls independently for each player clock,
   avoiding undercounts or false stalls when position snapshots update on different ticks.
+
+## Opt-in Native DJ AutoMix — experimental service integration
+
+- Add an explicit Native DJ AutoMix engine selection alongside legacy AutoMix. Existing
+  users retain legacy behavior; switching back does not erase preferences or playback data.
+- Connect corrected two-track native analysis, conservative planning and the validated
+  dual-deck executor to the normal service queue, with exclusive ownership and safe fallback.
+- Preserve bounded active-level gains, queue continuity and the service's existing effects
+  sessions; show native plans/fallbacks through the existing timeline and Stats for Nerds.
+- Extend deliberate diagnostic exports with privacy-safe native transition evidence and
+  add actual-service Android tests. The owner reports all 49 combined Android regressions
+  passed on the S25 Ultra / Android 17, including all eleven service tests, with zero
+  failures/skips. Real-song and route/EQ listening remain required; this experimental
+  mode is not a production-readiness claim.
+
+- Improve experimental service-test progress and timeout diagnostics, including bounded
+  main-thread waits and private failure reports when logcat is unavailable.
+- Isolate generated service-test media identities between runs so cached WAV fixtures cannot
+  replace AAC/FLAC or silence fixtures; remove only the current test's cache resources.
+
+- Experimental Native DJ AutoMix waits for the current audio output to initialize before
+  admitting a pair, and reports specific configuration-rejection reasons. Legacy mode
+  remains the default; native coverage, gain and timing safeguards are unchanged.
+
+- Fix corrected experimental PCM capture discarding a source frame for tiny FLAC timestamp
+  offsets. The new v4 preprocessing profile keeps cache results isolated; missing audio
+  still fails safely, and normal legacy AutoMix remains unchanged.
+
+- Add privacy-safe decoder input/output accounting and a silent generated-FLAC Android
+  diagnostic used to investigate experimental full-window EOS failures. Incomplete audio
+  continues to fall back; this diagnostic does not enable native mode or relax coverage.
+
+- Correct experimental compressed-FLAC analysis packet framing and select an available
+  platform software decoder, while preserving strict source coverage. A separate v5
+  preprocessing profile isolates old analysis/cache results; legacy playback remains
+  unchanged. Host packet-preservation tests passed; the owner subsequently reported the
+  corrected FLAC probe, service codec case and final combined Android regression passing.
+
+- Prevent experimental Native DJ pause/resume callbacks from repeatedly toggling the
+  playback decks. Keep strict queue/timing checks and isolate generated service-test
+  histories and queue cleanup. The owner reports the final combined 49-test device suite
+  passed after the completion-boundary correction. Legacy AutoMix remains the default.

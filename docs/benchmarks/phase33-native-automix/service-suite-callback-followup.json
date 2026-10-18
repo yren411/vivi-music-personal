@@ -1,0 +1,101 @@
+{
+  "schema": "phase33-service-suite-callback-followup-v1",
+  "source_commit": "631c62012a242fbb6fe0b19527c256b3c32a3376",
+  "source_parent": "302f45362653facedaa12697fbf21de88cb22f53",
+  "recorded_at": "2026-10-17T23:17:07.278952+00:00",
+  "status": "HOST_VERIFIED_ANDROID_SUITE_RERUN_REQUIRED",
+  "owner_evidence": {
+    "device": "Samsung Galaxy S25 Ultra / Android 17 (owner reports)",
+    "isolated_v5_flac_probe": "reported pass; raw XML/installed SHA not supplied",
+    "isolated_v5_service_codec_test": "reported pass; raw XML/installed SHA not supplied",
+    "subsequent_service_suite": "six failures in eleven-test class reported",
+    "codec_failure_log_truncated": true,
+    "codec_current_pair_rejection_cause": "not established; truncated before current attempt"
+  },
+  "confirmed_findings": [
+    "Service-scoped retained attempts were included in per-test completion/rejection/planning assertions.",
+    "Harness enabled native mode before clearing any queue retained by an existing service and did not await disable on cleanup.",
+    "Service paused primary inside resume callback and executor published control state after commands, allowing playback callback reentry."
+  ],
+  "before_repair_reproduction": {
+    "task": ":app:testUniversalFossDebugUnitTest",
+    "selected_tests": 2,
+    "failed": 2,
+    "outcomes": {
+      "serviceResumeAcceptsAlreadyResumedPrimaryWithoutAnotherPause": "expected MIXING but CANCELED",
+      "synchronousPlaybackCallbacksCannotReenterPauseOrResumeCommands": "expected MIXING but FAILED"
+    }
+  },
+  "focused_first_repair": {
+    "tests": 66,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "new_unique_regressions": {
+    "playback_controls": 6,
+    "history_scope": 3
+  },
+  "full_jvm_suites": {
+    "testArm64GmsDebugUnitTest": {
+      "tests": 496,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "host_jni_tests": 17
+    },
+    "testUniversalFossDebugUnitTest": {
+      "tests": 496,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "host_jni_tests": 17
+    }
+  },
+  "android_instrumentation": {
+    "compiled_variants": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "service_test_methods": 11,
+    "executed_in_cloud": 0,
+    "reason": "No configured emulator/KVM or attached Android device; actual device playback remains owner-run."
+  },
+  "packaging": {
+    "script": "scripts/check_automix_native_apks.py",
+    "apk_variants": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "abis": [
+      "arm64-v8a",
+      "armeabi-v7a",
+      "x86",
+      "x86_64"
+    ],
+    "elf_and_apk_alignment_bytes": 16384,
+    "jni_symbols_and_license_assets": "PASS",
+    "native_library_hashes_unchanged_from_v5": true
+  },
+  "unchanged": [
+    "Legacy default/preprocessing",
+    "Native DSP/JNI/backend identity",
+    "Corrected v5 preprocessing/cache identity",
+    "15ms cue tolerance",
+    "120ms maximum observed drift",
+    "Native coverage/confidence gates",
+    "Gain envelopes and content gain bounds",
+    "Existing eleven service assertions and prior 38 Android regression tests",
+    "Lyrics, EQ, signing, release workflows"
+  ],
+  "remaining_device_checks": [
+    "Pause/resume repaired method",
+    "Full eleven service tests with retained-service reuse",
+    "Successive promotion one-output assertion (resource leak not excluded by old count alone)",
+    "AAC/FLAC current-pair outcome in scoped diagnostic report",
+    "Prior 38 Android regression tests"
+  ],
+  "commands": {
+    "full_validation": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:lintUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  }
+}

@@ -180,13 +180,19 @@ threshold. EOS alone does not prove coverage. A request extending beyond known
 EOS can have full valid effective coverage while requested coverage remains
 PARTIAL in metadata; the native input only claims its actual materialized span.
 
-The current corrected identity is `sinc64-blackman-initial-preroll-mono-22050-v3`.
+The Phase 2.3B corrected identity was `sinc64-blackman-initial-preroll-mono-22050-v3`.
 It preserves the initial extractor position at track start to retain AAC priming
 packets; legacy and all nonzero seek positions are unchanged. The historical
 `sinc64-blackman-mono-22050-v2` string is reserved as `BANDLIMITED_V2`, never an
 alias for v3. Native backend/JNI versions and DSP arithmetic are unchanged; the
 preprocessing component of every profile/cache key changes. Old v2 windows are
 rejected by a v3 pipeline rather than relabeled. See the device follow-up below.
+
+Phase 3.3 now selects `sinc64-blackman-flacframes-mono-22050-v5`: it retains v4
+frame-clock handling and adds corrected compressed-FLAC frame parsing/platform software
+codec selection. v2/v3/v4 strings stay reserved and are rejected by the current native
+profile. See [the PCM follow-up](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md). The prior
+Phase 2.3B device results below describe their original v3 build, not a v5 rerun.
 
 The native packet returns window-relative seconds. Mapping is precisely:
 

@@ -242,6 +242,8 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 
 // Optional genuine host-JNI tests. Android tests always load the packaged Android library.
 tasks.withType<Test>().configureEach {
+    // Generated codec fixtures are also inputs to real Media3 FLAC packet regression tests.
+    inputs.dir("src/androidTest/assets/automix").withPropertyName("autoMixGeneratedCodecFixtures").withPathSensitivity(PathSensitivity.RELATIVE)
     providers.gradleProperty("automixNativeHostLibrary").orNull?.let {
         val library = file(it).absoluteFile
         systemProperty("tinium.hostNativeLibrary", library.path)

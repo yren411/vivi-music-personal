@@ -28,12 +28,14 @@ class ExperimentalNativePlanningSession<S>(
     private val analysis: NativePlanningAnalysis<S>,
     private val control: AnalysisControl,
     private val planner: NativeAwareAutoMixPlanner = NativeAwareAutoMixPlanner(),
+    private val useDecodedDurations:Boolean=false,
+    private val onEvidence:((PlanningWindowEvidence,PlanningWindowEvidence)->Unit)?=null,
 ) : AutoCloseable {
     private val lock=Any()
     private var closed=false
     private inner class Job(val key: String, val cancellation: AnalysisCancellationToken,
                             val future: Future<PlanningWindowEvidence>, var observers: Int = 1)
-    private inner class Attempt(val request: NativePlanningRequest, val outgoing: Job, val incoming: Job) {
+    private inner class Attempt(var request: NativePlanningRequest, val outgoing: Job, val incoming: Job) {
         val cancellation=AnalysisCancellationToken()
         var planning: Future<NativePlanningOutcome>?=null
         var outcome: NativePlanningOutcome?=null
@@ -61,7 +63,7 @@ class ExperimentalNativePlanningSession<S>(
     private fun acquire(source: PlanningSourceRequest<S>): Job {
         val request=source.decode
         val digest=BitChordNativeAnalysisEngine.PROFILE.cacheKey(request.identity,0,0,source.detail)
-        val key="$digest:${PlanningSignalObservation.VERSION}:${request.interval.startUs}:${request.interval.endUs}:${source.immutableRendition}"
+        val key="$digest:${PlanningSignalObservation.VERSION}:${NativeDjLevel.VERSION}:${request.interval.startUs}:${request.interval.endUs}:${source.immutableRendition}"
         jobs[key]?.let { it.observers++;return it }
         val token=AnalysisCancellationToken()
         val workControl=control.copy(cancellation=AnalysisCancellation {
@@ -76,6 +78,13 @@ class ExperimentalNativePlanningSession<S>(
             result
         }
         return Job(key,token,future).also { jobs[key]=it }
+    }
+
+    /** Main-thread snapshot only; no worker reads a player. Never re-decodes completed audio. */
+    fun updateEarliest(ticket:NativePlanningTicket,positionUs:Long)=synchronized(lock) {
+        val attempt=attempts[ticket] ?: return@synchronized
+        if(attempt.planning==null && positionUs>=attempt.request.earliestOutgoingUs && positionUs<attempt.request.outgoing.durationUs)
+            attempt.request=attempt.request.copy(earliestOutgoingUs=positionUs)
     }
 
     /** Nonblocking caller-side pump: aggregation is queued ONLY after both analyses finish. */
@@ -101,10 +110,27 @@ class ExperimentalNativePlanningSession<S>(
         })
         if(attempt.planning==null) {
             val a=completed(attempt.outgoing.future);val b=completed(attempt.incoming.future)
+            onEvidence?.invoke(a,b) // compact finished evidence, before candidate rejection can discard it
             val planningControl=control.copy(cancellation=AnalysisCancellation {
                 control.cancellation.throwIfCancelled();attempt.cancellation.throwIfCancelled()
             })
-            attempt.planning=workers.submitTransient { planner.plan(attempt.request,a,b,planningControl) }
+            attempt.planning=workers.submitTransient {
+                if(useDecodedDurations && listOf(a,b).any {
+                    it.analysis is AnalysisResult.Completed && it.analysis.metadata.duration.durationUs==null
+                })return@submitTransient NativeAwareAutoMixPlanner.unavailable(attempt.request,PlanningRejection.DURATION_MISMATCH)
+                // Source duration comes from the decoder's actual container, never catalog rounding.
+                // This changes track geometry only; sample origins/beat positions are untouched.
+                fun actual(track:PlanningTrack,evidence:PlanningWindowEvidence):PlanningTrack {
+                    val duration=(evidence.analysis as? AnalysisResult.Completed)?.metadata?.duration?.durationUs
+                    return if(useDecodedDurations && duration!=null && duration>0)
+                        track.copy(durationUs=duration,cueRegion=track.cueRegion.copy(endUs=minOf(track.cueRegion.endUs,duration))) else track
+                }
+                val request=attempt.request.copy(outgoing=actual(attempt.request.outgoing,a),incoming=actual(attempt.request.incoming,b))
+                when(val outcome=planner.plan(request,a,b,planningControl)) {
+                    is NativePlanningOutcome.Selected -> outcome.copy(outgoingLevel=a.level,incomingLevel=b.level)
+                    else -> outcome
+                }
+            }
         }
         val future=requireNotNull(attempt.planning)
         if(!future.isDone) return@synchronized NativePlanningPoll.Pending(NativePlanningStage.PLANNING)

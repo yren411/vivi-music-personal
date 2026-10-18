@@ -1,0 +1,68 @@
+{
+  "schema": "phase33-successive-completion-followup-v1",
+  "source_commit": "3d667e368d950fdd52d995a0299b0f5b5e199f22",
+  "source_parent": "2e9755e85a354ca0bdad77f9c40b89ee2dffbddc",
+  "recorded_at": "2026-10-17T23:35:36.442337+00:00",
+  "status": "HOST_VALIDATED_ANDROID_SUCCESSIVE_TEST_RERUN_REQUIRED",
+  "owner_report": {
+    "targeted_pause_resume": "reported pass",
+    "full_service_class": "only successiveAttemptsPreserveQueueAndReleaseOldPlayers reported failed",
+    "failure": "expected one output but observed two",
+    "raw_xml_supplied": false
+  },
+  "source_contract": {
+    "legacy_promotion": "AutoMixController drivePreparation: host.promote at fade start, with blend published and outgoing still owned",
+    "legacy_completion": "driveBlend releases outgoing, then bounded level/rate recovery clears blend",
+    "native_promotion": "NativeDjTransitionExecutor promotes at overlap end",
+    "test_assumption": "Third queue item plus one earlier native completion is not a common completion boundary; it may coincide with an active legacy fallback fade.",
+    "independent_android_resource_leak": "Not established by the original count alone; remains detectable after idle ownership."
+  },
+  "fix": {
+    "read_only_inspection": "transitionActive = native ownership OR legacy blend/recovery OR standard crossfade",
+    "wait": "Original pair/completion/third-item predicate AND idle transition ownership",
+    "does_not_wait_for_output_count": true,
+    "final_assertion": "Exactly one output, correct queue/index, playing and original user volume",
+    "progression_deadline_ms_unchanged": 150000,
+    "production_playback_release_algorithms_changed": false
+  },
+  "new_regression": "AutoMixControllerTest.legacyQueuePromotionPrecedesFadeCompletionAndOutgoingRelease (real legacy controller, virtual media time)",
+  "full_jvm_suites": {
+    "testArm64GmsDebugUnitTest": {
+      "tests": 497,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "testUniversalFossDebugUnitTest": {
+      "tests": 497,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "actual_host_jni_and_comparison_tests_per_variant": 17,
+  "builds": {
+    "app_and_android_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "result": "BUILD SUCCESSFUL",
+    "elapsed": "3m44s",
+    "executed_tasks": 52,
+    "up_to_date_tasks": 345,
+    "lint": "Not rerun in this local command; prior-head lint and both CI workflows passed. Latest-head CI must run again."
+  },
+  "packaging": {
+    "all_four_abis": true,
+    "elf_and_apk_16kb_alignment": true,
+    "jni_symbols_and_license_assets": true,
+    "native_hashes_unchanged": true
+  },
+  "android_runtime_in_cloud": false,
+  "pending": [
+    "Repaired successive service method on owner phone",
+    "Complete service and prior Android regression suite at final head",
+    "Latest-head GitHub checks"
+  ],
+  "full_validation_command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+}
