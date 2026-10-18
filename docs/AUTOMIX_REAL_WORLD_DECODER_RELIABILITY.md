@@ -148,10 +148,15 @@ window, retry and network limits remain unchanged.
 ## Privacy-safe diagnostics
 
 Existing `codecProgressSchema=1` fields remain; additive **`codecTimelineSchema=2`** records
-original encoder-delay/padding, configured codec padding, selected seek target, observed
-extractor PTS before/after seeking, held AAC frames and natural-EOS discarded frames.
+original encoder-delay/padding, configured codec padding, selected seek target, first
+actually queued packet PTS after positioning, held AAC frames and natural-EOS discarded
+frames. Pre-seek PTS stays unknown: diagnostics must not fetch an otherwise unnecessary
+initial packet before a tail seek. Empty initial seeks retain the actual EOF sentinel
+and zero queued-input counts, rather than inventing a packet timestamp.
 `pcmBoundarySchema=1` records only the last buffer PTS/frame count, trim offset, expected
-and actual next source-frame index and frame delta. No per-packet history is retained.
+and actual next source-frame index and frame delta. Those frame indices are relative
+to the first accepted source frame; buffer PTS remains track-relative microseconds.
+No per-packet history is retained.
 Decoder-stage elapsed microseconds are bounded to the fixed stage enum; they are elapsed
 stage time, not CPU profiling or an isolated network/worker-wait measurement.
 
@@ -176,7 +181,11 @@ PCM parity cases measured **maximum absolute Float32 error 0.0**, accepting exac
 zero dropped/repeated/synthesized frames. These are generated already-decoded PCM
 comparisons, not commercial-song or Android decoder parity measurements.
 
-Both app and instrumentation APKs built in **4m06s** (50 executed tasks, 347 up-to-date).
+Both app and instrumentation APKs initially built in **4m06s** (50 executed tasks,
+347 up-to-date). After making seek diagnostics passive and adding a real packet-loss
+probe, both full suites passed **507 + 507 again**, with app/test builds successful in
+**3m29s** (42 executed tasks, 355 up-to-date). Counts are per complete run, not summed
+across reruns. Final packaging checks were repeated and recorded separately.
 The new test class is present in built test DEX. Actual app APK checks pass all four JNI
 ABIs, ELF/ZIP 16KB alignment, symbols and license assets. No new Android instrumentation
 was executed: **0 device executions**, not ten passes. Exact counts, commands, original
@@ -190,7 +199,8 @@ probe explicitly configures 14-frame padding to reproduce the original 1010/1024
 signature. A zero-padding real-codec reference checks sample-exact parity against the
 new tail-managed route. Other tests cover 32s AAC/native planning, negative initial input
 PTS, full/partial/empty caches, seek/coverage, Opus near-end/EOS, cancellation, deadlines
-and strict missing-source rejection before JNI. No internet or audio playback is needed
+and strict missing-source rejection before JNI, including a real omitted compressed AAC
+access unit with unchanged remaining extractor timestamps. No internet or audio playback is needed
 for this new decoder class. Existing 49 tests remain intact.
 
 PowerShell from the repository root in Android Studio; keep the working debug key and
@@ -232,8 +242,21 @@ real-listening diagnostic path, not unrestricted logcat or automatic telemetry.
 
 ## Authorized real-song rerun after device regressions
 
+The retained-test-APK command installs the isolated v6 app, not an update to the normal
+Tinium installation. To update only that isolated app for ordinary listening:
+
+```powershell
+.\gradlew.bat :app:installArm64GmsDebug "-PautomixDecoderTests=true" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Keep the same working debug key. The isolated app's sources/preferences/cache are
+separate; normal cached songs remain untouched and are not automatically copied. Configure
+only authorized sources normally. No uninstall or cache wipe is needed. Use the latest
+attempt/session in the export; do not count cumulative retained history as new failures.
+
 1. In the appropriate local experimental build, enable AutoMix and explicitly select
-   Native DJ AutoMix before starting the pair. Preserve the normal installation/data and
+   Native DJ AutoMix before starting the pair (Settings → Player and audio → Player →
+   AutoMix → AutoMix engine; selector appears only when AutoMix is enabled). Preserve the normal installation/data and
    existing signing; the isolated debug app has separate preferences/accounts/cache.
 2. Queue **Oye Como Va — Banda M1 → Eva Maria — Banda Maguey**, using sources you are
    authorized to play. Keep the same volume/route/EQ conditions. Do not erase cached songs.

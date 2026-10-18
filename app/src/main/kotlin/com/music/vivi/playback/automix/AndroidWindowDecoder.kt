@@ -142,13 +142,14 @@ class AndroidWindowDecoder(
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
             val seekTarget=if(flac!=null)startMs*1000 else DecoderSeekPolicy.targetUs(preprocessing,startMs*1000)
-            val beforeSeekPts=if(flac==null) {extractor.selectTrack(track);extractor.sampleTime} else null
+            // Do not fetch the initial packet just to observe a pre-seek timestamp.
+            // Nonzero tail seeks must retain the original bounded source-read behavior.
+            if(flac==null)extractor.selectTrack(track)
             if (flac != null) flac.seek(startMs * 1000) else {
                 seekTarget?.let {
                     extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
                 }
             }
-            val afterSeekPts=if(flac==null)extractor.sampleTime else null
             val mime = format.getString(MediaFormat.KEY_MIME)!!
             // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
             observation.stage = DecoderStage.CODEC_SETUP
@@ -177,7 +178,7 @@ class AndroidWindowDecoder(
                 format.setInteger(MediaFormat.KEY_ENCODER_PADDING,configuredPadding!!)
             }
             observation.packets?.trim(encoderDelay,encoderPadding,configuredPadding)
-            observation.packets?.seek(seekTarget,beforeSeekPts,afterSeekPts)
+            observation.packets?.seek(seekTarget,null,null)
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here

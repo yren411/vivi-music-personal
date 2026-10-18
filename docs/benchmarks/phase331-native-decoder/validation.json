@@ -153,5 +153,41 @@
     "Opus near-end, other partial coverage and deadline causes remain unresolved; no speculative policies or resource expansion."
   ],
   "validated_automix_kotlin_tree_sha256": "c403c21cc0e3196c807bea2be57828bd079daa46cd587c39627d6a35becdc8d1",
-  "packaging_report": "apk-packaging.json"
+  "packaging_report": "apk-packaging.json",
+  "passive_diagnostics_followup": {
+    "parent_commit": "e7c14ad079a95153f59d8c97f2159aa2c123dd7e",
+    "changes": [
+      "Avoid pre-seek sampleTime queries that could fetch an extra source packet; record the actual first queued packet instead.",
+      "Add actual omitted compressed AAC access-unit rejection to the existing device method, retaining ten tests."
+    ],
+    "full_jvm_suites": {
+      "Arm64GmsDebug": {
+        "tests": 507,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 507,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "host_jni_tests_included_per_variant": 17,
+    "app_and_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "gradle": {
+      "result": "BUILD SUCCESSFUL",
+      "elapsed": "3m29s",
+      "executed_tasks": 42,
+      "up_to_date_tasks": 355
+    },
+    "validated_automix_kotlin_tree_sha256": "7b07743a92ce985e93be76901c10a1fe32097d09ca1cd5e3560100472ec3da3e",
+    "packaging_report": "apk-packaging-passive-followup.json",
+    "android_executed": 0,
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  }
 }

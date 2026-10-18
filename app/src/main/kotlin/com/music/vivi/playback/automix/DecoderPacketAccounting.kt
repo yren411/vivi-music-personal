@@ -44,6 +44,7 @@ internal class DecoderPacketAccounting(private val mime:String?,private val code
     /** Called only after a real non-EOS packet was queued successfully. */
     fun input(bytes:Int,ptsUs:Long) {
         require(bytes>=0)
+        if(inputBuffers==0L && afterSeek==null)afterSeek=ptsUs // Actual queued packet; no extra extractor read.
         inputBuffers++;inputBytes+=bytes;firstInputPts=firstInputPts ?: ptsUs;lastInputPts=ptsUs;lastInputBytes=bytes
     }
     /** Negative sampleTime is the extractor's observed EOF sentinel, not a track timestamp. */

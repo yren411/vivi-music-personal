@@ -134,7 +134,11 @@ class RealWorldDecoderInstrumentedTest {
         assertEquals(DecoderFailureSubtype.DEADLINE,expired.diagnostic!!.subtype)
         assertEquals(CoverageStatus.FULL,decode(s).coverageStatus)
     }
-    @Test fun incompleteEvidenceCannotEnterNativeAnalysisAndLegacyRemainsAvailable()=source {s,_ ->
+    @Test fun incompleteEvidenceCannotEnterNativeAnalysisAndLegacyRemainsAvailable()=source {s,file ->
+        // Remove one real compressed AAC access unit, keeping the remaining extractor PTS.
+        // No fake PCM/timestamp object creates this source discontinuity.
+        val dropped=raw(s,file,0,dropPacket=true)
+        assertEquals("AAC_MISSING_PACKET ${dropped.buffers}",DecoderFailureSubtype.SOURCE_GAP,dropped.failure)
         val w=decode(s);val missing=w.copy(coverage=AudioCoverage(listOf(AudioIntervalUs(0,1_000_000),AudioIntervalUs(1_000_023,32_000_000)),1_411_199))
         var calls=0
         val engine=object:AnalysisEngine {
@@ -166,7 +170,7 @@ class RealWorldDecoderInstrumentedTest {
     private data class Probe(val window:DecodedWindow?,val failure:DecoderFailureSubtype?,val buffers:List<Pair<Long,Int>>,val accepted:Long)
     /** Independent real codec path: explicitly choose codec tail padding, directly map PCM.
      * This reproduces Android SkipCutBuffer and checks the production tail queue's parity. */
-    private fun raw(s:AnalysisSource,file:File,padding:Int):Probe {
+    private fun raw(s:AnalysisSource,file:File,padding:Int,dropPacket:Boolean=false):Probe {
         val extractor=MediaExtractor();var codec:MediaCodec?=null
         val points=mutableListOf<Pair<Long,Int>>();val c=control()
         val capture=CorrectedPcmWindowCapture(request(s),request(s).interval,AudioDuration(36_000_000,DurationBasis.FIXTURE))
@@ -176,7 +180,7 @@ class RealWorldDecoderInstrumentedTest {
             val info=MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos.first { !it.isEncoder && it.supportedTypes.contains("audio/mp4a-latm") &&
                 (it.name.startsWith("c2.android.") || it.name.startsWith("OMX.google.")) }
             codec=MediaCodec.createByCodecName(info.name);codec.configure(f,null,null,0);codec.start()
-            var ended=false;var rate=44100;var channels=2;var encoding=PcmEncoding.PCM16
+            var ended=false;var skipped=false;var rate=44100;var channels=2;var encoding=PcmEncoding.PCM16
             val b=MediaCodec.BufferInfo()
             while(!capture.reachedEnd) {
                 c.checkpoint()
@@ -184,6 +188,9 @@ class RealWorldDecoderInstrumentedTest {
                     val index=codec.dequeueInputBuffer(5000)
                     if(index>=0) {
                         val buffer=codec.getInputBuffer(index)!!
+                        if(dropPacket && !skipped && extractor.sampleTime>=92879) {
+                            assertTrue(extractor.advance());skipped=true
+                        }
                         val n=extractor.readSampleData(buffer,0);val pts=extractor.sampleTime
                         if(n<0 || pts>=32_000_000) {codec.queueInputBuffer(index,0,0,0,MediaCodec.BUFFER_FLAG_END_OF_STREAM);ended=true}
                         else {codec.queueInputBuffer(index,0,n,pts,0);extractor.advance()}

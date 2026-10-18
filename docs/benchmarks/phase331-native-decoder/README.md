@@ -5,7 +5,8 @@ This directory contains generated-fixture and host validation evidence, not priv
 
 - `before-pair35-replay.json`: original failing source-frame replay and its provenance limits.
 - `generated-fixtures.json`: deterministic AAC/Opus recipe metadata and encoded asset hashes.
-- `validation.json`: post-repair executed test counts, PCM parity and packaging observations.
+- `validation.json`: initial post-repair results plus separately recorded final passive-diagnostics/packet-loss follow-up; original measurements preserved.
+- `apk-packaging.json` / `apk-packaging-passive-followup.json`: separate actual archive inspections before/after that follow-up.
 
 | Validation level | Actual result |
 | --- | --- |
@@ -13,7 +14,7 @@ This directory contains generated-fixture and host validation evidence, not priv
 | Universal FOSS complete JVM suite | 507 passed, zero failures/errors/skips |
 | Actual host JNI/comparison | 17 per variant, included above |
 | PCM parity | Eight 44.1/48kHz × mono/stereo × PCM16/Float32 cases; max absolute error 0.0 |
-| GMS/FOSS app and instrumentation APKs | Built; 4m06s, 50 tasks executed / 347 up-to-date |
+| GMS/FOSS app and instrumentation APKs | Final follow-up built; 3m29s, 42 tasks executed / 355 up-to-date (initial run 4m06s recorded separately) |
 | Actual native packaging | Four ABIs; ELF/ZIP 16KB alignment, symbols and license assets passed |
 | New Android decoder tests | Ten compiled and present in test DEX; **zero executed by Codex** |
 | Native CTest/sanitizers | Not rerun; DSP/JNI/C++ unchanged |
