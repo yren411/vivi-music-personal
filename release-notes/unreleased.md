@@ -240,3 +240,19 @@ This is an unversioned draft for review. No release version or tag is assigned.
   playback decks. Keep strict queue/timing checks and isolate generated service-test
   histories and queue cleanup. The owner reports the final combined 49-test device suite
   passed after the completion-boundary correction. Legacy AutoMix remains the default.
+
+## Experimental Native DJ decoder reliability
+
+- Preserve AAC encoder-padding samples with their original source timestamps during
+  corrected analysis, rather than assigning older retained samples the next packet's
+  time. Apply declared tail trimming at natural EOS, without treating an analysis-window
+  endpoint as the end of the song. Keep strict source-gap rejection and legacy fallback.
+- Version corrected analysis PCM/cache identity separately for AAC tail ownership (v6)
+  and bounded Opus preroll/endpoint support (v7); retain historical identities.
+- Preserve real Opus support packets around requested analysis windows so valid
+  decoded audio can reach both endpoints without padding or relaxed coverage checks.
+  The owner reports all 59 combined Android regressions passed on the S25 Ultra /
+  Android 17, with zero failures/skips; these are owner-reported generated-media results.
+- Add bounded trim, seek, source-frame boundary and stage-time diagnostics plus generated
+  AAC/Opus regressions. Legacy remains default; original commercial-source metadata
+  and real-song outcomes still require verification. No listening-quality fix is claimed.

@@ -1,0 +1,43 @@
+{
+  "schema": "phase331-generated-codec-fixtures-v2",
+  "generator": "scripts/generate_automix_real_world_decoder_fixtures.py",
+  "aac_input_frames": 1572850,
+  "aac_rate": 44100,
+  "aac_first_packet_pts_samples": -1024,
+  "aac_final_packet_duration_samples": 1010,
+  "opus_seconds": 40,
+  "opus_rate": 48000,
+  "fixtures": [
+    {
+      "asset": "boundary-padding14-44100-stereo.m4a",
+      "bytes": 412371,
+      "sha256": "c8525a4023cdd1658880cd79c3b8e7ca6a92975bd1e2bbb3c4f0dfdf0b34f12e"
+    },
+    {
+      "asset": "rhythm-128-48000-40s.webm",
+      "bytes": 395331,
+      "sha256": "85d75d61c5b3d97aeaae33259f4a3d115f19e2b2a968433480faf0175bae5711"
+    }
+  ],
+  "commercial_audio": false,
+  "android_execution": "not run",
+  "initial_fixture_inventory": [
+    {
+      "asset": "boundary-padding14-44100-stereo.m4a",
+      "bytes": 412371,
+      "sha256": "0dda2694eb8244791a8a5925bc79c23892b723cbbe5c4922cacde294bd26a737"
+    },
+    {
+      "asset": "rhythm-128-48000-40s.webm",
+      "bytes": 395331,
+      "sha256": "85d75d61c5b3d97aeaae33259f4a3d115f19e2b2a968433480faf0175bae5711"
+    }
+  ],
+  "aac_declared_encoder_padding_frames": 14,
+  "initial_generation_defect": "FFmpeg shortened the last stts duration to 1010, making inferred container tail padding zero. Corrected stts/mdhd to describe full coded AAC frames while preserving elst presentation duration and all mdat bytes; device validation remains pending.",
+  "aac_mdat_sha256": "53e073218980ab635f1d42e0e5a3b322d43533fe4f568fab2e216d5e6966a481",
+  "aac_raw_stts_final_duration_samples": 1024,
+  "ffprobe_presentation_duration_frames": 1572850,
+  "aac_media_header_frames": 1573888,
+  "aac_priming_frames": 1024
+}

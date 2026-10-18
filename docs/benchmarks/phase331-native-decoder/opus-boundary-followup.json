@@ -1,0 +1,79 @@
+{
+  "schema": 1,
+  "baseline_revision": "1634715c10f0fdb3260520a5fdbc42c64beb5c7e",
+  "owner_report": {
+    "device": "Samsung Galaxy S25 Ultra",
+    "os": "Android 17",
+    "initial_run": "Owner reports one of ten methods failed; no raw aggregate XML supplied",
+    "single_method": "opusEarlierAndNearEndWindowsContainActualDecodedAudio",
+    "diagnostic_verbatim": "REAL_WORLD_DECODER_ANDROID  preprocessing=sinc64-blackman-aac-tailclock-mono-22050-v6 decoderStage=COMPLETE subtype=PARTIAL_SOURCE_COVERAGE requestedUs=2000000..7000000 effectiveUs=2000000..7000000 coverage=PARTIAL sourceUs=2001000..6994500 codecFrames=239688 firstCodecPtsUs=2001000 lastCodecEndUs=6994500 acceptedFrames=239688 outputFrames=110106 targetOutputFormat=FLOAT32/22050/1 repeatedFrames=0 inputFormat=PcmFormat(sampleRateHz=48000, channels=1, encoding=PCM16)/DECODER_OUTPUT durationUs=40008000 durationBasis=EXTRACTOR durationMinusAcceptedEndUs=33013500 codecEos=true inputEnd=REQUEST_BOUNDARY bytesRead=198723 fullyCached=true range=NOT_REQUIRED elapsedUs=457722 codecProgressSchema=1 extractorImplementation=ANDROID_MEDIA_EXTRACTOR extractorMime=audio/opus codecName=c2.android.opus.decoder extractorFormat=PcmFormat(sampleRateHz=48000, channels=1, encoding=UNKNOWN) queuedInputBuffers=250 queuedInputBytes=46088 firstInputPtsUs=2001000 lastInputPtsUs=6981000 lastInputBytes=119 extractorEndSampleTimeUs=7001000 outputDataBuffers=250 outputBytes=479376 firstOutputPtsUs=2001000 lastOutputPtsUs=6974500 eosBytes=0 eosPtsUs=0 codecTimelineSchema=2 encoderDelayFrames=null encoderPaddingFrames=null codecPaddingFrames=null seekTargetUs=2000000 extractorBeforeSeekUs=null extractorAfterSeekUs=2001000 heldAacTailFrames=null discardedAacTailFrames=null stageUs_SOURCE=302 stageUs_EXTRACTOR=21338 stageUs_CODEC_SETUP=52345 stageUs_CODEC_OUTPUT=60761 stageUs_PCM_CONVERSION=34964 stageUs_RESAMPLING=287605 stageUs_COMPLETE=182 droppedOverlapFrames=0 jitterBuffers=0 maxJitterUs=0 gaps=0 filterEdgeFrames=64 synthesizedTimelineFrames=0 pcmBoundarySchema=1 bufferPtsUs=6974500 bufferFrames=960 trimFromFrame=0 expectedNextFrame=238728 actualNextFrame=238728.0 deltaFrames=0.0"
+  },
+  "host_replay": {
+    "provenance": "Owner-measured packet grid and aggregate output frame clock; not MediaCodec/libopus emulation",
+    "inferred_initial_discard_frames": 312,
+    "input_rate_hz": 48000,
+    "before": {
+      "source_interval_us": [
+        2001000,
+        6994500
+      ],
+      "accepted_frames": 239688,
+      "output_frames": 110106,
+      "coverage": "PARTIAL"
+    },
+    "bounded_support_policy": {
+      "codec_delay_us": 6500,
+      "seek_preroll_us": 80000,
+      "seek_target_us": 1920000,
+      "compressed_input_cutoff_us": 7006500,
+      "admits_previously_dropped_real_packet_pts_us": 7001000
+    },
+    "limits": "First-buffer loss inferred, not separately measured. Post-repair host results are recorded separately from pending Android execution.",
+    "after_measured_host": {
+      "source_interval_us": [
+        2000000,
+        7000000
+      ],
+      "accepted_frames": 240000,
+      "output_frames": 110250,
+      "coverage": "FULL",
+      "repeated_frames": 0,
+      "synthesized_frames": 0,
+      "pcm_reference_max_error": 0.0
+    }
+  },
+  "preprocessing": {
+    "historical": "sinc64-blackman-aac-tailclock-mono-22050-v6",
+    "current": "sinc64-blackman-opus-support-mono-22050-v7"
+  },
+  "android_after_repair": {
+    "executed_by_codex": 0,
+    "owner_rerun": "pending"
+  },
+  "real_song_zero_output_natural_eos": "Unresolved; this nonempty artificial-boundary fixture failure does not identify its cause.",
+  "post_repair_local_validation": {
+    "complete_jvm": {
+      "Arm64Gms": {
+        "tests": 514,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "host_jni_comparison_included": 17
+      },
+      "UniversalFoss": {
+        "tests": 514,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0,
+        "host_jni_comparison_included": 17
+      }
+    },
+    "build_command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "build_outcome": "BUILD SUCCESSFUL in 4m31s; 60 executed, 337 up-to-date",
+    "focused_jvm_before_final_diagnostic_test": "32 passed, zero failures/errors/skips; not added to complete-suite counts",
+    "android_instrumentation": "Both variants built; ten methods retained; zero executed by Codex",
+    "apk_checks": "apk-packaging-opus-followup.json; four ABI/ELF/ZIP16KB/symbol/license checks passed; helper and v7 identity also confirmed in actual app DEX",
+    "native_ctest_sanitizers": "Not rerun: no native/JNI/C++ changes",
+    "runtime_proof_limit": "Host frame-clock replay/PCM parity; no repaired Android runtime result or new song performance claim"
+  }
+}

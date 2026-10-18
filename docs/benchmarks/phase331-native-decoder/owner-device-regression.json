@@ -1,0 +1,78 @@
+{
+  "schema": 1,
+  "evidence_type": "owner_reported_physical_device_regression",
+  "device": "Samsung Galaxy S25 Ultra",
+  "os": "Android 17",
+  "source_revision_given_for_update": "288511a33107276e1b7c67747e1c2c2b3c626a19",
+  "installed_revision_independently_verified": false,
+  "raw_android_test_xml_supplied": false,
+  "executed_by_codex": false,
+  "owner_reply_verbatim": "All tests passed",
+  "selection": {
+    "total": 59,
+    "suites": [
+      {
+        "class": "com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest",
+        "tests": 10
+      },
+      {
+        "class": "com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest",
+        "tests": 4
+      },
+      {
+        "class": "com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest",
+        "tests": 14
+      },
+      {
+        "class": "com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest",
+        "tests": 6
+      },
+      {
+        "class": "com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest",
+        "tests": 14
+      },
+      {
+        "class": "com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest",
+        "tests": 11
+      }
+    ],
+    "command": ".\\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun \"-PautomixDecoderTests=true\" \"-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true\" \"-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest\" --no-configuration-cache --no-daemon --stacktrace"
+  },
+  "reported_outcome": {
+    "passed": 59,
+    "failures": 0,
+    "skips": 0,
+    "qualification": "Owner confirmation to the supplied combined-selection request; counts not independently extracted from XML."
+  },
+  "preceding_single_opus_rerun": "Owner separately reported the repaired earlier/near-end window method passed.",
+  "source_validation": {
+    "local_jvm": {
+      "Arm64Gms": 514,
+      "UniversalFoss": 514,
+      "total": 1028,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "host_jni_comparison_included_per_variant": 17
+    },
+    "revision": "288511a33107276e1b7c67747e1c2c2b3c626a19",
+    "github_workflows": [
+      {
+        "name": "CI & Debug Build",
+        "run": 39146164268,
+        "conclusion": "success"
+      },
+      {
+        "name": "Build PR",
+        "run": 39146164279,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "limitations": [
+    "No original commercial-song rerun or post-repair real-song diagnostic supplied.",
+    "Original Opus zero-output natural-EOS failures and deadline causes remain unresolved.",
+    "No acoustic synchronization, subjective mix quality, Bluetooth, audible EQ or battery/thermal validation established."
+  ],
+  "production_default": "Legacy analyzer and legacy preprocessing; native remains explicit experimental opt-in."
+}

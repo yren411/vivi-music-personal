@@ -25,6 +25,16 @@ class DecoderPacketAccountingTest {
         assertEquals(-21333L,before.firstInputPtsUs);assertNull(before.outputEosBytes)
         assertEquals(32L,p.snapshot().inputBytes);assertEquals(40L,p.snapshot().outputBytes)
     }
+    @Test fun trimAndSeekEvidenceIsMeasuredImmutableAndUnknownUntilObserved() {
+        val p=DecoderPacketAccounting("audio/mp4a-latm","c2.android.aac.decoder",format)
+        val empty=p.snapshot();assertNull(empty.encoderPaddingFrames);assertNull(empty.extractorAfterSeekUs)
+        p.trim(1024,14,0);p.seek(null,-23219,-23219);p.input(100,-23219);p.tail(14,0)
+        val r=p.snapshot();p.tail(0,14)
+        assertEquals(14,r.encoderPaddingFrames);assertEquals(0,r.codecPaddingFrames)
+        assertEquals(-23219L,r.firstInputPtsUs);assertEquals(-23219L,r.extractorAfterSeekUs)
+        assertEquals(14,r.heldAacTailFrames);assertEquals(0L,r.discardedAacTailFrames)
+        assertTrue(r.reportFields().contains("codecTimelineSchema=2"))
+    }
     @Test fun publicFieldsRejectPrivateUrlsAndCodecMessagesRatherThanEchoingThem() {
         val hostile=DecoderPacketAccounting("audio/raw?token=SECRET","https://private/SECRET",format).snapshot().reportFields()
         for(s in listOf("SECRET","https://","private","token="))assertFalse(hostile.contains(s))
@@ -32,5 +42,16 @@ class DecoderPacketAccountingTest {
         val safe=DecoderPacketAccounting("audio/flac","c2.android.flac.decoder",format).snapshot().reportFields()
         assertTrue(safe.contains("extractorMime=audio/flac"));assertTrue(safe.contains("codecName=c2.android.flac.decoder"))
         assertTrue(safe.contains("codecProgressSchema=1"));assertTrue(safe.length<1500)
+    }
+    @Test fun opusSupportEvidenceIsNumericImmutableAndUnknownForOtherFormats() {
+        val p=DecoderPacketAccounting("audio/opus","c2.android.opus.decoder",PcmFormat(48000,1,PcmEncoding.PCM16))
+        val before=p.snapshot();assertNull(before.opusCodecDelayUs);assertNull(before.inputBoundaryUs)
+        fun ns(n:Long)=java.nio.ByteBuffer.allocate(8).order(java.nio.ByteOrder.nativeOrder()).putLong(n).apply{flip()}
+        p.opusWindow(OpusAnalysisWindow.create(2_000_000,7_000_000,ns(6_500_000),ns(80_000_000)))
+        val snapshot=p.snapshot();p.opusWindow(null)
+        assertEquals(6500L,snapshot.opusCodecDelayUs);assertEquals(80000L,snapshot.opusDeclaredPrerollUs)
+        assertEquals(80000L,snapshot.opusAppliedPrerollUs);assertEquals(7_006_500L,snapshot.inputBoundaryUs)
+        assertNull(before.opusCodecDelayUs);assertNull(p.snapshot().opusCodecDelayUs)
+        assertTrue(snapshot.reportFields().contains("opusWindowSchema=1"))
     }
 }

@@ -1,0 +1,227 @@
+{
+  "schema": "phase331-decoder-validation-v1",
+  "baseline": "d17b094f8b6ba74bc33579c9821bc0b32b3245bc",
+  "preprocessing": "sinc64-blackman-aac-tailclock-mono-22050-v6",
+  "environment": {
+    "platform": "Linux x86_64",
+    "java": 21,
+    "gradle": "9.3.1",
+    "agp": "9.1.1",
+    "ndk": "27.0.12077973",
+    "compile_sdk": 37,
+    "min_sdk": 26
+  },
+  "full_jvm_suites": {
+    "Arm64GmsDebug": {
+      "tests": 507,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 507,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "host_jni": {
+    "Arm64GmsDebug": {
+      "tests_included_above": 17,
+      "classes": {
+        "BitChordJniHostTest": 10,
+        "NativeDjExecutionJniHostTest": 1,
+        "NativePlannerJniHostTest": 4,
+        "NativeServiceJniHostTest": 1,
+        "NativePlannerComparisonTest": 1
+      }
+    },
+    "UniversalFossDebug": {
+      "tests_included_above": 17,
+      "classes": {
+        "BitChordJniHostTest": 10,
+        "NativeDjExecutionJniHostTest": 1,
+        "NativePlannerJniHostTest": 4,
+        "NativeServiceJniHostTest": 1,
+        "NativePlannerComparisonTest": 1
+      }
+    }
+  },
+  "pcm_parity": [
+    {
+      "rate": "44100",
+      "channels": "1",
+      "encoding": "PCM16",
+      "accepted": "44100",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "44100",
+      "channels": "1",
+      "encoding": "FLOAT32",
+      "accepted": "44100",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "44100",
+      "channels": "2",
+      "encoding": "PCM16",
+      "accepted": "44100",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "44100",
+      "channels": "2",
+      "encoding": "FLOAT32",
+      "accepted": "44100",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "48000",
+      "channels": "1",
+      "encoding": "PCM16",
+      "accepted": "48000",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "48000",
+      "channels": "1",
+      "encoding": "FLOAT32",
+      "accepted": "48000",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "48000",
+      "channels": "2",
+      "encoding": "PCM16",
+      "accepted": "48000",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    },
+    {
+      "rate": "48000",
+      "channels": "2",
+      "encoding": "FLOAT32",
+      "accepted": "48000",
+      "output": "22050",
+      "maxAbsError": "0.0",
+      "coverage": "FULL"
+    }
+  ],
+  "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+  "gradle": {
+    "result": "BUILD SUCCESSFUL",
+    "elapsed": "4m 6s",
+    "executed_tasks": 50,
+    "up_to_date_tasks": 347
+  },
+  "android": {
+    "new_methods_compiled": 10,
+    "previous_methods_retained": 49,
+    "instrumentation_executed_by_codex": 0,
+    "device_results": "pending",
+    "variants": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ]
+  },
+  "native_ctest_and_sanitizers": {
+    "executed_in_this_repair": false,
+    "reason": "Native DSP/JNI/C++ source and build configuration unchanged; Kotlin decoder/diagnostic repair only."
+  },
+  "intermediate_failure": {
+    "test": "BitChordNativeAnalysisEngineTest.nativeProfileIsVersionedAndCannotCollideWithLegacy",
+    "cause": "The profile test was extended with historical v5, but its expected distinct-key count was still 7. Corrected to 8; all key uniqueness and privacy assertions retained."
+  },
+  "limitations": [
+    "No original commercial encoded sources or full diagnostic exports provided in this task.",
+    "No Android runtime execution or original source encoder-padding verification.",
+    "Cache comparison uses real Media3 cache over a controlled local ranged source, not live HTTP.",
+    "Opus near-end, other partial coverage and deadline causes remain unresolved; no speculative policies or resource expansion."
+  ],
+  "validated_automix_kotlin_tree_sha256": "c403c21cc0e3196c807bea2be57828bd079daa46cd587c39627d6a35becdc8d1",
+  "packaging_report": "apk-packaging.json",
+  "passive_diagnostics_followup": {
+    "parent_commit": "e7c14ad079a95153f59d8c97f2159aa2c123dd7e",
+    "changes": [
+      "Avoid pre-seek sampleTime queries that could fetch an extra source packet; record the actual first queued packet instead.",
+      "Add actual omitted compressed AAC access-unit rejection to the existing device method, retaining ten tests."
+    ],
+    "full_jvm_suites": {
+      "Arm64GmsDebug": {
+        "tests": 507,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 507,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "host_jni_tests_included_per_variant": 17,
+    "app_and_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "gradle": {
+      "result": "BUILD SUCCESSFUL",
+      "elapsed": "3m29s",
+      "executed_tasks": 42,
+      "up_to_date_tasks": 355
+    },
+    "validated_automix_kotlin_tree_sha256": "7b07743a92ce985e93be76901c10a1fe32097d09ca1cd5e3560100472ec3da3e",
+    "packaging_report": "apk-packaging-passive-followup.json",
+    "android_executed": 0,
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  },
+  "final_encoded_fixture_followup": {
+    "source_parent": "4a0492ab",
+    "full_jvm_suites": {
+      "Arm64GmsDebug": {
+        "tests": 508,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 508,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "host_jni_tests_included_per_variant": 17,
+    "encoded_fixture_contract_stdout": "AAC_ENCODED_FIXTURE mediaFrames=1573888 presentationFrames=1572850 primingFrames=1024 tailPaddingFrames=14 mdatSha256=53e073218980ab635f1d42e0e5a3b322d43533fe4f568fab2e216d5e6966a481",
+    "gradle": {
+      "result": "BUILD SUCCESSFUL",
+      "elapsed": "2m47s",
+      "executed_tasks": 22,
+      "up_to_date_tasks": 375
+    },
+    "fixture_metadata_correction": "Coded stts/mdhd frames now include the existing 14 padding frames while elst presentation duration and mdat remain unchanged. Original fixture inventory/defect preserved in generated-fixtures.json.",
+    "instrumentation_methods_compiled": 10,
+    "instrumentation_executed": 0,
+    "app_and_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "production_code_unchanged_since_passive_followup": true,
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  }
+}

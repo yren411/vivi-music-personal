@@ -56,6 +56,21 @@ audible Poweramp Equalizer processing and long-term resource/reliability behavio
 require evaluation. No APK release or automatic merge is authorized. Native DJ AutoMix
 remains experimental and off by default.
 
+## Phase 3.3.1 decoder follow-up
+
+[Real-world decoder reliability](AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) introduces
+corrected preprocessing v6 for AAC tail-buffer timestamp ownership, followed by
+**`sinc64-blackman-opus-support-mono-22050-v7`** for bounded Opus seek/preroll and
+endpoint-support packets. The Phase 3.3 owner-reported 49-test pass and reviewed CI
+results above retain their original **v5** provenance; they are not new device validation
+of v6/v7. The follow-up keeps the DSP, planner/executor gates, opt-in and legacy default intact.
+The owner reported one Opus failure among the ten new decoder methods on v6;
+after the v7 repair, the owner reported all 59 combined tests passed on the S25 Ultra /
+Android 17 (10 new plus prior 49, zero failures/skips). This later owner report is
+separate from the historical v5 run and from Codex host/build results. No raw Android
+XML or independently verified installed SHA was supplied. Real-song and acoustic
+validation remain outstanding.
+
 ## Scope and current evidence
 
 This phase connects the native pipeline to **MusicService and the normal queue**, behind
@@ -197,7 +212,7 @@ inventing a rendition identity. For controlled comparison, select the mode **bef
 the pair. Unsupported providers/renditions may legitimately remain legacy.
 
 AAC priming, FLAC sample origins and PCM coverage use the current corrected decoder
-(v5 after the follow-up below; initial Phase 3.3 fixtures used v3).
+(v6 in Phase 3.3.1; the historical FLAC follow-up below used v5, initial fixtures v3).
 There is no new timestamp offset or assumption that differently encoded renditions are sample
 identical. Real streaming/container differences and network failure rates remain device work.
 
