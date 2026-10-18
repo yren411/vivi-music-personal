@@ -37,6 +37,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private var maxTickGap=0L
     private var preparationElapsed:Long?=null
     private var startupReference:NativeDjStartupObservation?=null
+    private var terminalOutput:NativeDjOutputTiming?=null
     private var startupLead=0L
     private var lastTick:Long?=null
     private var lastOutgoingProgressAtUs=0L
@@ -246,6 +247,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                     if(estimatedOffset==null || !b.playing || inElapsed<c.overlapUs-config.maxObservedDriftUs)
                         return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_FAILED)
                     stage(NativeDjExecutionStage.COMPLETING)
+                    captureTerminalOutput()
                     if(host.queue()!=queue || !host.promote(requireNotNull(queue),next))return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.STALE_QUEUE)
                     promoted=true;promotionPosition=a.positionUs;incoming=null
                     host.outgoing.release();host.restore();owned=false
@@ -302,6 +304,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private fun recoverOutgoingFailure(reason:NativeDjExecutionReason,b:NativeDjDeckState):NativeDjExecutionStatus {
         // Only already-audible, healthy incoming music may be promoted as recovery. Not a successful aligned mix.
         if(status.stage==NativeDjExecutionStage.MIXING && b.ready && b.playing && inGain>=.2 && host.queue()==queue) {
+            captureTerminalOutput()
             val next=requireNotNull(incoming)
             next.gain(1.0)
             if(host.promote(requireNotNull(queue),next)) {
@@ -313,6 +316,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     }
     private fun stop(stage:NativeDjExecutionStage,reason:NativeDjExecutionReason):NativeDjExecutionStatus {
         if(terminal)return status
+        captureTerminalOutput() // incoming AudioTrack must still exist when sampled
         var cleanupFailed=false
         try { incoming?.release() } catch(_:Exception) { cleanupFailed=true }
         incoming=null
@@ -328,6 +332,8 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
         return status
     }
     private fun stage(stage:NativeDjExecutionStage,reason:NativeDjExecutionReason?=null) {status=NativeDjExecutionStatus(stage,reason);record(lastOut,lastIn)}
+    private fun outputTiming():NativeDjOutputTiming?=try {host.outputTiming()}catch(_:Exception){null}
+    private fun captureTerminalOutput() {if(terminalOutput==null)terminalOutput=outputTiming()}
     private fun record(a:Long?,b:Long?) {
         if(events.size==128)events.removeFirst()
         events.addLast(NativeDjExecutionMetric(nowUs(),status.stage,a,b,outGain,inGain,status.reason))
@@ -347,7 +353,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             config.curve,content,NativeDjLevel.VERSION,c?.tempo?.measuredOutgoingBpm?.takeIf {it.isFinite() && it in 60.0..220.0},
             c?.tempo?.measuredIncomingBpm?.takeIf {it.isFinite() && it in 60.0..220.0},
             c?.tempo?.relation,c?.alignment,p?.let {try {Math.addExact(it.candidate.outgoingCueUs,it.candidate.overlapUs)<it.outgoing.durationUs} catch(_:ArithmeticException){false}} ?: false,
-            c?.uncertainties ?: emptySet(),status,measurements(),outputTiming=host.outputTiming())
+            c?.uncertainties ?: emptySet(),status,measurements(),outputTiming=terminalOutput ?: outputTiming(),
+            startupReference=startupReference?.let {NativeDjStartupReferenceReport(it.commandMonotonicUs,it.commandPositionUs,
+                it.observedMonotonicUs,it.observedPositionUs,it.commandOutput,it.observedOutput)})
     }
     @Synchronized override fun close() {cancel(NativeDjExecutionReason.SHUTDOWN)}
 }

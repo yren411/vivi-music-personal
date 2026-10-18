@@ -8,7 +8,8 @@ data class NativeDjQueue(val generation: Long, val outgoing: AnalysisSourceIdent
  * verified incoming alignment. No device constants or retained cross-session calibration. */
 data class NativeDjStartupObservation(val source:AnalysisSourceIdentity,val generation:Long,
     val commandMonotonicUs:Long,val commandPositionUs:Long,
-    val observedMonotonicUs:Long,val observedPositionUs:Long) {
+    val observedMonotonicUs:Long,val observedPositionUs:Long,
+    val commandOutput:NativeDjOutputTimestamp?=null,val observedOutput:NativeDjOutputTimestamp?=null) {
     fun leadUs(queue:NativeDjQueue,nowUs:Long):Long? = try {
         val elapsed=Math.subtractExact(observedMonotonicUs,commandMonotonicUs)
         val progress=Math.subtractExact(observedPositionUs,commandPositionUs)
@@ -96,7 +97,13 @@ data class NativeDjExecutionReport(val executorVersion:String,val plannerVersion
     val uncertainties:Set<PlanningUncertainty>,val status:NativeDjExecutionStatus,
     val measurements:NativeDjExecutionMeasurements,
     val timingMethod:String="bracketed common-instant media-clock observations with conservative query uncertainty; acoustic alignment unmeasured",
-    val outputTiming:NativeDjOutputTiming?=null)
+    val outputTiming:NativeDjOutputTiming?=null,
+    val startupReference:NativeDjStartupReferenceReport?=null)
+
+/** Numeric observation only: source/rendition/generation identifiers deliberately omitted. */
+data class NativeDjStartupReferenceReport(val commandMonotonicUs:Long,val commandPositionUs:Long,
+    val observedMonotonicUs:Long,val observedPositionUs:Long,
+    val commandOutput:NativeDjOutputTimestamp?,val observedOutput:NativeDjOutputTimestamp?)
 
 data class NativeDjOutputTimestamp(val framePosition:Long,val nanoTime:Long,val sampleRate:Int)
 data class NativeDjOutputTiming(val outgoing:NativeDjOutputTimestamp?,val incoming:NativeDjOutputTimestamp?,val observedMonotonicUs:Long)

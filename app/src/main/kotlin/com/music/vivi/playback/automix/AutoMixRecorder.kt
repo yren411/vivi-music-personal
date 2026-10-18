@@ -149,10 +149,11 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
                             append(" startCommandUs=${m.commandOutgoingUs} startupLeadUs=${m.startupLeadUs} firstOffsetUs=${m.estimatedStartOffsetUs}")
                             append(" commonProgressUs=${m.concurrentProgressUs} maxDriftUs=${m.maximumObservedDriftUs} maxTickGapUs=${m.maximumTickGapUs}")
                             append(" preparationUs=${m.preparationElapsedUs} promotions=${m.promotions}")
-                            append(" clockSchema=2 maxRawOffsetUs=${m.maximumRawOffsetUs} maxQuerySpanUs=${m.maximumQuerySpanUs} lastClock=${m.lastClock}")
+                            append(" clockSchema=3 maxRawOffsetUs=${m.maximumRawOffsetUs} maxQuerySpanUs=${m.maximumQuerySpanUs} lastClock=${m.lastClock}")
                             append(" commandMonotonicUs=${m.commandMonotonicUs} promotionOutgoingUs=${m.promotionOutgoingUs} prediction=${m.predictionState}")
                             append(" firstIncomingProgressMonotonicUs=${m.firstIncomingProgressMonotonicUs} fadeStartedOutgoingUs=${m.fadeStartedOutgoingUs} steadyMinOffsetUs=${m.steadyMinimumOffsetUs} steadyMaxOffsetUs=${m.steadyMaximumOffsetUs}")
                             e.outputTiming?.let {append(" rawOutputTimestamps=$it")}
+                            e.startupReference?.let {append(" startupReference=$it")}
                             m.events.lastOrNull()?.let {append(" lastPlayerObservation=$it")}
                         }
                     }

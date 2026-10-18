@@ -10,9 +10,11 @@ limits, physical-device commands and recording/listening protocol.
 | --- | --- |
 | `owner-baseline-summary.json` | Original task's owner-reported real-device summary and separately labeled calculations; no new phone measurements |
 | `owner-route-test-followup.json` | Subsequent owner-reported ten-test pass and normalized older service-test failure; no raw session export or clean 69-test claim |
+| `owner-startup-failure-followup.json` | Next owner rerun: excessive negative startup offset before route assertions; distinct from the no-op test-trigger defect |
 | `placement-and-observation-host.json` | Generated mathematical beat fixtures through the real Kotlin planner, plus host JVM clock/route microbenchmarks; no acoustic or Android output |
 | `validation.json` | Actual local test counts/builds and explicit runtime omissions |
 | `apk-packaging.json` | Actual ELF, ZIP native-library alignment, ABI, JNI symbol and license-asset inspection |
+| `startup-followup-apk-packaging.json` | Repeated actual packaging check after observation-only startup evidence additions; original artifact retained |
 
 `ANALYZED_REGION` replays the original v1 ordering through the current v2 implementation;
 it is **not** a run of the original binary. `PRESERVE_OUTGOING` uses strict service policy.
@@ -46,6 +48,13 @@ variants built. All four JNI ABIs, ELF/ZIP 16 KB alignment and license assets pa
 inspection. No Android runtime tests executed here. The final host microbenchmark is
 about 132 ns per clock calculation and 141 ns per unchanged route decision; these do not
 include Android position/timestamp calls or characterize phone audio latency.
+
+Subsequent startup-evidence follow-up: **548 tests per variant / 1,096 total**, zero
+failures/errors/skips, with the same 34 actual host-JNI executions included; 24 focused
+startup/clock tests also passed. Both debug app/test APKs assembled and four-ABI/16 KB/
+license inspection passed again. The added exact-offset regression tests correct rejection
+and pre-release evidence retention; it is not an acoustic or startup-repair success case.
+No new Android device execution is claimed. The one-method actual-service probe is pending.
 
 Environment: JDK 21, Gradle 9.3.1, AGP 9.1.1, Kotlin 2.3.10, SDK 37, NDK 27.0.12077973.
 The cloud activation script is local setup, not an application dependency. Build the
@@ -100,8 +109,16 @@ python scripts/check_automix_native_apks.py \
   with one older service method failing because it used unchanged default output preference
   as its cancellation trigger. The corrected test retains the original assertions/deadline
   and additionally checks no-op retention and explicit preference-change cancellation.
-  No production code changed. Corrected-method/full-69 reruns and screen-recorder/Bluetooth
-  testing remain pending owner validation; raw device XML was not supplied.
+  No production code changed in that test-trigger repair. The next owner rerun failed at
+  startup before route assertions: 229,556 µs lead, −279,376 µs raw offset and 279,416 µs
+  guarded drift. This is not a new route cleanup failure. The follow-up preserves numeric
+  reference/pre-release output evidence; it does not change the prediction/120 ms guard.
+  The exact host replay still requires fallback, zero promotions and surviving playback.
+  Corrected-method/full-69 and screen-recorder/Bluetooth validation remain incomplete.
+  A separate one-method `NativeServiceStartupDiagnosticInstrumentedTest` is an explicitly
+  bounded observation tool, not a 70th synchronization acceptance test. A passed probe can
+  honestly report FALLBACK; its file outcome is required to interpret it. See the engineering
+  guide for its exact PowerShell command. No device XML or Codex Android runtime is claimed.
 
 The initial focused run exposed an overlap-ranking regression: prioritizing endpoint
 distance before supported overlap shortened valid long mixes. Ranking was corrected

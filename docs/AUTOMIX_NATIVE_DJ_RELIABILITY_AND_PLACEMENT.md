@@ -193,7 +193,8 @@ Generating a plan is never displayed as successful execution. Reports include se
 rank, duration, endpoint, remaining/preserved fraction/budget, and aggregate rejection
 counts for anchors later than the selected cue. These are evaluated candidates only;
 bounded search cannot explain uninspected candidates. `placementSchema=1`, `clockSchema=2`
-and `routeSchema=1` are additive to the bounded recorder export. No titles, URLs, paths,
+and `routeSchema=1` are additive to the bounded recorder export. The later startup diagnostic
+follow-up extends clockSchema to **3**; historical schema-2 traces retain their meaning. No titles, URLs, paths,
 PCM, device IDs or automatic uploads are introduced.
 
 Native and legacy ownership, exactly-once promotion, fallback cleanup, reentrant controls,
@@ -247,10 +248,12 @@ assertions require ROUTE_CHANGED history and zero native promotions. The previou
 is restored in `finally`. No production route policy, timing guard or audio behavior changed.
 This does not simulate a physical Bluetooth/speaker replacement. A normalized summary is in
 `benchmarks/phase332-native-reliability/owner-route-test-followup.json`; the full private session
-export is not committed. The corrected method and clean combined 69-test selection still
-need owner reruns.
+export is not committed. The owner then reran the corrected method, but startup failed
+before its route assertions; see the separate investigation below. A clean combined
+69-test pass remains unestablished.
 
-Targeted rerun after updating the existing PR branch (one test, expected zero failures/skips):
+Route acceptance command, retained for regression **after** investigating the startup
+failure below (one test, expected zero failures/skips; no claim that startup is repaired):
 
 ```powershell
 git fetch origin
@@ -259,13 +262,105 @@ git pull --ff-only
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#routeInvalidationReleasesIncomingWithoutMutingPrimary" --no-configuration-cache --no-daemon --stacktrace
 ```
 
-Local final matrix: **546 Arm64 GMS + 546 Universal FOSS JVM tests = 1,092 passed**,
+Initial implementation/test-trigger matrix: **546 Arm64 GMS + 546 Universal FOSS JVM tests = 1,092 passed**,
 zero failures/errors/skips. Included actual host-JNI cases: 17 per variant / 34 executions.
 Both app debug APKs and both instrumentation APKs assembled successfully. Actual APK
 inspection verified all four native ABIs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`),
 16 KB ELF LOAD and uncompressed ZIP data alignment, JNI symbols and license assets.
 Packaged native hashes match the archived Phase 3.3.1 artifacts. Native build dependencies
 remain unchanged. These are local results for this implementation, not phone execution.
+
+### Second owner rerun: startup fallback precedes route testing
+
+The next supplied diagnostic is a **different failure**. `h.mixing()` timed out before
+the corrected test issued either preferred-device assertion. Native analysis and planning
+succeeded with full generated-source coverage and stable known SPEAKER routing, then
+execution fell back with `EXCESSIVE_DRIFT`. The later visible `LOW_BEAT_CONFIDENCE` is
+independent legacy analysis following that fallback, not its native cause.
+
+| Measured quantity | Supplied diagnostic |
+| --- | ---: |
+| Planned outgoing cue | 9,976,065 µs |
+| Planned incoming cue | 336,689 µs |
+| Start command outgoing position | 9,750,000 µs |
+| Selected startup lead | 229,556 µs |
+| First progress, command-to-observation time | 11,124 µs |
+| Outgoing at first progress | 9,760,000 µs |
+| Incoming at first progress | 400,000 µs |
+| Raw cue-relative offset | **−279,376 µs** |
+| Common-time point | −279,336 µs |
+| Query-duration uncertainty | 40 µs |
+| Guarded drift | **279,416 µs** |
+| Promotions | 0 |
+
+The arithmetic is exact: `(9,760,000−9,976,065)−(400,000−336,689) = −279,376`.
+Incoming reported +64 ms from the millisecond-floor seek while outgoing reported +10 ms,
+only 11.124 ms after command dispatch. The sequential-query correction is only 40 µs and
+cannot explain or repair this offset. Both conservative bounds exceed the negative 120 ms
+limit. Rejection is correct under the existing media-clock contract. An earlier command
+based on the outgoing observation does not establish the incoming player's actual startup.
+Identical prepared formats alone do not prove matching clock or output startup behavior.
+Renderer/standalone handover, seek reporting and cold/warm output differences remain
+possible mechanisms, not established acoustic diagnoses. Do not transfer this outcome
+to the earlier trace that reached MIXING with only 16.643 ms drift.
+
+An exact virtual-clock regression now reproduces the supplied relative positions,
+fractional seek floor and 229.556 ms prediction, requires excessive-drift fallback and
+zero promotions, and verifies surviving playback. It does **not** simulate sound or
+turn fallback into success. No clock is rebased, no cue changed, no new fixed offset
+introduced and neither the 120 ms nor 40 ms guard is relaxed.
+
+Two narrowly scoped diagnostic gaps are addressed, without changing startup selection:
+
+- Numeric startup-reference command/observation positions/times and optional raw source
+  AudioTrack timestamps are exported, without source/rendition identifiers.
+- Failure output timestamps are sampled **before** incoming cleanup and retained. Previously
+  querying only after release lost the incoming AudioTrack just when it was most useful.
+  Missing/throwing diagnostic timestamp providers cannot prevent normal cleanup. Success
+  also retains its final pre-promotion pair. No additional continuous production polling
+  is added: source reference capture adds at most two queries and terminal capture one pair.
+
+These are observability changes, not a claimed synchronization repair. PCM v7, backend,
+planner v2, executor v5 control semantics, prediction validity, confidence/gain policies and
+default legacy mode are unchanged. Musical/acoustic output timing remains unknown.
+See `benchmarks/phase332-native-reliability/owner-startup-failure-followup.json` for the
+normalized measurement summary; the raw session export is not published.
+
+The startup-evidence follow-up passed **548 GMS + 548 FOSS = 1,096 JVM tests**, with
+zero failures/errors/skips and 34 actual host-JNI executions included. The focused startup/
+clock selection passed 24 tests. Both app and instrumentation APK variants assembled;
+all four JNI ABIs, ELF/ZIP 16 KB alignment and license assets passed inspection again.
+See `startup-followup-apk-packaging.json` and the separate follow-up block in `validation.json`.
+Those local results do not execute Android, repair startup or change the owner's earlier
+reported test outcomes. Original benchmark/packaging artifacts remain separate.
+
+### Bounded service-startup diagnostic (separate from acceptance)
+
+`NativeServiceStartupDiagnosticInstrumentedTest` has **one** explicitly selected diagnostic
+method using the real MusicService, JNI, planner and executor. It observes a native startup
+outcome for at most 25 seconds, sampling reports at most 10 Hz, and then cleans up through
+the existing harness. There is no substitute player, extra warm-up, calibration sound,
+automatic retry or relaxed guard. It writes at most 96,000 characters to one app-private file.
+A passing diagnostic can report FALLBACK/FAILED/CANCELED; it validates bounded observation
+and playback safety, **not successful synchronization**. The 69 acceptance methods remain
+separately selected and unchanged. Run this probe rather than repeatedly retrying the route
+test while its startup prerequisite fails. Pause other music and use comfortable volume;
+generated audio plays. Keep the existing isolated app/key; no uninstall or cache wipe.
+
+```powershell
+git fetch origin
+git switch codex/automix-native-reliability-placement
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeServiceStartupDiagnosticInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+$adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
+& $adb exec-out run-as com.yren411.tinium.decodercheck cat files/phase332-service-startup.txt
+```
+
+Expect one diagnostic executed, zero runner failures/skips, with an **explicit outcome**
+in the file. Supply that redacted file even if Gradle succeeds. Phone execution of this
+new probe is pending. The next synchronization decision requires comparing the initial
+reference, first incoming clock and available pre-release output frames; no optimistic
+correction is inferred from a passing diagnostic task.
 
 ### Resource observations
 

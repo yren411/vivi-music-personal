@@ -297,7 +297,8 @@ class MusicService :
         live={processor -> autoMixProcessors.values.any {it===processor}},
         changed={event -> observeNativeRoute(event)})}
     private var nativeStartup:NativeDjStartupObservation?=null
-    private var nativeStartCommand:Triple<ExoPlayer,Long,Long>?=null
+    private data class NativeStartCommand(val player:ExoPlayer,val atUs:Long,val positionUs:Long,val output:NativeDjOutputTimestamp?)
+    private var nativeStartCommand:NativeStartCommand?=null
     private var nativePairGeneration=0L
     private var nativePairKey:NativeQueueBinding?=null
     private val nativeSources=NativeRenditionRegistry<AnalysisSource>()
@@ -2723,7 +2724,8 @@ class MusicService :
             }finally {nativeForwardingPlayback=false}
         }
         if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL && nativeAutoMix?.ownsPlayback!=true) {
-            if(playWhenReady)nativeStartCommand=Triple(player,System.nanoTime()/1000,player.currentPosition*1000)
+            if(playWhenReady)nativeStartCommand=NativeStartCommand(player,System.nanoTime()/1000,player.currentPosition*1000,
+                nativeOutputRoutes.timestamp(autoMixProcessors[player]))
             else {nativeStartup=null;nativeStartCommand=null}
         }
         intelligentAutoMix?.syncPlaybackState()
@@ -4098,12 +4100,13 @@ class MusicService :
     }
     private fun observeNativeStartup() {
         val command=nativeStartCommand ?: return
-        if(command.first!==player || !player.isPlaying)return
-        val progress=player.currentPosition*1000-command.third
+        if(command.player!==player || !player.isPlaying)return
+        val progress=player.currentPosition*1000-command.positionUs
         if(progress in 1..100_000) {
             val source=nativeSources[player.currentMediaItem?.mediaId] ?: return
             nativeStartup=NativeDjStartupObservation(AnalysisSourceIdentity(source.cacheKey,source.identity),nativePairGeneration,
-                command.second,command.third,System.nanoTime()/1000,player.currentPosition*1000)
+                command.atUs,command.positionUs,System.nanoTime()/1000,player.currentPosition*1000,
+                command.output,nativeOutputRoutes.timestamp(autoMixProcessors[player]))
             nativeStartCommand=null
         } else if(progress>100_000)nativeStartCommand=null // coarse/late observation: no guessed lead
     }

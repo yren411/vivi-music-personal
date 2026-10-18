@@ -14,6 +14,9 @@ This is an unversioned draft for review. No release version or tag is assigned.
   redacted output/placement diagnostics. Preserve the 120 ms drift and 40 ms start
   guards. Real-device startup reliability, screen-recording behavior and audible
   synchronization still require validation; no new DJ EQ effects are added.
+- Preserve startup-reference and pre-cleanup output timestamps in redacted diagnostics.
+  Add a bounded service-startup probe whose completion reports the actual outcome,
+  including fallback, without claiming successful synchronization.
 
 ## Branding
 
