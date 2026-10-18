@@ -41,6 +41,7 @@ class Media3NativeDjPlayback(
     private val startTiming: () -> NativeDjStartupObservation? = {null},
     /** Service owns the full queue and pause-at-end; promotion must transplant it without seeking. */
     private val allowServiceQueue:Boolean=false,
+    private val outputTimestamps:()->NativeDjOutputTiming?={null},
 ) : NativeDjHost, AutoCloseable {
     companion object {
         // Ownership across caller loopers is synchronized; player operations stay on their own looper.
@@ -58,6 +59,7 @@ class Media3NativeDjPlayback(
     private fun thread() {check(Looper.myLooper()==looper) {"Use the player application looper"}}
     override fun queue():NativeDjQueue {thread();return currentQueue()}
     override fun startupObservation():NativeDjStartupObservation? {thread();return startTiming()}
+    override fun outputTiming():NativeDjOutputTiming? {thread();return outputTimestamps()}
     override fun startupTimingCompatible():Boolean {
         thread()
         val a=outgoingDeck.player.audioFormat ?: return false
@@ -153,6 +155,7 @@ class Media3NativeDjPlayback(
     /** Service forwards Media3's explicit END_OF_MEDIA_ITEM callback, not a guessed position. */
     internal fun outgoingItemReachedEnd() {thread();outgoingDeck.endedAtItemBoundary=true;executor?.tick()}
     internal fun incomingSessionId():Int? {thread();return incomingDeck?.takeIf {!it.released}?.player?.audioSessionId}
+    internal fun incomingPlayerForRoute():ExoPlayer? {thread();return incomingDeck?.takeIf {!it.released}?.player}
     internal fun incomingVolume():Float? {thread();return incomingDeck?.takeIf {!it.released}?.player?.volume}
     internal fun incomingPlaying():Boolean? {thread();return incomingDeck?.takeIf {!it.released}?.player?.isPlaying}
     fun refreshUserVolume() {thread();if(!claimed || closed)return;outgoingDeck.refresh();incomingDeck?.refresh()}

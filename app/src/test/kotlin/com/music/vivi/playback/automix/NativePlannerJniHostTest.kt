@@ -26,7 +26,7 @@ class NativePlannerJniHostTest {
             val a=NativePlanningFixtures.realWindow(NativePlanningFixtures.pcm(),150_000_000,"out")
             val b=NativePlanningFixtures.realWindow(NativePlanningFixtures.pcm(phase=.333),0,"in")
             val request=NativePlanningRequest(PlanningTrack(a.identity,180_000_000,a.requested),PlanningTrack(b.identity,180_000_000,b.requested),
-                140_000_000,5_000_000,1,"real-jni-coordinator-fixture")
+                140_000_000,5_000_000,1,"real-jni-coordinator-fixture",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
             fun source(w:DecodedWindow)=PlanningSourceRequest(w,DecodeRequest(w.requested,w.identity),immutableRendition=true)
             ExperimentalNativePlanningSession(workers,NativePlanningAnalysis(decoder,engine),AnalysisControl()).use {session ->
                 repeat(2) {generation ->

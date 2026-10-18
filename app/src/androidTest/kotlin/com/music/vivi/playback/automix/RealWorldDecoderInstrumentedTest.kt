@@ -167,7 +167,7 @@ class RealWorldDecoderInstrumentedTest {
         assertTrue("INCOMING $incoming",incoming.analysis is AnalysisResult.Completed)
         val duration=requireNotNull((a.analysis as AnalysisResult.Completed).metadata.duration.durationUs)
         val wanted=NativePlanningRequest(PlanningTrack(aId,duration,AudioIntervalUs(4_000_000,32_000_000)),
-            PlanningTrack(bId,duration,AudioIntervalUs(0,32_000_000)),3_000_000,1_000_000,1,"generated331")
+            PlanningTrack(bId,duration,AudioIntervalUs(0,32_000_000)),3_000_000,1_000_000,1,"generated331",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
         val result=NativeAwareAutoMixPlanner().plan(wanted,a,incoming,control())
         assertTrue("GENERATED_AAC_PLANNER $result",result is NativePlanningOutcome.Selected)
     }

@@ -183,7 +183,7 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
             val am=(x.analysis as AnalysisResult.Completed).metadata;val bm=(y.analysis as AnalysisResult.Completed).metadata
             val req=NativePlanningRequest(PlanningTrack(am.source,am.duration.durationUs!!,
                 AudioIntervalUs(outgoingStartUs+if(extended)1_000_000 else 4_000_000,aw.sampleInterval!!.endUs)),
-                PlanningTrack(bm.source,bm.duration.durationUs!!,bw.sampleInterval!!),outgoingStartUs+if(extended)0 else 2_000_000,if(extended)250_000 else 1_000_000,1,"phase32-instrumentation-session")
+                PlanningTrack(bm.source,bm.duration.durationUs!!,bw.sampleInterval!!),outgoingStartUs+if(extended)0 else 2_000_000,if(extended)250_000 else 1_000_000,1,"phase32-instrumentation-session",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
             val result=NativeAwareAutoMixPlanner().plan(req,x,y)
             assertTrue("Native planner outcome=$result",result is NativePlanningOutcome.Selected)
             plan=(result as NativePlanningOutcome.Selected).plan
@@ -206,12 +206,12 @@ internal class NativeDjAndroidHarness(codec:Boolean=false,private val extended:B
             }
         }catch(error:Throwable){close();throw error}
     }
-    fun adapter()=Media3NativeDjPlayback(outgoing,plan.outgoing,plan.incoming,incomingItem,
+    fun adapter(usePrediction:Boolean=true)=Media3NativeDjPlayback(outgoing,plan.outgoing,plan.incoming,incomingItem,
         {NativeDjQueue(generation,plan.outgoing.source,plan.incoming.source)},
         {newPlayer().also {incoming=it}},
         {q,p ->if(q.generation!=generation)false else {assertEquals(0,promotions);assertTrue(p===incoming);primary=p;promotions++;generation++;true}},
         {p ->if(p===outgoing){outgoingAtReleaseUs=p.currentPosition*1000;outgoingSessionAtRelease=p.audioSessionId};check(!released.contains(p));released+=p;p.release()},
-        {volume},exclusiveControlAvailable={true},outputs=outputs,startTiming={startupObservation})
+        {volume},exclusiveControlAvailable={true},outputs=outputs,startTiming={if(usePrediction)startupObservation else null})
     private fun newPlayer()=ExoPlayer.Builder(context).setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA)
         .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),false).setHandleAudioBecomingNoisy(true).build().also {it.setOffloadEnabled(false)}
     fun start(p:NativeTransitionPlan=plan,outLevel:NativeDjLevel=this.outLevel)=main {executor=playback.execute(p,outLevel,inLevel)}

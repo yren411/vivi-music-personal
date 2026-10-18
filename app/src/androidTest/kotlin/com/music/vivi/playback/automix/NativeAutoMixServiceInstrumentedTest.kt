@@ -154,7 +154,7 @@ class NativeAutoMixServiceInstrumentedTest {
             try {block(h)}catch(error:Throwable){h.captureFailure(error);throw error}
         }
     }
-    private class Harness(private val testMethod:String,native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean):AutoCloseable {
+    internal class Harness(private val testMethod:String,native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean):AutoCloseable {
         private val instrumentation=InstrumentationRegistry.getInstrumentation()
         private val context=instrumentation.targetContext.also {
             check(it.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true; normal Tinium must not be touched"}

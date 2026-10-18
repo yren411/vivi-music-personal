@@ -1,5 +1,10 @@
 # Experimental native DJ transition execution — Phase 3.2
 
+Later interface note: [Phase 3.3.2](AUTOMIX_NATIVE_DJ_RELIABILITY_AND_PLACEMENT.md)
+versions the executor to v5 with conservative bracketed media-clock evidence and
+strict service placement admission. The historical Phase 3.2 measurements and
+device results below retain their original meaning; they are not new v5 results.
+
 Base: merged PR #21, `a87611de2188436b7cc951afe4999199210b9d40`.
 At the Phase 3.2 checkpoint, this added an **explicitly invoked experimental executor**, not production activation.
 `MusicService`, its legacy planner/controller, PCM selection, gains, filters, equalizers,

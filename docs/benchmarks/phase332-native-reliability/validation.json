@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "baseline": "862c92ba0a98cda22161e7ec9d20ffdd8854f923",
+  "sourceScope": "Phase 3.3.2 implementation in this commit; documentation/archived artifacts added after execution",
+  "fullJvmSuites": {
+    "Arm64GmsDebug": {
+      "tests": 546,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 546,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "hostJniIncludedAbove": {
+    "Arm64GmsDebug": {
+      "BitChordJniHostTest": 10,
+      "NativeDjExecutionJniHostTest": 1,
+      "NativePlannerComparisonTest": 1,
+      "NativePlannerJniHostTest": 4,
+      "NativeServiceJniHostTest": 1
+    },
+    "UniversalFossDebug": {
+      "BitChordJniHostTest": 10,
+      "NativeDjExecutionJniHostTest": 1,
+      "NativePlannerComparisonTest": 1,
+      "NativePlannerJniHostTest": 4,
+      "NativeServiceJniHostTest": 1
+    }
+  },
+  "android": {
+    "instrumentationApksCompiled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "appDebugApksBuilt": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "newTestMethods": 10,
+    "priorTestMethods": 59,
+    "combinedTestMethods": 69,
+    "executedByCodex": 0,
+    "deviceAvailable": false,
+    "emulatorAvailable": false,
+    "ownerNewRun": "pending",
+    "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
+  },
+  "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
+  "buildResult": "BUILD SUCCESSFUL in 4m 17s; 397 actionable tasks, 43 executed, 354 up-to-date",
+  "environment": {
+    "host": "Linux x86_64",
+    "java": 21,
+    "gradle": "9.3.1",
+    "agp": "9.1.1",
+    "kotlin": "2.3.10",
+    "sdk": 37,
+    "minSdk": 26,
+    "ndk": "27.0.12077973"
+  },
+  "hostJniLibrarySha256": "3216ce200c6acf2e24065770bd133cbf0718cfd89a6c2ebb247c0069d21ef880",
+  "historicalFocusedFailure": {
+    "tests": 192,
+    "failures": 2,
+    "cause": "Initial ranking prioritized endpoint before overlap and shortened valid long mixes; ranking fixed, original assertions retained."
+  }
+}

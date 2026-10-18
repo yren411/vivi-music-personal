@@ -1,5 +1,9 @@
 # Experimental Native DJ AutoMix — Phase 3.3
 
+Follow-up: [Phase 3.3.2 route, clock and placement changes](AUTOMIX_NATIVE_DJ_RELIABILITY_AND_PLACEMENT.md)
+have separate validation evidence. The owner-reported 49-test result and debugging
+history below describe Phase 3.3; they do not establish a pass for that newer implementation.
+
 Starting source: `f3c96b1adb7607dbf71bb4c41933010fecb47fc0` (merged PR #22).
 The BitChord/Orchard DSP remains pinned to `fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f`;
 no native algorithm, JNI, resampler, musical threshold or distribution configuration was changed.

@@ -17,6 +17,8 @@ data class NativePlanningRequest(
     val generation: Long,
     /** Caller/session supplied salt; never emitted. Fixed fixture salts make offline runs reproducible. */
     val diagnosticSalt: String,
+    /** Safe default. Bounded-window tools must explicitly request their original analyzed-region intent. */
+    val placementPolicy:NativePlacementPolicy=NativePlacementPolicy.PRESERVE_OUTGOING,
 ) {
     override fun toString()="NativePlanningRequest(generation=$generation, outgoing=$outgoing, incoming=$incoming)"
 }
@@ -54,8 +56,13 @@ enum class PlanningRejection {
     TEMPO_GRID_INCONSISTENT, INCOMPATIBLE_TEMPO, CUE_NOT_PRESERVING_INTRO,
     CUE_NOT_SEEKABLE, OUTSIDE_TRACK_OR_COVERAGE, PREPARATION_DEADLINE,
     OVERLAP_UNSUPPORTED, EXCESSIVE_DRIFT, POOR_ALIGNMENT, SIGNAL_NOT_CORROBORATED,
-    INVALID_SIGNAL_AUDIT, NO_FEASIBLE_CANDIDATE, CANCELED, DEADLINE_EXCEEDED, QUEUE_CHANGED,
+    INVALID_SIGNAL_AUDIT, NO_FEASIBLE_CANDIDATE, CANCELED, DEADLINE_EXCEEDED, QUEUE_CHANGED, EXCESSIVE_OUTGOING_LOSS,
 }
+enum class NativePlacementPolicy { ANALYZED_REGION, PRESERVE_OUTGOING }
+
+/** Preservation is an explicit listening policy, not inferred phrasing or vocal evidence. */
+data class NativeCuePlacement(val outgoingDurationUs:Long,val expectedEndpointUs:Long,
+    val remainingUs:Long,val preservedFraction:Double,val allowedLossUs:Long,val endDistancePulses:Long)
 
 enum class PlanningUncertainty {
     UNCALIBRATED_NATIVE_CONFIDENCE, PHRASE_UNKNOWN, VOCALS_UNKNOWN, HARMONY_UNKNOWN,
@@ -114,6 +121,7 @@ data class NativeTransitionCandidate(
     val uncertainties: Set<PlanningUncertainty>,
     val outgoingTransientSupport: Double?,
     val incomingTransientSupport: Double?,
+    val placement:NativeCuePlacement?=null,
 )
 
 enum class NativePlanReadiness { TIMING_AND_TRANSIENT_SUPPORTED, TIMING_ONLY_SIGNAL_UNVERIFIED }
@@ -135,6 +143,7 @@ data class NativeTransitionPlan(
     /** Explicit handoff gate; there is deliberately no AutoMixPlan adapter in Phase 3.1. */
     val requiredFutureCapability: String = "PHASE32_NATIVE_PLAN_EXECUTOR",
     val playbackRate: Double = 1.0,
+    val placementPolicy:NativePlacementPolicy=NativePlacementPolicy.PRESERVE_OUTGOING,
 )
 
 data class PlanningDiagnostics(
@@ -151,6 +160,7 @@ data class PlanningDiagnostics(
     val searchTruncated: Boolean,
     val anchorGenerationNanos: Long = 0,
     val candidateEvaluationNanos: Long = 0,
+    val laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap(),
 )
 
 sealed interface NativePlanningOutcome {

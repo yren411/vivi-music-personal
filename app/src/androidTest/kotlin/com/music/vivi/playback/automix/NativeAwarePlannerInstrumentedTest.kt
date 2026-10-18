@@ -39,7 +39,7 @@ class NativeAwarePlannerInstrumentedTest {
             val x=analysis.analyze(a,DecodeRequest(AudioIntervalUs(0,24_000_000),outId),AnalysisDetail.DETAIL,control)
             val y=analysis.analyze(b,DecodeRequest(AudioIntervalUs(0,24_000_000),inId),AnalysisDetail.DETAIL,control)
             val request=NativePlanningRequest(PlanningTrack(outId,30_000_000,AudioIntervalUs(4_000_000,24_000_000)),
-                PlanningTrack(inId,30_000_000,AudioIntervalUs(0,24_000_000)),3_000_000,1_000_000,1,"android-codec-fixture")
+                PlanningTrack(inId,30_000_000,AudioIntervalUs(0,24_000_000)),3_000_000,1_000_000,1,"android-codec-fixture",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
             val actual=NativeAwareAutoMixPlanner().plan(request,x,y,control)
             assertTrue("$actual",actual is NativePlanningOutcome.Selected)
             val c=(actual as NativePlanningOutcome.Selected).plan.candidate

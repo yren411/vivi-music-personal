@@ -292,6 +292,10 @@ class MusicService :
     private val analysisConcurrencyBudget=AnalysisConcurrencyBudget()
     private var nativeForwardingPlayback=false
     private var nativePerformance=AutoMixPerformance.BALANCED
+    private val nativeRouteTracker=NativeOutputRouteTracker()
+    private val nativeOutputRoutes by lazy {AndroidNativeOutputRoutes(Handler(Looper.getMainLooper()),
+        live={processor -> autoMixProcessors.values.any {it===processor}},
+        changed={event -> observeNativeRoute(event)})}
     private var nativeStartup:NativeDjStartupObservation?=null
     private var nativeStartCommand:Triple<ExoPlayer,Long,Long>?=null
     private var nativePairGeneration=0L
@@ -415,7 +419,7 @@ class MusicService :
     }
 
     fun setPreferredAudioDevice(deviceId: Int?) {
-        invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED) // this helps us to change between devices
+        if(preferredDeviceId!=deviceId)invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED) // explicit output preference change
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
             val deviceInfo = devices.find { it.id == deviceId }
@@ -547,12 +551,12 @@ class MusicService :
 
     private val audioDeviceCallback = object : AudioDeviceCallback() {
         override fun onAudioDevicesRemoved(removedDevices: Array<out AudioDeviceInfo>?) {
-            invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED)
+            observeNativeRoute(NativeRouteNotification.DEVICES_REMOVED,removedDevices?.all {!it.isSink}==true)
             Timber.tag("TiniumAudioSession").i("event=route-removed types=%s", removedDevices?.map { it.type })
         }
         override fun onAudioDevicesAdded(addedDevices: Array<out AudioDeviceInfo>?) {
             super.onAudioDevicesAdded(addedDevices)
-            invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED)
+            observeNativeRoute(NativeRouteNotification.DEVICES_ADDED,addedDevices?.all {!it.isSink}==true)
             Timber.tag("TiniumAudioSession").i("event=route-added types=%s", addedDevices?.map { it.type })
             val hasBluetooth = addedDevices?.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
@@ -1136,6 +1140,7 @@ class MusicService :
                             try {
                                 if(autoMixEngineMode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL) {
                                     observeNativeStartup()
+                                    observeNativeRoute(NativeRouteNotification.POLL)
                                     nativeAutoMix?.tick()
                                 }
                                 if(legacyAutoMixEnabled)intelligentAutoMix?.tick()
@@ -1334,6 +1339,7 @@ class MusicService :
     }
 
     private fun handleAudioFocusChange(focusChange: Int) {
+        observeNativeRoute(NativeRouteNotification.FOCUS)
         if (focusChange == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) autoMixFocusGain = 0.2f
         else if (focusChange in listOf(AudioManager.AUDIOFOCUS_GAIN, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
                 AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)) autoMixFocusGain = 1f
@@ -2408,6 +2414,7 @@ class MusicService :
             }
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 lifecycle.sessionChanged(audioSessionId)
+                observeNativeRoute(NativeRouteNotification.SESSION)
                 if (playerInitialized.value && source === player) setupLoudnessEnhancer()
             }
             override fun onAudioTrackInitialized(eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
@@ -2429,6 +2436,7 @@ class MusicService :
                     if(playerInitialized.value && source === player) _audioDiagnostics.value=info
                 }
                 lifecycle.trackReleased()
+                observeNativeRoute(NativeRouteNotification.TRACK_RELEASED)
             }
         }
         outputListeners[source] = listener
@@ -2443,6 +2451,7 @@ class MusicService :
     }
 
     private fun releaseAudioOutput(source: ExoPlayer) {
+        autoMixProcessors[source]?.let(nativeOutputRoutes::remove)
         outputFormats.remove(source)
         formatTrackIds.remove(source)
         diagnosticTrackCounts.remove(source)
@@ -3709,6 +3718,7 @@ class MusicService :
                 enableAudioTrackPlaybackParams: Boolean,
             ) = DefaultAudioSink
                 .Builder(this@MusicService)
+                .setAudioTrackProvider(nativeOutputRoutes.provider(mixProcessor))
                 .setEnableFloatOutput(enableFloatOutput && !autoMixDeck)
                 .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams && !autoMixDeck)
                 .setAudioProcessorChain(
@@ -3857,6 +3867,7 @@ class MusicService :
         isRunning = false
         autoMixTicker?.cancel()
         nativeAutoMix?.close();nativeAutoMix=null
+        nativeOutputRoutes.close()
         nativePlayback?.close();nativePlayback=null;nativeSources.clear()
         intelligentAutoMix?.close()
         intelligentAutoMix = null
@@ -4069,6 +4080,22 @@ class MusicService :
         nativeStartup=null;nativeStartCommand=null;nativePairKey=null;nativePairGeneration++
         if(!nativePromoting)nativeAutoMix?.invalidate(reason)
     }
+    /** Internal read-only route inspection; identifiers remain in-process, never in exports. */
+    internal fun nativeRouteSnapshot():NativeRouteSnapshot {
+        val incoming=nativePlayback?.incomingPlayerForRoute()
+        val required=incoming?.isPlaying==true && nativeAutoMix?.currentExecutor?.measurements()?.estimatedStartOffsetUs!=null
+        return NativeRouteSnapshot(nativeOutputRoutes.endpoint(autoMixProcessors[player]),
+            if(required)nativeOutputRoutes.endpoint(incoming?.let(autoMixProcessors::get)) else null,required,
+            paused=!player.playWhenReady || nativeAutoMix?.currentExecutor?.status?.stage==NativeDjExecutionStage.PAUSED,
+            outgoingInstance=nativeOutputRoutes.instance(autoMixProcessors[player]))
+    }
+    /** Actual AudioTrack route observations; device availability/capture is not routing. */
+    internal fun observeNativeRoute(event:NativeRouteNotification,captureOnly:Boolean=false) {
+        if(nativePromoting || !playerInitialized.value || nativeAutoMix?.nativeSelected!=true)return
+        val decision=nativeRouteTracker.observe(nativeRouteSnapshot(),event,captureOnly)
+        if(event!=NativeRouteNotification.POLL || decision.material)nativeAutoMix?.routeObserved(decision)
+        if(decision.material)invalidateNative(NativeDjExecutionReason.ROUTE_CHANGED)
+    }
     private fun observeNativeStartup() {
         val command=nativeStartCommand ?: return
         if(command.first!==player || !player.isPlaying)return
@@ -4133,7 +4160,7 @@ class MusicService :
         // retry loop or relaxed capability check; the existing service tick observes readiness.
         override fun waitingForOutput():Boolean=configurationRejection()==null &&
             (player.playbackState!=Player.STATE_READY || formatTrackIds[player]!=player.currentMediaItem?.mediaId ||
-                (diagnosticTrackCounts[player] ?: 0)<=0)
+                (diagnosticTrackCounts[player] ?: 0)<=0 || !nativeRouteTracker.ready)
         private fun configurationRejection():String?=when {
             !autoMixRequested -> "AUTOMIX_DISABLED"
             !playerInitialized.value -> "PLAYER_NOT_INITIALIZED"
@@ -4157,6 +4184,7 @@ class MusicService :
             check(intelligentAutoMix?.mixing!=true)
             val expected=pair() ?: error("No resolved pair")
             require(expected.queue==NativeDjQueue(plan.generation,plan.outgoing.source,plan.incoming.source))
+            require(plan.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING)
             val original=player
             val nextItem=player.getMediaItemAt(player.nextMediaItemIndex).buildUpon()
                 .setUri(expected.incomingSource.uri).setCustomCacheKey(expected.incomingSource.cacheKey).build()
@@ -4168,7 +4196,10 @@ class MusicService :
                 releasePlayer={deck -> if(deck!==original)sourcePin.release();releaseAudioOutput(deck)},
                 userVolume={if(isMuted.value)0f else playerVolume.value},focusGain={autoMixFocusGain},
                 exclusiveControlAvailable={intelligentAutoMix?.mixing!=true && secondaryPlayer==null && !isCrossfading},
-                startTiming={nativeStartup},allowServiceQueue=true)
+                startTiming={nativeStartup},allowServiceQueue=true,outputTimestamps={
+                    NativeDjOutputTiming(nativeOutputRoutes.timestamp(autoMixProcessors[original]),
+                        nativePlayback?.incomingPlayerForRoute()?.let {nativeOutputRoutes.timestamp(autoMixProcessors[it])},System.nanoTime()/1000)
+                })
             nativePlayback=playback
             return playback.execute(plan,outgoingLevel,incomingLevel)
         }
@@ -4178,6 +4209,7 @@ class MusicService :
             val index=original.nextMediaItemIndex
             if(index==C.INDEX_UNSET)return false
             nativePromoting=true
+            nativeRouteTracker.reset() // promoted player is the new primary, not an external route change
             try {
                 // addMediaItems preserves the already-playing item/position, no seek/restart.
                 if(index>0)incoming.addMediaItems(0,items.take(index))

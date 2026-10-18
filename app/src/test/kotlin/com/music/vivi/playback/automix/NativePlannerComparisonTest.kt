@@ -43,7 +43,7 @@ class NativePlannerComparisonTest {
                     AudioIntervalUs(case.outgoing.origin,case.outgoing.origin+case.outgoing.pcm.size*1_000_000L/case.outgoing.rate)),
                 PlanningTrack(AnalysisSourceIdentity("${case.id}-in","source-v1"),case.incoming.duration,
                     AudioIntervalUs(case.incoming.origin,case.incoming.origin+case.incoming.pcm.size*1_000_000L/case.incoming.rate)),
-                (case.outgoing.origin-5_000_000).coerceAtLeast(0),5_000_000,1,salt)
+                (case.outgoing.origin-5_000_000).coerceAtLeast(0),5_000_000,1,salt,placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
             val experimental=NativeAwareAutoMixPlanner().plan(request,a.native,b.native)
             val began=System.nanoTime()
             val legacyA=(a.legacy as? AnalysisResult.Completed)?.let(LegacyPlanningFeatures::require)

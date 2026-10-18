@@ -11,7 +11,7 @@ import kotlin.math.roundToLong
 class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private val nowUs: () -> Long = { System.nanoTime()/1000 },
     private val config: NativeDjExecutionConfig = NativeDjExecutionConfig()) : AutoCloseable {
-    companion object { const val VERSION = "tinium-native-dj-executor-v4-reentrant-playback-controls" }
+    companion object { const val VERSION = "tinium-native-dj-executor-v5-bracketed-media-clocks" }
     var status=NativeDjExecutionStatus(); private set
     private var plan:NativeTransitionPlan?=null
     private var incoming:NativeDjDeck?=null
@@ -24,6 +24,16 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     private var estimatedOffset:Long?=null
     private var concurrent=0L
     private var maxDrift=0L
+    private var maxRawOffset=0L
+    private var maxQuerySpan=0L
+    private var lastClock:NativeDjClockEvidence?=null
+    private var promotionPosition:Long?=null
+    private var predictionState=NativeDjPredictionState.ABSENT
+    private var commandTime:Long?=null
+    private var firstIncomingProgress:Long?=null
+    private var fadePosition:Long?=null
+    private var steadyMin:Long?=null
+    private var steadyMax:Long?=null
     private var maxTickGap=0L
     private var preparationElapsed:Long?=null
     private var startupReference:NativeDjStartupObservation?=null
@@ -78,6 +88,10 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             p.outgoingProfile!=BitChordNativeAnalysisEngine.PROFILE || p.incomingProfile!=BitChordNativeAnalysisEngine.PROFILE)
             return NativeDjExecutionReason.INVALID_PLAN
         if(q!=NativeDjQueue(p.generation,p.outgoing.source,p.incoming.source))return NativeDjExecutionReason.STALE_QUEUE
+        if(p.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING) {
+            val placement=NativeCuePreservation.describe(p.outgoing.durationUs,c.outgoingCueUs,c.overlapUs,c.tempo.effectiveOutgoingBpm)
+            if(c.placement!=placement || placement.remainingUs>placement.allowedLossUs)return NativeDjExecutionReason.INVALID_PLAN
+        }
         if(out.source!=p.outgoing.source)return NativeDjExecutionReason.SOURCE_MISMATCH
         if(out.rate!=1.0)return NativeDjExecutionReason.UNSUPPORTED_RATE
         if(!out.playing || !out.ready || out.failed || out.ended)return NativeDjExecutionReason.PLAYER_FAILED
@@ -132,7 +146,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
         try {
             val p=requireNotNull(plan);val c=p.candidate;val next=requireNotNull(incoming)
             if(host.queue()!=queue)return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.QUEUE_CHANGED)
-            val a=host.outgoing.snapshot();val b=next.snapshot();val now=nowUs()
+            val clocks=host.observeClocks(next,nowUs)
+            val a=clocks.outgoing.state;val b=clocks.incoming.state;val now=nowUs()
+            maxQuerySpan=max(maxQuerySpan,clocks.querySpanUs)
             val previousTick=lastTick
             if(previousTick!=null && now<previousTick)return stop(NativeDjExecutionStage.FAILED,NativeDjExecutionReason.HOST_FAILURE)
             val gap=previousTick?.let {now-it} ?: 0
@@ -153,8 +169,15 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             // A per-attempt prediction affects only command scheduling, never media positions.
             // Recheck freshness while waiting; a pause/seek/queue change must not revive old data.
             if(status.stage==NativeDjExecutionStage.PREPARING || status.stage==NativeDjExecutionStage.ARMED) {
-                startupLead=if(host.startupTimingCompatible())startupReference
-                    ?.takeIf {it.observedPositionUs<=a.positionUs}?.leadUs(requireNotNull(queue),now) ?: 0L else 0L
+                val compatible=startupReference!=null && host.startupTimingCompatible()
+                val prediction=startupReference?.takeIf {it.observedPositionUs<=a.positionUs}?.leadUs(requireNotNull(queue),now)
+                startupLead=if(compatible)prediction ?: 0L else 0L
+                predictionState=when {
+                    startupReference==null -> NativeDjPredictionState.ABSENT
+                    !compatible -> NativeDjPredictionState.INCOMPATIBLE_FORMAT
+                    prediction==null -> NativeDjPredictionState.EXPIRED_OR_INVALID
+                    else -> NativeDjPredictionState.AVAILABLE
+                }
             }
             val dispatchTarget=c.outgoingCueUs-startupLead
             val expectedEnd=a.ended && a.positionUs>=c.outgoingCueUs+c.overlapUs
@@ -180,10 +203,11 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 } else if(a.positionUs>=dispatchTarget)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
             }
             if(status.stage==NativeDjExecutionStage.ARMED && a.positionUs>=dispatchTarget) {
+                if(clocks.querySpanUs>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.CLOCK_OBSERVATION_UNCERTAIN)
                 if(!a.ready || !a.playing || !b.ready || b.playing || abs(b.positionUs-c.incomingCueUs)>config.cueToleranceUs)
                     return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.SEEK_FAILED)
-                if(a.positionUs-dispatchTarget>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
-                dispatchPosition=a.positionUs;dispatchedAt=now;lastIncomingProgressAtUs=now
+                if(a.positionUs-dispatchTarget+(now-clocks.outgoing.beforeUs)>config.maxStartLatenessUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_MISSED)
+                dispatchPosition=a.positionUs;dispatchedAt=nowUs();commandTime=dispatchedAt;lastIncomingProgressAtUs=dispatchedAt
                 next.play();stage(if(a.positionUs<c.outgoingCueUs)NativeDjExecutionStage.STARTING else NativeDjExecutionStage.MIXING)
             }
             if(status.stage==NativeDjExecutionStage.STARTING || status.stage==NativeDjExecutionStage.MIXING) {
@@ -194,15 +218,26 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                 val outElapsed=a.positionUs-c.outgoingCueUs
                 val inElapsed=b.positionUs-c.incomingCueUs
                 if(b.playing && inElapsed>0) {
-                    if(estimatedOffset==null)estimatedOffset=outElapsed-inElapsed
-                    val drift=abs(outElapsed-inElapsed);maxDrift=max(maxDrift,drift)
-                    if(drift>config.maxObservedDriftUs)return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.EXCESSIVE_DRIFT)
+                    // At an exact outgoing EOS the stopped clock must not be projected.
+                    val evidence=if(a.playing)clocks.offset(c.outgoingCueUs,c.incomingCueUs) else null
+                    lastClock=evidence
+                    val offset=evidence?.commonInstantOffsetUs ?: outElapsed-inElapsed
+                    if(estimatedOffset==null){estimatedOffset=offset;firstIncomingProgress=now}
+                    if(now-dispatchedAt>=1_000_000) {
+                        steadyMin=minOf(steadyMin ?: offset,offset);steadyMax=maxOf(steadyMax ?: offset,offset)
+                    }
+                    maxRawOffset=max(maxRawOffset,abs(outElapsed-inElapsed))
+                    val drift=evidence?.guardedDriftUs ?: abs(offset);maxDrift=max(maxDrift,drift)
+                    if(drift>config.maxObservedDriftUs)return stop(NativeDjExecutionStage.FALLBACK,
+                        if(evidence==null || evidence.minimumPossibleOffsetUs>config.maxObservedDriftUs || evidence.maximumPossibleOffsetUs < -config.maxObservedDriftUs)
+                            NativeDjExecutionReason.EXCESSIVE_DRIFT else NativeDjExecutionReason.CLOCK_OBSERVATION_UNCERTAIN)
                     // Common cumulative media-clock progression from the original anchors,
                     // not a sum of coincident per-poll deltas. Early muted time is excluded.
                     concurrent=maxOf(concurrent,minOf(outElapsed.coerceAtLeast(0),inElapsed.coerceAtLeast(0)))
                 } else if(now-dispatchedAt>config.startTimeoutUs || estimatedOffset!=null)
                     return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_FAILED)
                 if(status.stage==NativeDjExecutionStage.STARTING && outElapsed>=0)stage(NativeDjExecutionStage.MIXING)
+                if(outElapsed>=0 && fadePosition==null)fadePosition=a.positionUs
                 val gains=NativeDjGain.gains(outElapsed.coerceAtLeast(0).toDouble()/c.overlapUs,config.curve,content)
                 outGain=gains.outgoing;inGain=gains.incoming
                 host.outgoing.gain(outGain);next.gain(inGain)
@@ -211,7 +246,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
                         return stop(NativeDjExecutionStage.FALLBACK,NativeDjExecutionReason.START_FAILED)
                     stage(NativeDjExecutionStage.COMPLETING)
                     if(host.queue()!=queue || !host.promote(requireNotNull(queue),next))return stop(NativeDjExecutionStage.CANCELED,NativeDjExecutionReason.STALE_QUEUE)
-                    promoted=true;incoming=null
+                    promoted=true;promotionPosition=a.positionUs;incoming=null
                     host.outgoing.release();host.restore();owned=false
                     stage(NativeDjExecutionStage.COMPLETED)
                 }
@@ -299,7 +334,9 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
     @Synchronized fun measurements():NativeDjExecutionMeasurements {
         val c=plan?.candidate
         return NativeDjExecutionMeasurements(c?.outgoingCueUs ?: 0,c?.incomingCueUs ?: 0,c?.overlapUs ?: 0,
-            dispatchPosition,estimatedOffset,concurrent,maxDrift,maxTickGap,preparationElapsed,if(promoted)1 else 0,events.toList(),startupLead)
+            dispatchPosition,estimatedOffset,concurrent,maxDrift,maxTickGap,preparationElapsed,if(promoted)1 else 0,events.toList(),startupLead,
+            maxRawOffset,maxQuerySpan,lastClock,commandTime,promotionPosition,predictionState,
+            firstIncomingProgress,fadePosition,steadyMin,steadyMax)
     }
     @Synchronized fun report():NativeDjExecutionReport {
         val p=plan;val c=p?.candidate
@@ -309,7 +346,7 @@ class NativeDjTransitionExecutor(private val host: NativeDjHost,
             config.curve,content,NativeDjLevel.VERSION,c?.tempo?.measuredOutgoingBpm?.takeIf {it.isFinite() && it in 60.0..220.0},
             c?.tempo?.measuredIncomingBpm?.takeIf {it.isFinite() && it in 60.0..220.0},
             c?.tempo?.relation,c?.alignment,p?.let {try {Math.addExact(it.candidate.outgoingCueUs,it.candidate.overlapUs)<it.outgoing.durationUs} catch(_:ArithmeticException){false}} ?: false,
-            c?.uncertainties ?: emptySet(),status,measurements())
+            c?.uncertainties ?: emptySet(),status,measurements(),outputTiming=host.outputTiming())
     }
     @Synchronized override fun close() {cancel(NativeDjExecutionReason.SHUTDOWN)}
 }

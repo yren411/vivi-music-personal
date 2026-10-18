@@ -33,6 +33,9 @@ interface NativeDjDeck {
 interface NativeDjHost {
     val outgoing: NativeDjDeck
     fun queue(): NativeDjQueue
+    fun observeClocks(incoming:NativeDjDeck,nowUs:()->Long)=NativeDjClockPair.capture(outgoing,incoming,nowUs)
+    /** Optional raw output timestamps for diagnostics only; never a correction to beat/media clocks. */
+    fun outputTiming():NativeDjOutputTiming?=null
     /** Optional fresh observation, sampled once per attempt. Absent/invalid means no early start. */
     fun startupObservation():NativeDjStartupObservation?=null
     /** True only for known compatible prepared audio formats. Unknown means no prediction. */
@@ -52,7 +55,7 @@ enum class NativeDjExecutionReason {
     SOURCE_MISMATCH, DURATION_MISMATCH, UNSUPPORTED_RATE, NOT_SEEKABLE, PREPARATION_FAILED,
     PREPARATION_TIMEOUT, SEEK_FAILED, START_MISSED, START_FAILED, STARTUP_INTERRUPTED, PLAYER_FAILED, UNEXPECTED_EOS,
     BUFFERING, PLAYBACK_STALLED, UNEXPECTED_PAUSE, POSITION_DISCONTINUITY, EXCESSIVE_DRIFT, USER_SEEK, USER_SKIP,
-    QUEUE_CHANGED, ROUTE_CHANGED, FOCUS_LOST, CANCELED, SHUTDOWN, HOST_FAILURE,
+    QUEUE_CHANGED, ROUTE_CHANGED, FOCUS_LOST, CANCELED, SHUTDOWN, HOST_FAILURE, CLOCK_OBSERVATION_UNCERTAIN,
 }
 data class NativeDjExecutionConfig(val curve: NativeDjCurve = NativeDjCurve.RESTRAINED_DJ,
     val maxStartLatenessUs: Long = 40_000, val maxObservedDriftUs: Long = 120_000,
@@ -76,7 +79,13 @@ data class NativeDjExecutionMeasurements(val plannedStartUs: Long, val plannedIn
     val plannedOverlapUs: Long, val commandOutgoingUs: Long?, val estimatedStartOffsetUs: Long?,
     val concurrentProgressUs: Long, val maximumObservedDriftUs: Long, val maximumTickGapUs: Long,
     val preparationElapsedUs: Long?, val promotions: Int, val events: List<NativeDjExecutionMetric>,
-    val startupLeadUs:Long=0)
+    val startupLeadUs:Long=0,val maximumRawOffsetUs:Long=0,val maximumQuerySpanUs:Long=0,
+    val lastClock:NativeDjClockEvidence?=null,val commandMonotonicUs:Long?=null,
+    val promotionOutgoingUs:Long?=null,val predictionState:NativeDjPredictionState=NativeDjPredictionState.ABSENT,
+    val firstIncomingProgressMonotonicUs:Long?=null,val fadeStartedOutgoingUs:Long?=null,
+    val steadyMinimumOffsetUs:Long?=null,val steadyMaximumOffsetUs:Long?=null)
+
+enum class NativeDjPredictionState { ABSENT, INCOMPATIBLE_FORMAT, EXPIRED_OR_INVALID, AVAILABLE }
 
 /** Safe per-attempt report: identities/URLs deliberately omitted, not unsalted hashes. */
 data class NativeDjExecutionReport(val executorVersion:String,val plannerVersion:String?,
@@ -86,4 +95,8 @@ data class NativeDjExecutionReport(val executorVersion:String,val plannerVersion
     val plannedAlignment:BeatAlignment?,val plannedEarlyExit:Boolean,
     val uncertainties:Set<PlanningUncertainty>,val status:NativeDjExecutionStatus,
     val measurements:NativeDjExecutionMeasurements,
-    val timingMethod:String="player media-clock observations; rendered/acoustic alignment unmeasured")
+    val timingMethod:String="bracketed common-instant media-clock observations with conservative query uncertainty; acoustic alignment unmeasured",
+    val outputTiming:NativeDjOutputTiming?=null)
+
+data class NativeDjOutputTimestamp(val framePosition:Long,val nanoTime:Long,val sampleRate:Int)
+data class NativeDjOutputTiming(val outgoing:NativeDjOutputTimestamp?,val incoming:NativeDjOutputTimestamp?,val observedMonotonicUs:Long)
