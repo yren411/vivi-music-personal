@@ -189,5 +189,39 @@
     "packaging_report": "apk-packaging-passive-followup.json",
     "android_executed": 0,
     "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  },
+  "final_encoded_fixture_followup": {
+    "source_parent": "4a0492ab",
+    "full_jvm_suites": {
+      "Arm64GmsDebug": {
+        "tests": 508,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 508,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "host_jni_tests_included_per_variant": 17,
+    "encoded_fixture_contract_stdout": "AAC_ENCODED_FIXTURE mediaFrames=1573888 presentationFrames=1572850 primingFrames=1024 tailPaddingFrames=14 mdatSha256=53e073218980ab635f1d42e0e5a3b322d43533fe4f568fab2e216d5e6966a481",
+    "gradle": {
+      "result": "BUILD SUCCESSFUL",
+      "elapsed": "2m47s",
+      "executed_tasks": 22,
+      "up_to_date_tasks": 375
+    },
+    "fixture_metadata_correction": "Coded stts/mdhd frames now include the existing 14 padding frames while elst presentation duration and mdat remain unchanged. Original fixture inventory/defect preserved in generated-fixtures.json.",
+    "instrumentation_methods_compiled": 10,
+    "instrumentation_executed": 0,
+    "app_and_test_apks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "production_code_unchanged_since_passive_followup": true,
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug '-PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so' '-PautomixDecoderTests=true' --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
   }
 }

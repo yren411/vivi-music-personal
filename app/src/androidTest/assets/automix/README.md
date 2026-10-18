@@ -30,7 +30,12 @@ player is needed. These assets are included only in the instrumentation test APK
 Regenerate with `python scripts/generate_automix_real_world_decoder_fixtures.py`.
 `boundary-padding14-44100-stereo.m4a` uses 1,572,850 source frames (1536 × 1024 − 14),
 44.1kHz stereo AAC and a 44.1kHz movie timebase. FFprobe reports an initial −1024-sample
-priming packet and a final 1010-sample presentation duration. The Android regression
+priming packet and a final 1010-sample presentation duration. The generator adjusts
+only the generated MP4's stts/mdhd metadata to describe all 1024 samples of the last
+coded frame, leaving elst presentation duration and every mdat byte unchanged. Thus
+`1573888 media − 1024 priming − 1572850 presentation = 14` declared padding frames;
+FFprobe still clips its final packet's presentation duration to 1010. A JVM test verifies
+these actual atom values and encoded payload SHA-256. The Android regression
 also explicitly configures 14 padding frames in an independent codec probe, so it does
 not assume every extractor derives identical padding metadata.
 `rhythm-128-48000-40s.webm` contains 40 seconds of generated 128 BPM rhythm encoded as

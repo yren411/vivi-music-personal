@@ -10,15 +10,20 @@ This directory contains generated-fixture and host validation evidence, not priv
 
 | Validation level | Actual result |
 | --- | --- |
-| Arm64 GMS complete JVM suite | 507 passed, zero failures/errors/skips |
-| Universal FOSS complete JVM suite | 507 passed, zero failures/errors/skips |
+| Arm64 GMS complete JVM suite | 508 passed, zero failures/errors/skips |
+| Universal FOSS complete JVM suite | 508 passed, zero failures/errors/skips |
 | Actual host JNI/comparison | 17 per variant, included above |
 | PCM parity | Eight 44.1/48kHz × mono/stereo × PCM16/Float32 cases; max absolute error 0.0 |
-| GMS/FOSS app and instrumentation APKs | Final follow-up built; 3m29s, 42 tasks executed / 355 up-to-date (initial run 4m06s recorded separately) |
+| GMS/FOSS app and instrumentation APKs | Final fixture-contract follow-up built; 2m47s, 22 tasks executed / 375 up-to-date (earlier runs recorded separately) |
 | Actual native packaging | Four ABIs; ELF/ZIP 16KB alignment, symbols and license assets passed |
 | New Android decoder tests | Ten compiled and present in test DEX; **zero executed by Codex** |
 | Native CTest/sanitizers | Not rerun; DSP/JNI/C++ unchanged |
 | Original-song/HTTP/acoustic/device results | Not tested; owner follow-up required |
+
+The latest count includes one actual MP4 fixture-contract test per variant: media
+frame count minus priming minus presentation must equal 14, every coded AAC duration
+must be 1024, and the encoded payload hash must remain unchanged. Original 507-per-
+variant results and the initial fixture metadata defect remain separately recorded.
 
 The AAC FIFO mechanism is reproduced; matching the exact original source's encoder-padding
 metadata remains a device follow-up. Natural EOS and request-boundary EOS are deliberately

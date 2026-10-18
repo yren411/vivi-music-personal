@@ -173,9 +173,9 @@ rerun for this Kotlin-only repair. Their previous results are not new passes her
 No emulator/system image/KVM or connected Android device is available to execute tests
 in this cloud environment. Android compilation is not a Samsung runtime pass.
 
-Actual local validation: **507 Arm64 GMS + 507 Universal FOSS = 1014 passed**,
+Latest complete local validation: **508 Arm64 GMS + 508 Universal FOSS = 1016 passed**,
 zero failures/errors/skips. This includes **17 actual host-JNI/comparison tests per
-variant** (34 included executions, not additional to 1014). Eight rate/channel/encoding
+variant** (34 included executions, not additional to 1016). Eight rate/channel/encoding
 PCM parity cases measured **maximum absolute Float32 error 0.0**, accepting exactly
 44100 or 48000 source frames into 22050 output frames over 0..1000000µs, FULL, with
 zero dropped/repeated/synthesized frames. These are generated already-decoded PCM
@@ -193,6 +193,19 @@ failure and unchanged-native justification are in the evidence directory. The fi
 broad validation exposed a version-list test expecting seven distinct profiles after an
 eighth (historical v5) was added; the exact uniqueness assertion was updated to eight,
 then both complete suites were rerun successfully. No assertion was removed.
+
+The generated AAC initially used FFmpeg's shortened final stts duration, which could
+imply zero declared codec padding. Before device handoff the generator was corrected:
+only stts/mdhd are adjusted to full coded-frame timing, while elst presentation duration
+and all encoded mdat bytes remain unchanged. Independent atom inspection finds 1573888
+media frames − 1024 priming − 1572850 presentation = **14 declared tail frames**.
+FFprobe still reports the correct 1572850-frame presentation and clips the last packet
+to 1010 presentation samples. A JVM fixture-contract test checks these committed bytes
+and payload hash, preventing an unrelated valid-AAC case from satisfying this regression.
+The initial fixture hash/defect remain in the fixture manifest as historical evidence.
+After that fixture-contract addition, both full suites passed **508 + 508**, and both
+app/test variants built successfully in **2m47s** (22 executed tasks, 375 up-to-date).
+This is the latest complete run; earlier 507-per-variant runs above retain their own counts.
 
 New class: **10 tests**, using genuine generated AAC and Opus. One direct MediaCodec
 probe explicitly configures 14-frame padding to reproduce the original 1010/1024 buffer
