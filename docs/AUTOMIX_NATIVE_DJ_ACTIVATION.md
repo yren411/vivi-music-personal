@@ -56,6 +56,15 @@ audible Poweramp Equalizer processing and long-term resource/reliability behavio
 require evaluation. No APK release or automatic merge is authorized. Native DJ AutoMix
 remains experimental and off by default.
 
+## Phase 3.3.1 decoder follow-up
+
+[Real-world decoder reliability](AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) introduces
+corrected preprocessing **`sinc64-blackman-aac-tailclock-mono-22050-v6`** to preserve AAC
+tail-buffer timestamp ownership. The Phase 3.3 owner-reported 49-test pass and reviewed CI
+results above retain their original **v5** provenance; they are not new device validation
+of v6. The follow-up keeps the DSP, planner/executor gates, opt-in and legacy default intact.
+Its ten new decoder/device tests and v6 prior-49 rerun are reported separately.
+
 ## Scope and current evidence
 
 This phase connects the native pipeline to **MusicService and the normal queue**, behind
@@ -197,7 +206,7 @@ inventing a rendition identity. For controlled comparison, select the mode **bef
 the pair. Unsupported providers/renditions may legitimately remain legacy.
 
 AAC priming, FLAC sample origins and PCM coverage use the current corrected decoder
-(v5 after the follow-up below; initial Phase 3.3 fixtures used v3).
+(v6 in Phase 3.3.1; the historical FLAC follow-up below used v5, initial fixtures v3).
 There is no new timestamp offset or assumption that differently encoded renditions are sample
 identical. Real streaming/container differences and network failure rates remain device work.
 

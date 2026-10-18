@@ -1,0 +1,53 @@
+{
+  "schema": "phase331-pair35-replay-v1",
+  "baseline": "d17b094f8b6ba74bc33579c9821bc0b32b3245bc",
+  "evidence_basis": "User-supplied diagnostic summary and field excerpts; original two full log files were not attached in this task.",
+  "device_report": {
+    "pair": 35,
+    "rate": 44100,
+    "channels": 2,
+    "first_input_pts_us": -23219,
+    "first_output_pts_us": 0,
+    "first_output_frames_inferred_from_totals": 1010,
+    "second_output_pts_us": 23219,
+    "second_output_frames": 1024,
+    "codec_frames": 2034,
+    "accepted_frames": 1010,
+    "coverage_us": [
+      0,
+      22902
+    ],
+    "failure": "SOURCE_GAP"
+  },
+  "math": {
+    "expected_second_frame": 1010,
+    "reported_second_frame": 1023.9579,
+    "delta_frames": 13.957899999999995,
+    "expected_boundary_us": 22902.494331065758
+  },
+  "host_reproduction": {
+    "test": "AacBoundaryRegressionTest.reportedPair35BoundaryCannotProvideFullCoverageUnderUnadjustedCodecPts",
+    "executed": 1,
+    "failures": 1,
+    "skips": 0,
+    "exception": "PcmPreparationException: SOURCE_GAP",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --tests 'com.music.vivi.playback.automix.AacBoundaryRegressionTest' --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "xml_sha256": "6d3e16fb006958180451b902f3b530bbfcbb7a812247db66e69fc21ea891fb3e"
+  },
+  "proposed_mechanism": {
+    "native_codec_tail_fifo": "Android SkipCutBuffer retains declared encoder-padding samples while single-buffer output metadata retains the new buffer PTS.",
+    "matching_padding_frames": 14,
+    "owner_encoder_padding_observed": false,
+    "classification": "Confirmed reproducible platform mechanism; strong hypothesis for original Pair 35 pending encoder-padding diagnostics and Android execution."
+  },
+  "android_source_reference": {
+    "repository": "LineageOS/android_frameworks_av",
+    "revision": "f13e44db891bf5caf478062365372a8fbc23e45f",
+    "paths": [
+      "media/libstagefright/SkipCutBuffer.cpp",
+      "media/codec2/sfplugin/CCodecBuffers.cpp",
+      "media/module/extractors/mp4/MPEG4Extractor.cpp"
+    ],
+    "limitation": "Inspected source reference, not independently verified Samsung Android 17 binary; no source copied."
+  }
+}

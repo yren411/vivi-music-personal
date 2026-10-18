@@ -63,7 +63,10 @@ class AndroidWindowDecoder(
 
     private class Observation(val request: DecodeRequest, val preprocessing: AnalysisPreprocessing, val cached: Boolean) {
         val began = System.nanoTime()
+        private var stageBegan=began
+        private val elapsed=LongArray(DecoderStage.entries.size)
         var stage = DecoderStage.SOURCE
+            set(value) {val now=System.nanoTime();elapsed[field.ordinal]+=now-stageBegan;stageBegan=now;field=value}
         var effective: AudioIntervalUs? = null
         var duration: AudioDuration? = null
         var legacy: LegacyPcmWindowCapture? = null
@@ -74,18 +77,22 @@ class AndroidWindowDecoder(
         var range = DecoderRangeStatus.UNKNOWN
         var fetched = 0L
         var packets: DecoderPacketAccounting? = null
+        var aacTail: AacAnalysisTailTrim? = null
         var codecOutputFrames: Long? = null
         var firstCodecPtsUs: Long? = null
         var lastCodecFrameEndUs: Long? = null
         fun snapshot(subtype: DecoderFailureSubtype = DecoderFailureSubtype.NONE, category: AutoMixFailure? = null): DecoderDiagnostic {
             val legacyWindow = window ?: legacy?.finish(codecEos ?: false)
+            packets?.tail(aacTail?.retainedFrames,aacTail?.discardedAtNaturalEos)
+            val now=System.nanoTime()
+            val timing=DecoderStage.entries.associateWith {(elapsed[it.ordinal]+if(it==stage)now-stageBegan else 0)/1000}
             return DecoderDiagnostic(preprocessing, stage, subtype, category, request.interval, effective,
                 window?.coverage ?: corrected?.coverage ?: legacyWindow?.coverage,
                 window?.frameCount ?: legacyWindow?.frameCount,
                 window?.sourceFormats ?: corrected?.sourceFormats ?: legacyWindow?.sourceFormats ?: emptyList(),
                 duration, codecEos, inputEnd, fetched, cached, range, (System.nanoTime() - began) / 1000,
                 window?.preparation ?: corrected?.preparation, window?.repeatedOutputFrames ?: legacyWindow?.repeatedOutputFrames,
-                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot())
+                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot(),timing)
         }
     }
 
@@ -134,12 +141,14 @@ class AndroidWindowDecoder(
             val lengthMs = min(requestedLengthMs, durationMs - startMs).coerceAtMost(32_000)
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
+            val seekTarget=if(flac!=null)startMs*1000 else DecoderSeekPolicy.targetUs(preprocessing,startMs*1000)
+            val beforeSeekPts=if(flac==null) {extractor.selectTrack(track);extractor.sampleTime} else null
             if (flac != null) flac.seek(startMs * 1000) else {
-                extractor.selectTrack(track)
-                DecoderSeekPolicy.targetUs(preprocessing, startMs * 1000)?.let {
+                seekTarget?.let {
                     extractor.seekTo(it, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
                 }
             }
+            val afterSeekPts=if(flac==null)extractor.sampleTime else null
             val mime = format.getString(MediaFormat.KEY_MIME)!!
             // Do not consume scarce hardware/DSP decoder instances needed by audible playback.
             observation.stage = DecoderStage.CODEC_SETUP
@@ -159,6 +168,16 @@ class AndroidWindowDecoder(
                     C.ENCODING_PCM_FLOAT -> PcmEncoding.FLOAT32
                     else -> PcmEncoding.UNKNOWN
                 }), if(flac!=null)DecoderExtractor.MEDIA3_FLAC_1_7_1 else DecoderExtractor.ANDROID_MEDIA_EXTRACTOR)
+            val encoderDelay=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_DELAY)}?.getInteger(MediaFormat.KEY_ENCODER_DELAY)
+            val encoderPadding=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_PADDING)}?.getInteger(MediaFormat.KEY_ENCODER_PADDING)
+            val configuredPadding=AacAnalysisTrimPolicy.codecPadding(corrected=preprocessing==AnalysisPreprocessing.BANDLIMITED,mime=mime,padding=encoderPadding)
+            if(configuredPadding!=encoderPadding) {
+                if(encoderPadding!!>AacAnalysisTailTrim.MAX_PADDING_FRAMES)throw PcmPreparationException(DecoderFailureSubtype.UNSUPPORTED_PCM)
+                observation.aacTail=AacAnalysisTailTrim(encoderPadding,format.getInteger(MediaFormat.KEY_SAMPLE_RATE))
+                format.setInteger(MediaFormat.KEY_ENCODER_PADDING,configuredPadding!!)
+            }
+            observation.packets?.trim(encoderDelay,encoderPadding,configuredPadding)
+            observation.packets?.seek(seekTarget,beforeSeekPts,afterSeekPts)
             codec.configure(format, null, null, 0)
             codec.start()
             val targetRate = 22_050 // analysis-only fixed quality; audible PCM is never resampled here
@@ -231,7 +250,11 @@ class AndroidWindowDecoder(
                         observation.stage = DecoderStage.PCM_CONVERSION
                         val retainedBefore = if (onDecodedOutput != null)
                             corrected?.acceptedFrames ?: capture!!.written.toLong() else 0L
-                        if (corrected != null) corrected.accept(buffer, info.presentationTimeUs, observedFormat, control)
+                        if (corrected != null) {
+                            val tail=observation.aacTail
+                            if(tail==null)corrected.accept(buffer,info.presentationTimeUs,observedFormat,control)
+                            else tail.accept(buffer,info.presentationTimeUs,observedFormat,control) {pcm,pts,f -> corrected.accept(pcm,pts,f,control)}
+                        }
                         else {
                             for (frame in 0 until frames) {
                                 if (frame % 512 == 0) control.checkpoint()
@@ -257,6 +280,8 @@ class AndroidWindowDecoder(
                 if (capture.written < capture.capacity - targetRate / 2) throw AnalysisUnavailable("truncated-audio-window")
                 return capture.finish(outputEnded)
             }
+            observation.stage = DecoderStage.PCM_CONVERSION
+            observation.aacTail?.finish(outputEnded && observation.inputEnd==DecoderInputEnd.NATURAL_EOS,control) {pcm,pts,f -> corrected!!.accept(pcm,pts,f,control)}
             observation.stage = DecoderStage.RESAMPLING
             return corrected!!.finish(outputEnded, control)
         } finally {

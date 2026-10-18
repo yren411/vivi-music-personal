@@ -47,7 +47,8 @@ object PcmPreprocessing {
     const val BANDLIMITED_V2 = "sinc64-blackman-mono-22050-v2"
     const val BANDLIMITED_V3 = "sinc64-blackman-initial-preroll-mono-22050-v3"
     const val BANDLIMITED_V4 = "sinc64-blackman-preroll-frameclock-mono-22050-v4"
-    const val BANDLIMITED = "sinc64-blackman-flacframes-mono-22050-v5"
+    const val BANDLIMITED_V5 = "sinc64-blackman-flacframes-mono-22050-v5"
+    const val BANDLIMITED = "sinc64-blackman-aac-tailclock-mono-22050-v6"
     const val IDENTITY = "identity-float-v1"
 }
 

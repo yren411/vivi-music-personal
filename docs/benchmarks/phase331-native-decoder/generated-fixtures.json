@@ -1,0 +1,24 @@
+{
+  "schema": "phase331-generated-codec-fixtures-v1",
+  "generator": "scripts/generate_automix_real_world_decoder_fixtures.py",
+  "aac_input_frames": 1572850,
+  "aac_rate": 44100,
+  "aac_first_packet_pts_samples": -1024,
+  "aac_final_packet_duration_samples": 1010,
+  "opus_seconds": 40,
+  "opus_rate": 48000,
+  "fixtures": [
+    {
+      "asset": "boundary-padding14-44100-stereo.m4a",
+      "bytes": 412371,
+      "sha256": "0dda2694eb8244791a8a5925bc79c23892b723cbbe5c4922cacde294bd26a737"
+    },
+    {
+      "asset": "rhythm-128-48000-40s.webm",
+      "bytes": 395331,
+      "sha256": "85d75d61c5b3d97aeaae33259f4a3d115f19e2b2a968433480faf0175bae5711"
+    }
+  ],
+  "commercial_audio": false,
+  "android_execution": "not run"
+}

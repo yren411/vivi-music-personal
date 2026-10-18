@@ -28,12 +28,13 @@ internal class CorrectedPcmWindowCapture(
     private var gaps = 0
     private var unknown = false
     private var edgeFrames = 0L
+    private var lastBoundary:PcmBoundaryEvidence?=null
     private val formats = linkedSetOf<SourcePcmFormat>()
     var reachedEnd = false
         private set
     val acceptedFrames get() = accepted
     val sourceFormats get() = formats.toList()
-    val preparation get() = PcmPreparationMetadata(accepted, dropped, jitterBuffers, maxJitter, gaps, edgeFrames)
+    val preparation get() = PcmPreparationMetadata(accepted, dropped, jitterBuffers, maxJitter, gaps, edgeFrames,lastBoundary=lastBoundary)
     val coverage: AudioCoverage get() {
         val end = min(interval.endUs, floor(firstUs + size.toDouble() * 1_000_000 / sourceRate.coerceAtLeast(1) + 1e-6).toLong())
         val start = max(interval.startUs, floor(firstUs).toLong())
@@ -85,6 +86,8 @@ internal class CorrectedPcmWindowCapture(
             return
         }
         var start = adjustedPts + from * step
+        val mappedFrame=if(size>0)(start-firstUs)/step else 0.0
+        lastBoundary=PcmBoundaryEvidence(ptsUs,frames,from,size.toLong(),mappedFrame,mappedFrame-size)
         if (size > 0) {
             if (start >= expected + tolerance) { gaps++; fail(DecoderFailureSubtype.SOURCE_GAP) }
             if (abs(start - expected) < tolerance) {

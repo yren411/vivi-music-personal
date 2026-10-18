@@ -98,6 +98,24 @@ class PcmPreprocessingIntegrationTest {
             assertEquals("legacy",workers.submit(oldKey){"legacy"}.get(5,TimeUnit.SECONDS))
         }
     }
+    @Test fun v5AndV6CacheAndInflightKeysRemainDistinct() {
+        val source=AnalysisSourceIdentity("recording","rendition")
+        val old=BitChordNativeAnalysisEngine.PROFILE.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V5)
+        val fresh=BitChordNativeAnalysisEngine.PROFILE
+        assertNotEquals(old,fresh)
+        val a=old.cacheKey(source,0,32000,AnalysisDetail.DETAIL)
+        val b=fresh.cacheKey(source,0,32000,AnalysisDetail.DETAIL)
+        val entered=CountDownLatch(1);val gate=CountDownLatch(1)
+        AnalysisWorkers<String>(AutoMixPerformance.BALANCED).use {w ->
+            val first=w.submit(a){entered.countDown();gate.await();"v5"}
+            assertTrue(entered.await(5,TimeUnit.SECONDS))
+            val second=w.submit(b){"v6"}
+            assertNotSame(first,second);assertEquals("v6",second.get(5,TimeUnit.SECONDS))
+            gate.countDown();assertEquals("v5",first.get(5,TimeUnit.SECONDS))
+            assertEquals("v5",w.submit(a){error("cache miss")}.get(5,TimeUnit.SECONDS))
+            assertEquals("v6",w.submit(b){error("cache miss")}.get(5,TimeUnit.SECONDS))
+        }
+    }
     @Test fun advertisedVersionCannotRelabelLegacyPcmAsCorrected() {
         val old=PcmTestPreparation.prepare(FloatArray(8000*4),8000,AnalysisPreprocessing.LEGACY)
         val p=WindowAnalysisPipeline(AnalysisWindowDecoder<Unit>{_,_,_->DecodeResult.Decoded(old)},LegacyKotlinAnalysisEngine(),PcmPreprocessing.BANDLIMITED)

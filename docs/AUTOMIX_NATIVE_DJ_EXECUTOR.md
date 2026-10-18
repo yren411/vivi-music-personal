@@ -628,11 +628,12 @@ See Phase 3.3 for reviewed-head CI/JVM provenance and remaining listening requir
 
 ### Phase 3.3 preprocessing identity update
 
-Current admission follows the corrected v5 FLAC-frame profile. Historical v2/v3/v4 PCM/plans
-are not interchangeable with it and are rejected. This changes the preprocessing identity,
-not the planner/executor algorithm, alignment tolerances, confidence or gain policy.
-Earlier benchmark/device results retain their original build provenance and are not new
-v5 Android validation. See [the PCM correction](AUTOMIX_PCM_DECODING_AND_RESAMPLING.md).
+Reviewed Phase 3.3 admission used corrected v5 FLAC-frame PCM. The subsequent
+[Phase 3.3.1 AAC repair](AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) advances corrected
+admission to v6, retaining that FLAC route. Historical v2/v3/v4/v5 PCM/plans are not
+interchangeable with v6 and are rejected. Planner/executor algorithms, alignment
+thresholds, confidence and gain policy remain unchanged. Earlier benchmark/device
+results retain their original provenance; they are not v6 Android validation.
 
 
 Phase 3.3 service follow-up adds executor

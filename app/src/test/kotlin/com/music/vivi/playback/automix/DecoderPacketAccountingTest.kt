@@ -25,6 +25,16 @@ class DecoderPacketAccountingTest {
         assertEquals(-21333L,before.firstInputPtsUs);assertNull(before.outputEosBytes)
         assertEquals(32L,p.snapshot().inputBytes);assertEquals(40L,p.snapshot().outputBytes)
     }
+    @Test fun trimAndSeekEvidenceIsMeasuredImmutableAndUnknownUntilObserved() {
+        val p=DecoderPacketAccounting("audio/mp4a-latm","c2.android.aac.decoder",format)
+        val empty=p.snapshot();assertNull(empty.encoderPaddingFrames);assertNull(empty.extractorAfterSeekUs)
+        p.trim(1024,14,0);p.seek(null,-23219,-23219);p.input(100,-23219);p.tail(14,0)
+        val r=p.snapshot();p.tail(0,14)
+        assertEquals(14,r.encoderPaddingFrames);assertEquals(0,r.codecPaddingFrames)
+        assertEquals(-23219L,r.firstInputPtsUs);assertEquals(-23219L,r.extractorAfterSeekUs)
+        assertEquals(14,r.heldAacTailFrames);assertEquals(0L,r.discardedAacTailFrames)
+        assertTrue(r.reportFields().contains("codecTimelineSchema=2"))
+    }
     @Test fun publicFieldsRejectPrivateUrlsAndCodecMessagesRatherThanEchoingThem() {
         val hostile=DecoderPacketAccounting("audio/raw?token=SECRET","https://private/SECRET",format).snapshot().reportFields()
         for(s in listOf("SECRET","https://","private","token="))assertFalse(hostile.contains(s))

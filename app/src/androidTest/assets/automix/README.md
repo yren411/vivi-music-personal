@@ -24,3 +24,16 @@ Encoded bytes may vary with FFmpeg version; tests use measured codec output, not
 bit-exact compressed encodings. Tests copy assets into app-private temporary files
 and delete them afterward. No network, account, storage permission, or playback
 player is needed. These assets are included only in the instrumentation test APK.
+
+## Phase 3.3.1 generated AAC boundary and Opus fixtures
+
+Regenerate with `python scripts/generate_automix_real_world_decoder_fixtures.py`.
+`boundary-padding14-44100-stereo.m4a` uses 1,572,850 source frames (1536 × 1024 − 14),
+44.1kHz stereo AAC and a 44.1kHz movie timebase. FFprobe reports an initial −1024-sample
+priming packet and a final 1010-sample presentation duration. The Android regression
+also explicitly configures 14 padding frames in an independent codec probe, so it does
+not assume every extractor derives identical padding metadata.
+`rhythm-128-48000-40s.webm` contains 40 seconds of generated 128 BPM rhythm encoded as
+mono Opus. Hashes and exact encoded byte counts are recorded in
+`docs/benchmarks/phase331-native-decoder/generated-fixtures.json`. Both exist only in
+instrumentation APKs; no original fixture was changed or copyrighted recording used.
