@@ -251,7 +251,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
   and bounded Opus preroll/endpoint support (v7); retain historical identities.
 - Preserve real Opus support packets around requested analysis windows so valid
   decoded audio can reach both endpoints without padding or relaxed coverage checks.
-  Android validation of this Opus follow-up remains pending.
+  The owner reports all 59 combined Android regressions passed on the S25 Ultra /
+  Android 17, with zero failures/skips; these are owner-reported generated-media results.
 - Add bounded trim, seek, source-frame boundary and stage-time diagnostics plus generated
-  AAC/Opus regressions. Legacy remains default; original real-song metadata and new Android
-  runtime validation remain owner-device follow-ups, not claimed listening-quality fixes.
+  AAC/Opus regressions. Legacy remains default; original commercial-source metadata
+  and real-song outcomes still require verification. No listening-quality fix is claimed.

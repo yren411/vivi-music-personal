@@ -5,7 +5,10 @@ This directory contains generated-fixture and host validation evidence, not priv
 
 - `before-pair35-replay.json`: original failing source-frame replay and its provenance limits.
 - `opus-boundary-followup.json`: owner-reported v6 Opus failure, exact numeric diagnostic,
-  bounded v7 support policy and separately labeled host replay; repaired Android rerun pending.
+  bounded v7 support policy and separately labeled host replay; its pending-runtime
+  field preserves the original code-handoff checkpoint.
+- `owner-device-regression.json`: subsequent owner-reported single Opus pass and
+  combined 59-test pass on S25 Ultra / Android 17; no raw XML or verified installed SHA supplied.
 - `generated-fixtures.json`: deterministic AAC/Opus recipe metadata and encoded asset hashes.
 - `validation.json`: initial post-repair results plus separately recorded final passive-diagnostics/packet-loss follow-up; original measurements preserved.
 - `apk-packaging.json` / `apk-packaging-passive-followup.json` / `apk-packaging-opus-followup.json`:
@@ -21,7 +24,8 @@ This directory contains generated-fixture and host validation evidence, not priv
 | Actual native packaging | Four ABIs; ELF/ZIP 16KB alignment, symbols and license assets passed |
 | New Android decoder tests | Ten compiled and present in test DEX; **zero executed by Codex** |
 | Native CTest/sanitizers | Not rerun; DSP/JNI/C++ unchanged |
-| Owner v6 Android follow-up | One of ten new methods failed; supplied Opus single-method diagnostic retained separately; repaired v7 runtime pending |
+| Owner v6 Android follow-up | One of ten new methods failed; supplied Opus single-method diagnostic retained separately; historical failure retained |
+| Owner v7 Android follow-up | All 59 combined methods reported passed, zero failures/skips; not executed by Codex |
 | Original-song/HTTP/acoustic results | Not tested; owner follow-up required |
 
 The preceding v6 run (508 per variant, retained in `validation.json`) includes one actual MP4 fixture-contract test per variant: media
@@ -45,6 +49,7 @@ bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugU
 ```
 
 See [the reliability guide](../../AUTOMIX_REAL_WORLD_DECODER_RELIABILITY.md) for exact
-10-test device and prior-49 regression commands. No new Android runtime test has been
-executed by Codex; compilation is not device execution. No real-song quality, HTTP/CDN,
+10-test, prior-49 and combined-59 regression commands. No new Android runtime test has been
+executed by Codex; the separate owner report is physical-device evidence, while
+compilation alone is not device execution. No real-song quality, HTTP/CDN,
 phone memory/battery, acoustic or audible-EQ measurement is supplied.

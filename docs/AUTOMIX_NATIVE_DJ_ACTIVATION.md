@@ -65,7 +65,11 @@ endpoint-support packets. The Phase 3.3 owner-reported 49-test pass and reviewed
 results above retain their original **v5** provenance; they are not new device validation
 of v6/v7. The follow-up keeps the DSP, planner/executor gates, opt-in and legacy default intact.
 The owner reported one Opus failure among the ten new decoder methods on v6;
-the v7 repair and required prior-49 rerun are reported separately.
+after the v7 repair, the owner reported all 59 combined tests passed on the S25 Ultra /
+Android 17 (10 new plus prior 49, zero failures/skips). This later owner report is
+separate from the historical v5 run and from Codex host/build results. No raw Android
+XML or independently verified installed SHA was supplied. Real-song and acoustic
+validation remain outstanding.
 
 ## Scope and current evidence
 

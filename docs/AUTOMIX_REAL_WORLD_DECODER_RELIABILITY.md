@@ -6,8 +6,12 @@ BitChord remains pinned to `fe95bb60aa9cd205cf4ab8bd25a5bec71a595b4f`.
 
 Current follow-up: **v7 Opus support-window repair**. The owner reported one failure
 among ten v6 decoder tests; its supplied diagnostic establishes missing head/tail
-coverage at a nonzero Opus request. Post-repair Android execution remains pending.
-See the dedicated Opus section below; earlier v6 validation counts remain historical.
+coverage at a nonzero Opus request. After the v7 repair, the owner reported the
+single Opus method passed, followed by **all 59 combined Android tests passing,
+zero failures/skips**, on the Galaxy S25 Ultra / Android 17. These are owner-reported
+results, not Codex executions; raw XML and an independently verified installed SHA
+were not supplied. The branch-update instructions identified source `288511a3`.
+Earlier v6 failure and host-validation records remain historical.
 
 ## Scope and evidence limits
 
@@ -201,7 +205,10 @@ measured total, not a supplied per-buffer XML trace. It checks the exact origina
 sample-exactly with contiguous reference PCM, and retains rejection of a genuine missing
 source frame. Android endpoint assertions are retained and strengthened to require both
 edges, FULL coverage, 240000 accepted source frames and 110250 output frames in each
-5s window. The repaired Android behavior still requires the owner's rerun.
+5s window. The owner subsequently reported this repaired method passed, then
+confirmed the complete combined 59-test selection passed. See the separate
+[owner-device record](benchmarks/phase331-native-decoder/owner-device-regression.json);
+the original Opus diagnostic and host replay have not been rewritten.
 
 The subsequent v7 complete local JVM tasks passed **514 Arm64 GMS + 514 Universal
 FOSS = 1028 tests**, zero failures/errors/skips, including the same 17 actual
@@ -251,7 +258,12 @@ controlled numeric fields and overwrite one bounded app-private diagnostic file.
 ## Validation and reproduction
 
 [Benchmark evidence](benchmarks/phase331-native-decoder/README.md) separates pre-repair
-failure, host PCM parity, full JVM/host-JNI runs, packaging and pending Android runtime.
+failure, host PCM parity, full JVM/host-JNI runs, packaging and the subsequent
+owner-reported Android run. The 1028-test JVM result and both successful workflows
+([GMS](https://github.com/yren411/vivi-music-personal/actions/runs/39146164268),
+[FOSS](https://github.com/yren411/vivi-music-personal/actions/runs/39146164279))
+belong to implementation `288511a33107276e1b7c67747e1c2c2b3c626a19`; documentation-only
+follow-ups are not new local JVM executions. Check the PR for checks on later heads.
 The native DSP/JNI/C++ sources are unchanged, so native CTest/sanitizer suites are not
 rerun for this Kotlin-only repair. Their previous results are not new passes here.
 No emulator/system image/KVM or connected Android device is available to execute tests
@@ -271,8 +283,9 @@ probe, both full suites passed **507 + 507 again**, with app/test builds success
 **3m29s** (42 executed tasks, 355 up-to-date). Counts are per complete run, not summed
 across reruns. Final packaging checks were repeated and recorded separately.
 The new test class is present in built test DEX. Actual app APK checks pass all four JNI
-ABIs, ELF/ZIP 16KB alignment, symbols and license assets. No new Android instrumentation
-was executed: **0 device executions**, not ten passes. Exact counts, commands, original
+ABIs, ELF/ZIP 16KB alignment, symbols and license assets. At that cloud validation
+checkpoint, no new Android instrumentation was executed by Codex: **0 device executions**,
+not ten passes. The later owner-reported device run is recorded separately below. Exact counts, commands, original
 failure and unchanged-native justification are in the evidence directory. The first
 broad validation exposed a version-list test expecting seven distinct profiles after an
 eighth (historical v5) was added; the exact uniqueness assertion was updated to eight,
@@ -300,12 +313,24 @@ and strict missing-source rejection before JNI, including a real omitted compres
 access unit with unchanged remaining extractor timestamps. No internet or audio playback is needed
 for this new decoder class. Existing 49 tests remain intact.
 
-For the current v7 Opus repair, first select
+The owner first reran
 `com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest#opusEarlierAndNearEndWindowsContainActualDecodedAudio`
-in the class argument below: expect **one executed, zero failures/skips**. Then rerun
-the full ten-method class and the prior 49 regressions. The diagnostic file now also
-records Opus delay/preroll and the actual compressed cutoff. No v7 Android pass is
-claimed before that rerun.
+and reported a pass, then reported all **59** methods passed in one combined selection:
+
+| Suite | Tests passed (owner-reported) |
+| --- | --- |
+| Real-world AAC/Opus decoder | 10 |
+| Corrected PCM decoder | 4 |
+| BitChord native analyzer | 14 |
+| Native-aware planner | 6 |
+| Native DJ executor | 14 |
+| Native AutoMix service | 11 |
+| **Total** | **59**, zero failures/skips |
+
+These generated-media integration results do not establish original-song repair,
+acoustic alignment or audible mix/EQ quality. The following commands remain optional
+regression/troubleshooting tools; no additional device rerun is required solely for
+this documentation update. The diagnostic file records Opus delay/preroll and cutoff.
 
 PowerShell from the repository root in Android Studio; keep the working debug key and
 isolated `com.yren411.tinium.decodercheck` package. No normal-app uninstall, data deletion,
@@ -329,6 +354,12 @@ another Gradle/device invocation concurrently):
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+The owner used this exact combined **59-test** selection (expected zero failures/skips):
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
 
 Retain failures/counts from `app/build/reports/androidTests/connected/` and
