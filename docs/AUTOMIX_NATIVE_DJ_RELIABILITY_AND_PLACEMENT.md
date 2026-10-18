@@ -221,6 +221,44 @@ drift fallback; it cannot classify fallback as successful synchronization. Notif
 injection exercises actual live route observation, not Samsung's recorder or physical
 Bluetooth replacement. Existing 59 tests/assertions remain; the combined selection is 69.
 
+### Owner device follow-up: ten passes and one older test-trigger defect
+
+The owner subsequently reported all **ten new tests passed** on the S25 Ultra / Android 17,
+but one method in the previous 59-test selection failed:
+`NativeAutoMixServiceInstrumentedTest.routeInvalidationReleasesIncomingWithoutMutingPrimary`.
+No raw Android XML, separate skip count or independently verified installed commit SHA was
+supplied. The attached diagnostic identifies planner v2, executor v5 and PCM v7. This is
+owner-reported device evidence, not Codex execution or a clean 69-test pass.
+
+The old test called `setPreferredAudioDevice(null)` while the service preference was already
+`null`, then expected the second deck to disappear within three seconds. That request is
+intentionally unchanged under the new policy. The supplied log shows continued MIXING,
+maximum guarded drift **16,643 µs**, maximum query span **285 µs**, zero promotions and
+zero CANCELED records. SESSION, TRACK_CREATED and TRACK_ROUTING observations all retained
+the same known SPEAKER output with `material=false`. The test timed out waiting for a
+cancellation it had not actually requested; this was not excessive drift or failed cleanup.
+
+The correction is **test-only**. It first verifies that default → default retains the same
+plan, MIXING state and two outputs, then changes default → an explicit preference for the
+currently routed output. That real preference change exercises the existing conservative
+service cancellation path without requiring another physical device. The original three-second
+release deadline, primary playback, volume and queue-item assertions remain. Additional
+assertions require ROUTE_CHANGED history and zero native promotions. The previous preference
+is restored in `finally`. No production route policy, timing guard or audio behavior changed.
+This does not simulate a physical Bluetooth/speaker replacement. A normalized summary is in
+`benchmarks/phase332-native-reliability/owner-route-test-followup.json`; the full private session
+export is not committed. The corrected method and clean combined 69-test selection still
+need owner reruns.
+
+Targeted rerun after updating the existing PR branch (one test, expected zero failures/skips):
+
+```powershell
+git fetch origin
+git switch codex/automix-native-reliability-placement
+git pull --ff-only
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest#routeInvalidationReleasesIncomingWithoutMutingPrimary" --no-configuration-cache --no-daemon --stacktrace
+```
+
 Local final matrix: **546 Arm64 GMS + 546 Universal FOSS JVM tests = 1,092 passed**,
 zero failures/errors/skips. Included actual host-JNI cases: 17 per variant / 34 executions.
 Both app debug APKs and both instrumentation APKs assembled successfully. Actual APK

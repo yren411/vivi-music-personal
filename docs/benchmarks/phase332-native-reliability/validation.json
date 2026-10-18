@@ -47,7 +47,7 @@
     "executedByCodex": 0,
     "deviceAvailable": false,
     "emulatorAvailable": false,
-    "ownerNewRun": "pending",
+    "ownerNewRun": "Owner reports all 10 new methods passed; one previous service route test failed due to unchanged-preference trigger. Repaired method and combined 69 rerun pending; no raw XML/independent installed SHA supplied.",
     "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
   },
   "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
@@ -78,5 +78,30 @@
     ],
     "effectiveOutgoingBpm": 59.75,
     "fixed": "placement accepts existing effective pulse range; measured native BPM gate unchanged"
+  },
+  "testTriggerFollowup": {
+    "scope": "instrumentation test and documentation only; production source unchanged from 0d3afd26",
+    "jvmSuites": {
+      "Arm64GmsDebug": {
+        "tests": 546,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 546,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "hostJniExecutionsIncluded": 34,
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "androidExecutedByCodex": 0,
+    "buildResult": "BUILD SUCCESSFUL in 2m 58s; 362 actionable tasks: 24 executed, 338 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
   }
 }

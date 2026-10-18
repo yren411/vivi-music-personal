@@ -9,6 +9,7 @@ limits, physical-device commands and recording/listening protocol.
 | Artifact | Meaning |
 | --- | --- |
 | `owner-baseline-summary.json` | Original task's owner-reported real-device summary and separately labeled calculations; no new phone measurements |
+| `owner-route-test-followup.json` | Subsequent owner-reported ten-test pass and normalized older service-test failure; no raw session export or clean 69-test claim |
 | `placement-and-observation-host.json` | Generated mathematical beat fixtures through the real Kotlin planner, plus host JVM clock/route microbenchmarks; no acoustic or Android output |
 | `validation.json` | Actual local test counts/builds and explicit runtime omissions |
 | `apk-packaging.json` | Actual ELF, ZIP native-library alignment, ABI, JNI symbol and license-asset inspection |
@@ -95,8 +96,12 @@ python scripts/check_automix_native_apks.py \
   worker cache identity, effects and legacy-default suites remain enabled.
 - New Android class has **10 methods**. Existing decoder/native/planner/executor/service/
   real-world-decoder selection retains **59 methods**; combined **69**. These cloud
-  results compile APKs only. No device/emulator is available; all new Android execution
-  and screen-recorder/Bluetooth testing remain pending owner validation.
+  results compile APKs only. Subsequently the owner reported all ten new methods passed,
+  with one older service method failing because it used unchanged default output preference
+  as its cancellation trigger. The corrected test retains the original assertions/deadline
+  and additionally checks no-op retention and explicit preference-change cancellation.
+  No production code changed. Corrected-method/full-69 reruns and screen-recorder/Bluetooth
+  testing remain pending owner validation; raw device XML was not supplied.
 
 The initial focused run exposed an overlap-ranking regression: prioritizing endpoint
 distance before supported overlap shortened valid long mixes. Ranking was corrected

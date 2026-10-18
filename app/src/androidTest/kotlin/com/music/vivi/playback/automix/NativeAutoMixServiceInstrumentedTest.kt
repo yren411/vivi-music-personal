@@ -123,9 +123,34 @@ class NativeAutoMixServiceInstrumentedTest {
         assertTrue(h.report().contains("FALLBACK"));assertEquals(0,h.completed())
     }
     @Test fun routeInvalidationReleasesIncomingWithoutMutingPrimary()=withService {h ->
-        h.play();h.mixing();h.main {h.service.setPreferredAudioDevice(null)}
-        h.await("standby released",3000){h.service.nativeServiceInspection().outputs==1}
-        h.main {assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f);assertEquals(h.items[0].mediaId,h.service.player.currentMediaItem?.mediaId)}
+        var previousPreference:Int?=null
+        h.main {previousPreference=h.service.preferredDeviceId;h.service.setPreferredAudioDevice(null)}
+        try {
+            h.play();h.mixing()
+            h.main {
+                val plan=requireNotNull(h.service.autoMixStatus.value.nativePlan)
+                val output=requireNotNull(h.service.nativeRouteSnapshot().outgoing)
+                assertNull(h.service.preferredDeviceId)
+                // Default -> default is not a route change. Preserve this real mix.
+                h.service.setPreferredAudioDevice(null)
+                assertSame(plan,h.service.autoMixStatus.value.nativePlan)
+                assertEquals(NativeDjExecutionStage.MIXING,h.service.nativeServiceInspection().execution!!.status.stage)
+                assertEquals(2,h.service.nativeServiceInspection().outputs)
+                // Default -> explicit current output is a real preference change.
+                // It exercises service invalidation without requiring another device
+                // or pretending that the physical speaker/Bluetooth route changed.
+                h.service.setPreferredAudioDevice(output.deviceId)
+            }
+            h.await("standby released",3000){h.service.nativeServiceInspection().outputs==1}
+            h.main {
+                assertTrue(h.service.player.isPlaying);assertEquals(.12f,h.service.player.volume,.0001f)
+                assertEquals(h.items[0].mediaId,h.service.player.currentMediaItem?.mediaId)
+                assertEquals(0,h.completed())
+                assertTrue(h.history().attempts.flatMap {it.records}.any {
+                    it.native?.event==NativeServiceEvent.CANCELED && it.native.reason=="ROUTE_CHANGED"
+                })
+            }
+        } finally {h.main {h.service.setPreferredAudioDevice(previousPreference)}}
     }
     @Test fun injectedUnexpectedEndDoesNotDoubleAdvanceOrLeaveTheQueuePaused()=withService {h ->
         h.play();h.mixing()

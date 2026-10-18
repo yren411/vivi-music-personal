@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "evidence": "owner report plus supplied Android assertion diagnostic; no Codex Android execution",
+  "device": "Samsung Galaxy S25 Ultra",
+  "android": "17",
+  "newSuiteOwnerReportedPassed": 10,
+  "skipCount": "not separately supplied",
+  "previous59Selection": {
+    "failedMethod": "NativeAutoMixServiceInstrumentedTest.routeInvalidationReleasesIncomingWithoutMutingPrimary",
+    "reportedFailures": 1,
+    "otherExecutedCounts": "not independently supplied"
+  },
+  "observedFailure": {
+    "assertion": "standby released",
+    "timeoutMs": 3000,
+    "stage": "MIXING",
+    "maxGuardedDriftUs": 16643,
+    "maxQuerySpanUs": 285,
+    "promotions": 0,
+    "canceledRecords": 0,
+    "routeCategory": "SPEAKER",
+    "routeNotifications": [
+      "SESSION",
+      "TRACK_CREATED",
+      "TRACK_ROUTING"
+    ],
+    "allRecordedRouteDecisionsMaterial": false
+  },
+  "confirmedCause": "Test requested null output preference when preference was already null; new no-op policy correctly retained the mix.",
+  "testRepair": "Assert unchanged preference retains plan/mixing/two outputs, then select explicit actual routed output to trigger existing preference-change cancellation; retain original release deadline and playback/volume/queue assertions, verify ROUTE_CHANGED and zero promotions, restore preference.",
+  "productionChanges": false,
+  "rawAndroidXmlSupplied": false,
+  "installedCommitIndependentlyVerified": false,
+  "physicalRouteReplacementReproduced": false,
+  "repairedMethodDeviceRerun": "pending",
+  "cleanCombined69Pass": "not yet reported"
+}
