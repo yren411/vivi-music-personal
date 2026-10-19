@@ -7,6 +7,50 @@ it does **not** establish a repair for every real-device startup failure or acou
 No DSP, JNI, PCM decoding, preprocessing, EQ, gain curve, playback rate, signing,
 version allocation or release workflow changes are made.
 
+## Current validation status
+
+The owner reports **all 69 tests passed in the combined Android regression selection**
+on the Samsung Galaxy S25 Ultra / Android 17. This includes the previously failing route
+acceptance method; the owner also reported its single-method pass before the combined run.
+These are owner-reported physical-device results, not Codex Android execution. No raw
+runner XML or independently verified installed commit SHA was supplied; no failures or
+skips were reported. The source checkpoint used for the supplied instructions is
+`955000e2267807c75710fa19f0e1e600af96b04e`.
+
+| Combined Android category | Tests reported passed |
+| --- | ---: |
+| Real-world AAC/Opus decoder | 10 |
+| Corrected PCM decoder | 4 |
+| BitChord native analyzer | 14 |
+| Native-aware planner | 6 |
+| Dual-deck executor | 14 |
+| MusicService integration | 11 |
+| Phase 3.3.2 reliability and placement | 10 |
+| **Total** | **69** |
+
+The separate observation-only startup probe is **excluded** from that count. Its latest
+snapshot reached 2.002 seconds of common progress with 43.419 ms maximum guarded drift,
+steady offsets −1.320..13.650 ms, both output timestamps available and zero promotions.
+It intentionally ended before handoff. Earlier startup failures remain part of the evidence;
+neither this healthy observation nor a passing combined run proves they are eliminated.
+
+On repository checkpoint `955000e2`, both required workflows passed:
+[CI & Debug Build](https://github.com/yren411/vivi-music-personal/actions/runs/39195269924)
+and [Build PR](https://github.com/yren411/vivi-music-personal/actions/runs/39195269934).
+The duplicate push workflow was conditionally skipped. Existing nonblocking lint policy
+is unchanged; these results do not certify clean lint. The last complete local JVM matrix
+on that code passed **550 GMS + 550 FOSS = 1,100 tests**, zero failures/errors/skips,
+including 34 actual host-JNI executions. Both instrumentation APKs assembled. These are
+the prior code-validation results, not new executions caused by this documentation update;
+workflow results are attributed only to their actual commit.
+
+Phase 3.3.2 has passing evidence for the tested generated-media Android scenarios and
+remains an experimental opt-in implementation for review. Real-song cue quality, repeated
+startup reliability, Samsung screen-recorder behavior, Bluetooth, acoustic synchronization
+and audible Poweramp processing still require controlled evaluation. Legacy remains the
+default. No merge, release, APK publication, Phase 3.4 implementation or broader activation
+is authorized. Historical investigations below are retained in chronological order.
+
 ## Evidence and its limits
 
 The owner describes an October 18, 2026 S25 Ultra / Android 17 session using Tinium
@@ -229,7 +273,8 @@ but one method in the previous 59-test selection failed:
 `NativeAutoMixServiceInstrumentedTest.routeInvalidationReleasesIncomingWithoutMutingPrimary`.
 No raw Android XML, separate skip count or independently verified installed commit SHA was
 supplied. The attached diagnostic identifies planner v2, executor v5 and PCM v7. This is
-owner-reported device evidence, not Codex execution or a clean 69-test pass.
+owner-reported device evidence, not Codex execution. This initial checkpoint did not yet
+establish a clean 69-test pass; the later combined pass is recorded above.
 
 The old test called `setPreferredAudioDevice(null)` while the service preference was already
 `null`, then expected the second deck to disappear within three seconds. That request is
@@ -249,11 +294,12 @@ is restored in `finally`. No production route policy, timing guard or audio beha
 This does not simulate a physical Bluetooth/speaker replacement. A normalized summary is in
 `benchmarks/phase332-native-reliability/owner-route-test-followup.json`; the full private session
 export is not committed. The owner then reran the corrected method, but startup failed
-before its route assertions; see the separate investigation below. A clean combined
-69-test pass remains unestablished.
+before its route assertions; see the separate investigation below. At that checkpoint a
+clean combined 69-test pass remained unestablished. The owner later reported the route
+method and then the full combined selection passed, as recorded in the current summary.
 
-Route acceptance command, retained for regression **after** investigating the startup
-failure below (one test, expected zero failures/skips; no claim that startup is repaired):
+Route acceptance command, retained as an optional regression/troubleshooting tool
+(one test, expected zero failures/skips; no claim that intermittent startup is repaired):
 
 ```powershell
 git fetch origin
@@ -343,8 +389,8 @@ the existing harness. There is no substitute player, extra warm-up, calibration 
 automatic retry or relaxed guard. It writes at most 96,000 characters to one app-private file.
 A passing diagnostic can report FALLBACK/FAILED/CANCELED; it validates bounded observation
 and playback safety, **not successful synchronization**. The 69 acceptance methods remain
-separately selected and unchanged. Run this probe rather than repeatedly retrying the route
-test while its startup prerequisite fails. Pause other music and use comfortable volume;
+separately selected and unchanged. If startup fails again, use this optional probe to collect
+evidence rather than repeatedly retrying acceptance until green. Pause other music and use comfortable volume;
 generated audio plays. Keep the existing isolated app/key; no uninstall or cache wipe.
 
 ```powershell
@@ -410,14 +456,34 @@ history update and verifies the final clock/output evidence survives. A second r
 checks the size bound and explicit missing-outcome representation. No additional waiting,
 production polling, startup policy, playback code or safety limit changes are introduced.
 
-The same one-method PowerShell command above reruns the repaired probe. Confirm that
+The same one-method PowerShell command above optionally reruns the repaired probe. Confirm that
 the file contains both `diagnosticSchema=2` and `LATEST_EXECUTOR_SNAPSHOT`; supply that file
 even if the method passes with fallback. The test-only repair passed **550 GMS + 550 FOSS = 1,100 JVM tests**, zero failures/errors/
 skips, including 34 actual host-JNI executions. Four focused tests passed and both
 instrumentation APKs assembled. No Android execution by Codex, new production APK
-packaging result or synchronization repair is claimed. New probe execution and a clean
-69-test run remain outstanding. The normalized historical file summary is
+packaging result or synchronization repair is claimed. At this historical checkpoint the
+repaired probe and combined run were outstanding. The owner subsequently supplied the
+healthy schema-2 snapshot, reported the route-method pass, and then reported all 69 tests
+passed. The normalized historical failure summary is
 `benchmarks/phase332-native-reliability/owner-zero-lead-probe-followup.json`.
+
+### Later schema-2 observation and combined acceptance
+
+The healthy schema-2 snapshot selected a **146,384 µs** reference lead: 177,384 µs elapsed
+minus 31,000 µs observed progress. First incoming progress was observed 116,552 µs after
+command. First projected offset was −43,333 µs, maximum guarded drift 43,419 µs, and final
+raw/projected offsets 5,624 / 5,649 µs with 24 µs query uncertainty. Common progress reached
+2,002,311 µs; steady offsets after one second were −1,320..13,650 µs. Both AudioTrack
+timestamp fields were available. No acoustic output or cross-deck frame-origin calibration
+was performed, and no handoff was expected at this two-second diagnostic checkpoint.
+
+The only intervening change was the test export, not playback behavior. This healthy
+execution therefore cannot be attributed to a synchronization repair. The owner next
+reported the original route method passed and then all **69 combined acceptance tests**
+passed. This supersedes the earlier pending Android acceptance status, while preserving
+the earlier failures and their unresolved intermittent startup implications. See
+`benchmarks/phase332-native-reliability/owner-device-validation.json` for normalized
+provenance and counts. No raw private session report is committed.
 
 ### Resource observations
 
@@ -448,6 +514,8 @@ Use the Android Studio **PowerShell** terminal at the repository root. Keep the 
 working debug key and isolated `com.yren411.tinium.decodercheck` configuration. These commands
 do not uninstall/update the normal Tinium app, wipe caches or delete its data. Generated
 audio plays: pause ordinary music, use comfortable volume, run only one test command at a time.
+These are optional future regression/troubleshooting commands. The owner-reported combined
+pass is already recorded; no phone rerun is needed solely for this documentation update.
 
 ```powershell
 git fetch origin
@@ -474,6 +542,13 @@ Previous **59 tests**, expected zero failures/skips (append the new class to sel
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
+```
+
+Exact combined **69-test** selection used in the owner's reported final regression
+(the separate observation-only probe is deliberately excluded):
+
+```powershell
+.\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest,com.music.vivi.playback.automix.NativeDjReliabilityInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
 
 For ordinary listening, tests do not update the normal app. Build/install only the supported

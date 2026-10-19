@@ -47,7 +47,7 @@
     "executedByCodex": 0,
     "deviceAvailable": false,
     "emulatorAvailable": false,
-    "ownerNewRun": "Owner reports all 10 new acceptance tests passed. Original older route test had a no-op trigger; after repair owner rerun failed during startup before route assertions. First observation-only probe then reported zero-lead EXCESSIVE_DRIFT but exported stale history without terminal measurements. Schema-2 export rerun and clean 69 pass remain pending; no raw XML/independent installed SHA.",
+    "ownerNewRun": "Owner reports all 69 combined Android acceptance tests passed after the separate route-method pass and healthy schema-2 probe. No failures/skips reported; no raw XML or independently verified installed SHA. Earlier failure checkpoints remain separate artifacts.",
     "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
   },
   "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
@@ -185,9 +185,31 @@
     "androidExecutedByCodex": 0,
     "acceptanceMethods": 69,
     "separateObservationDiagnosticMethods": 1,
-    "newSchemaOwnerRun": "pending",
+    "newSchemaOwnerRun": "Owner supplied healthy MIXING snapshot with 2,002,311 us common progression and 43,419 us peak guarded drift, then reported route method and all 69 acceptance tests passed. Separate probe excluded from 69; see owner-device-validation.json.",
     "productionApkBuildAndPackaging": "Not repeated for test-only change; prior cbea1cca app/ABI/16KB/license results remain attributed to that checkpoint",
     "nativeCtestAndSanitizers": "not rerun; native sources/build unchanged",
-    "synchronizationRepairClaimed": false
+    "synchronizationRepairClaimed": false,
+    "githubChecks": {
+      "head": "955000e2267807c75710fa19f0e1e600af96b04e",
+      "CI & Debug Build": {
+        "runId": 39195269924,
+        "conclusion": "success"
+      },
+      "Build PR": {
+        "runId": 39195269934,
+        "conclusion": "success"
+      }
+    }
+  },
+  "latestOwnerDeviceValidation": {
+    "artifact": "owner-device-validation.json",
+    "repositoryInstructionCheckpoint": "955000e2267807c75710fa19f0e1e600af96b04e",
+    "reportedPassed": 69,
+    "failuresOrSkipsReported": false,
+    "rawXmlSupplied": false,
+    "installedShaIndependentlyVerified": false,
+    "codexAndroidExecuted": 0,
+    "separateDiagnosticExcluded": true,
+    "intermittentStartupRepairEstablished": false
   }
 }

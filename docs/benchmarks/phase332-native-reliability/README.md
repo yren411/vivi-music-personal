@@ -4,6 +4,13 @@ Base `862c92ba0a98cda22161e7ec9d20ffdd8854f923` (merged PR #24). See the
 [engineering report](../../AUTOMIX_NATIVE_DJ_RELIABILITY_AND_PLACEMENT.md) for algorithms,
 limits, physical-device commands and recording/listening protocol.
 
+Latest device status: the owner reports **all 69 combined Android acceptance tests
+passed** on the S25 Ultra / Android 17, following the separate route-method pass and
+healthy two-second schema-2 probe. No failures/skips were reported; raw XML and an
+independently verified installed SHA were not supplied. Codex did not execute Android.
+The separate diagnostic is not a 70th acceptance test. This validates the tested scenarios,
+not acoustic alignment, elimination of intermittent startup failures or production readiness.
+
 ## Evidence boundaries
 
 | Artifact | Meaning |
@@ -12,6 +19,7 @@ limits, physical-device commands and recording/listening protocol.
 | `owner-route-test-followup.json` | Subsequent owner-reported ten-test pass and normalized older service-test failure; no raw session export or clean 69-test claim |
 | `owner-startup-failure-followup.json` | Next owner rerun: excessive negative startup offset before route assertions; distinct from the no-op test-trigger defect |
 | `owner-zero-lead-probe-followup.json` | Subsequent owner probe reports drift fallback with zero lead; its original export omitted terminal measurements because history lagged |
+| `owner-device-validation.json` | Later healthy schema-2 observation, route-method pass and owner-reported combined 69-test pass; source/check attribution and evidence limits |
 | `placement-and-observation-host.json` | Generated mathematical beat fixtures through the real Kotlin planner, plus host JVM clock/route microbenchmarks; no acoustic or Android output |
 | `validation.json` | Actual local test counts/builds and explicit runtime omissions |
 | `apk-packaging.json` | Actual ELF, ZIP native-library alignment, ABI, JNI symbol and license-asset inspection |
@@ -58,7 +66,9 @@ and pre-release evidence retention; it is not an acoustic or startup-repair succ
 No Codex Android device execution is claimed. The owner subsequently supplied a probe
 report with excessive-drift fallback and zero lead, but the original probe exported its
 status plus stale service history, omitting the observed terminal clock/output snapshot.
-The test-only schema-2 repair exports that snapshot first; its phone rerun is pending.
+The test-only schema-2 repair exports that snapshot first. Its later owner-supplied
+snapshot reached two seconds of common progress with 43.419 ms peak guarded drift;
+the owner then reported the route method and full combined 69-test selection passed.
 Neither a passed observation probe nor the original MIXING record with zero concurrent
 progress is evidence of successful synchronization. Historical counts above remain intact.
 
@@ -127,7 +137,9 @@ python scripts/check_automix_native_apks.py \
   guarded drift. This is not a new route cleanup failure. The follow-up preserves numeric
   reference/pre-release output evidence; it does not change the prediction/120 ms guard.
   The exact host replay still requires fallback, zero promotions and surviving playback.
-  Corrected-method/full-69 and screen-recorder/Bluetooth validation remain incomplete.
+  At that earlier checkpoint corrected-method/full-69 validation was incomplete; the owner
+  subsequently reported both passed. Controlled screen-recorder/Bluetooth validation
+  and proof that intermittent startup failures are eliminated remain outstanding.
   A separate one-method `NativeServiceStartupDiagnosticInstrumentedTest` is an explicitly
   bounded observation tool, not a 70th synchronization acceptance test. A passed probe can
   honestly report FALLBACK; its file outcome and latest snapshot are required to interpret it.

@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "evidence": "Owner-supplied diagnostic snapshot and later chat reports; no raw runner XML or independent installed SHA",
+  "device": "Samsung Galaxy S25 Ultra",
+  "android": "17",
+  "repositoryInstructionCheckpoint": "955000e2267807c75710fa19f0e1e600af96b04e",
+  "installedCommitIndependentlyVerified": false,
+  "ownerStatements": {
+    "targetedRouteMethod": "The test passed",
+    "combinedSelection": "All 69 tests passed"
+  },
+  "combinedAcceptance": {
+    "reportedPassed": 69,
+    "failuresOrSkipsReported": false,
+    "rawTestXmlSupplied": false,
+    "executedByCodex": 0,
+    "suites": {
+      "RealWorldDecoderInstrumentedTest": 10,
+      "AndroidWindowDecoderInstrumentedTest": 4,
+      "BitChordNativeAnalysisInstrumentedTest": 14,
+      "NativeAwarePlannerInstrumentedTest": 6,
+      "NativeDjExecutionInstrumentedTest": 14,
+      "NativeAutoMixServiceInstrumentedTest": 11,
+      "NativeDjReliabilityInstrumentedTest": 10
+    }
+  },
+  "separateDiagnostic": {
+    "class": "NativeServiceStartupDiagnosticInstrumentedTest",
+    "diagnosticSchema": 2,
+    "includedIn69": false,
+    "status": "MIXING",
+    "commonProgressUs": 2002311,
+    "maximumGuardedDriftUs": 43419,
+    "firstCommonTimeOffsetUs": -43333,
+    "steadyMinimumOffsetUs": -1320,
+    "steadyMaximumOffsetUs": 13650,
+    "lastRawOffsetUs": 5624,
+    "lastCommonTimeOffsetUs": 5649,
+    "lastQueryUncertaintyUs": 24,
+    "referenceElapsedUs": 177384,
+    "referenceProgressUs": 31000,
+    "selectedLeadUs": 146384,
+    "commandToFirstIncomingProgressUs": 116552,
+    "bothOutputTimestampsAvailable": true,
+    "promotions": 0,
+    "fullHandoffObserved": false,
+    "acousticAlignmentMeasured": false
+  },
+  "githubChecksOnInstructionCheckpoint": {
+    "head": "955000e2267807c75710fa19f0e1e600af96b04e",
+    "CI & Debug Build": {
+      "runId": 39195269924,
+      "conclusion": "success"
+    },
+    "Build PR": {
+      "runId": 39195269934,
+      "conclusion": "success"
+    },
+    "duplicatePushWorkflow": "conditionally skipped"
+  },
+  "interpretation": "Tested generated-media Android scenarios passed according to owner. Healthy diagnostic stopped after two seconds and is not a completed handoff. Previous failures remain historical evidence; export-only change does not establish a synchronization repair.",
+  "remaining": [
+    "intermittent startup root cause and repeated real-world reliability",
+    "screen-recorder output classification on actual Samsung recorder",
+    "real-song cue and listening quality",
+    "Bluetooth and audible Poweramp EQ",
+    "acoustic synchronization",
+    "extended battery/thermal behavior"
+  ],
+  "rawPrivateReportCommitted": false,
+  "productionDefault": "legacy",
+  "mergedOrReleased": false
+}
