@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "baseline": "862c92ba0a98cda22161e7ec9d20ffdd8854f923",
-  "sourceScope": "Initial implementation checkpoint 0d3afd26; subsequent test-trigger and startup-evidence follow-up validations are recorded separately below.",
+  "sourceScope": "Initial implementation checkpoint 0d3afd26; test-trigger, startup-evidence and test-only export follow-ups recorded separately below.",
   "fullJvmSuites": {
     "Arm64GmsDebug": {
       "tests": 546,
@@ -47,7 +47,7 @@
     "executedByCodex": 0,
     "deviceAvailable": false,
     "emulatorAvailable": false,
-    "ownerNewRun": "Owner reports all 10 new acceptance tests passed. Original older route test had a no-op trigger; after its repair, owner rerun failed during startup with EXCESSIVE_DRIFT before route assertions. No clean 69 pass. Separate bounded startup probe pending; no raw XML/independent installed SHA.",
+    "ownerNewRun": "Owner reports all 10 new acceptance tests passed. Original older route test had a no-op trigger; after repair owner rerun failed during startup before route assertions. First observation-only probe then reported zero-lead EXCESSIVE_DRIFT but exported stale history without terminal measurements. Schema-2 export rerun and clean 69 pass remain pending; no raw XML/independent installed SHA.",
     "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
   },
   "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
@@ -136,8 +136,58 @@
     "codexAndroidExecuted": 0,
     "acceptanceMethods": 69,
     "separateObservationDiagnosticMethods": 1,
-    "ownerNewDiagnosticExecuted": "pending",
+    "ownerNewDiagnosticExecuted": "Owner supplied first probe file with FALLBACK/EXCESSIVE_DRIFT; runner XML/count not supplied. See owner-zero-lead-probe-followup.json and test-only export follow-up below.",
     "synchronizationRepairClaimed": false,
-    "nativeCtestAndSanitizers": "not rerun; native DSP/JNI/build unchanged"
+    "nativeCtestAndSanitizers": "not rerun; native DSP/JNI/build unchanged",
+    "githubChecks": {
+      "head": "cbea1ccab503ba7407a6d7d3fd65929b520d2a4b",
+      "Build PR": {
+        "runId": 39177536314,
+        "conclusion": "success"
+      },
+      "CI & Debug Build": {
+        "runId": 39177536320,
+        "attempt": 2,
+        "conclusion": "success",
+        "firstAttempt": "External Maven mirror HTTP 504 during dependency resolution; no test failure"
+      }
+    }
+  },
+  "probeExportFollowup": {
+    "scope": "Test-only schema-2 export and two JVM regressions; no production source, behavior, DSP, JNI, preprocessing, Gradle or workflow changes",
+    "fullJvmSuites": {
+      "Arm64GmsDebug": {
+        "tests": 550,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 550,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "hostJniExecutionsIncluded": 34,
+    "focusedTests": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "buildResult": "BUILD SUCCESSFUL in 2m 49s; 362 actionable tasks: 23 executed, 339 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "androidExecutedByCodex": 0,
+    "acceptanceMethods": 69,
+    "separateObservationDiagnosticMethods": 1,
+    "newSchemaOwnerRun": "pending",
+    "productionApkBuildAndPackaging": "Not repeated for test-only change; prior cbea1cca app/ABI/16KB/license results remain attributed to that checkpoint",
+    "nativeCtestAndSanitizers": "not rerun; native sources/build unchanged",
+    "synchronizationRepairClaimed": false
   }
 }

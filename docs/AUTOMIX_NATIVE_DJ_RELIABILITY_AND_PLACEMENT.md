@@ -357,10 +357,67 @@ $adb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
 ```
 
 Expect one diagnostic executed, zero runner failures/skips, with an **explicit outcome**
-in the file. Supply that redacted file even if Gradle succeeds. Phone execution of this
-new probe is pending. The next synchronization decision requires comparing the initial
-reference, first incoming clock and available pre-release output frames; no optimistic
-correction is inferred from a passing diagnostic task.
+in the file. Supply that redacted file even if Gradle succeeds. The next synchronization
+decision requires comparing the initial reference, first incoming clock and available
+pre-release output frames; no optimistic correction is inferred from a passing diagnostic task.
+
+### Owner probe follow-up: zero lead and a diagnostic export race
+
+The owner supplied the observation-only probe's file from the S25 Ultra / Android 17.
+Its header reports **FALLBACK / EXCESSIVE_DRIFT**. It is not a completed mix, nor evidence
+that the 69 acceptance tests passed. No raw runner XML or independent installed SHA was
+supplied. Both required GitHub workflows passed on the preceding source head
+`cbea1ccab503ba7407a6d7d3fd65929b520d2a4b`:
+[CI & Debug Build](https://github.com/yren411/vivi-music-personal/actions/runs/39177536320)
+(attempt 2 after an external dependency-mirror HTTP 504) and
+[Build PR](https://github.com/yren411/vivi-music-personal/actions/runs/39177536314).
+Those successes are not attributed to subsequent changes.
+
+This run differs from the earlier 229.556 ms lead failure:
+
+| Supplied value | Observation |
+| --- | ---: |
+| Outgoing start command monotonic time | 386,220,606,224 µs |
+| Outgoing first progress monotonic time | 386,220,936,746 µs |
+| First reported outgoing progress | 6,000 µs |
+| Calculated reference delay | **324,522 µs** |
+| Applied incoming startup lead | **0 µs** |
+| Incoming start command, outgoing position | 9,983,000 µs |
+| Last history event | Unchanged SPEAKER routing, `material=false` |
+| Peak drift / final paired output timestamps | **Absent from supplied file** |
+
+The reference delay is `(386220936746−386220606224)−6000 = 324522` µs,
+outside the existing 250,000 µs admissible prediction range. Zero lead is therefore
+consistent with the unchanged validity policy, not proof that a usable prediction
+expired. A preceding `MIXING` history record has `firstOffsetUs=null`, zero concurrent
+progress and `lastClock=null`: that state alone does not establish simultaneous advancing
+playback. The initial source AudioTrack timestamp is frame zero at 386220922319434 ns;
+it is not an incoming timestamp or a measurement of acoustic delay. Query-order,
+startup-output and sustained-drift causes cannot be resolved from this file.
+
+The probe had an export race: it stored the observed terminal executor report but wrote
+only that report's status plus the independently sampled service history. The service's
+next recorder pump had not yet appended the terminal measurements. Pre-cleanup capture
+in the executor remained available in the observed report, but the file omitted it.
+This was a diagnostic defect, not evidence that fallback or route cleanup failed.
+
+The test-only repair writes `diagnosticSchema=2` and `LATEST_EXECUTOR_SNAPSHOT` **before**
+the possibly lagging history. The snapshot includes the observed measurements, paired
+output timestamps and startup reference directly; it retains the final 16 player events.
+The total file remains bounded to 96,000 characters, and history cannot evict the snapshot.
+A deterministic regression exports a genuine 130 ms guarded failure before any service
+history update and verifies the final clock/output evidence survives. A second regression
+checks the size bound and explicit missing-outcome representation. No additional waiting,
+production polling, startup policy, playback code or safety limit changes are introduced.
+
+The same one-method PowerShell command above reruns the repaired probe. Confirm that
+the file contains both `diagnosticSchema=2` and `LATEST_EXECUTOR_SNAPSHOT`; supply that file
+even if the method passes with fallback. The test-only repair passed **550 GMS + 550 FOSS = 1,100 JVM tests**, zero failures/errors/
+skips, including 34 actual host-JNI executions. Four focused tests passed and both
+instrumentation APKs assembled. No Android execution by Codex, new production APK
+packaging result or synchronization repair is claimed. New probe execution and a clean
+69-test run remain outstanding. The normalized historical file summary is
+`benchmarks/phase332-native-reliability/owner-zero-lead-probe-followup.json`.
 
 ### Resource observations
 

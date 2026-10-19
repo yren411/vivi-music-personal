@@ -16,7 +16,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
   synchronization still require validation; no new DJ EQ effects are added.
 - Preserve startup-reference and pre-cleanup output timestamps in redacted diagnostics.
   Add a bounded service-startup probe whose completion reports the actual outcome,
-  including fallback, without claiming successful synchronization.
+  including fallback, without claiming successful synchronization. Preserve its latest
+  executor snapshot even when the service diagnostic history has not updated yet.
 
 ## Branding
 

@@ -41,8 +41,8 @@ class NativeServiceStartupDiagnosticInstrumentedTest {
                     if(r.status.reason==NativeDjExecutionReason.EXCESSIVE_DRIFT)assertTrue(r.measurements.maximumObservedDriftUs>120_000)
                 }
             } finally {
-                val header="NATIVE_SERVICE_STARTUP_DIAGNOSTIC observationOnly=true acousticSyncUnknown=true outcome=${observed?.status}\n"
-                File(context.filesDir,"phase332-service-startup.txt").writeText(header+h.report().takeLast(96_000-header.length))
+                File(context.filesDir,"phase332-service-startup.txt").writeText(
+                    NativeStartupDiagnosticText.render(observed,h.report()))
             }
         }
     }

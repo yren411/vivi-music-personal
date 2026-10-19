@@ -11,6 +11,7 @@ limits, physical-device commands and recording/listening protocol.
 | `owner-baseline-summary.json` | Original task's owner-reported real-device summary and separately labeled calculations; no new phone measurements |
 | `owner-route-test-followup.json` | Subsequent owner-reported ten-test pass and normalized older service-test failure; no raw session export or clean 69-test claim |
 | `owner-startup-failure-followup.json` | Next owner rerun: excessive negative startup offset before route assertions; distinct from the no-op test-trigger defect |
+| `owner-zero-lead-probe-followup.json` | Subsequent owner probe reports drift fallback with zero lead; its original export omitted terminal measurements because history lagged |
 | `placement-and-observation-host.json` | Generated mathematical beat fixtures through the real Kotlin planner, plus host JVM clock/route microbenchmarks; no acoustic or Android output |
 | `validation.json` | Actual local test counts/builds and explicit runtime omissions |
 | `apk-packaging.json` | Actual ELF, ZIP native-library alignment, ABI, JNI symbol and license-asset inspection |
@@ -54,7 +55,19 @@ failures/errors/skips, with the same 34 actual host-JNI executions included; 24 
 startup/clock tests also passed. Both debug app/test APKs assembled and four-ABI/16 KB/
 license inspection passed again. The added exact-offset regression tests correct rejection
 and pre-release evidence retention; it is not an acoustic or startup-repair success case.
-No new Android device execution is claimed. The one-method actual-service probe is pending.
+No Codex Android device execution is claimed. The owner subsequently supplied a probe
+report with excessive-drift fallback and zero lead, but the original probe exported its
+status plus stale service history, omitting the observed terminal clock/output snapshot.
+The test-only schema-2 repair exports that snapshot first; its phone rerun is pending.
+Neither a passed observation probe nor the original MIXING record with zero concurrent
+progress is evidence of successful synchronization. Historical counts above remain intact.
+
+The schema-2 **test-only export follow-up** passed **550 GMS + 550 FOSS = 1,100 JVM tests**,
+zero failures/errors/skips, including 34 actual host-JNI executions. Four focused tests
+passed, and both instrumentation APKs assembled (2m 49s complete local matrix). App
+code/native packaging is unchanged; no new app-packaging or native CTest run is claimed.
+The two new tests exercise export before the recorder pump and bounded snapshot retention.
+See the separate `probeExportFollowup` block in `validation.json` for exact commands.
 
 Environment: JDK 21, Gradle 9.3.1, AGP 9.1.1, Kotlin 2.3.10, SDK 37, NDK 27.0.12077973.
 The cloud activation script is local setup, not an application dependency. Build the
@@ -117,7 +130,10 @@ python scripts/check_automix_native_apks.py \
   Corrected-method/full-69 and screen-recorder/Bluetooth validation remain incomplete.
   A separate one-method `NativeServiceStartupDiagnosticInstrumentedTest` is an explicitly
   bounded observation tool, not a 70th synchronization acceptance test. A passed probe can
-  honestly report FALLBACK; its file outcome is required to interpret it. See the engineering
+  honestly report FALLBACK; its file outcome and latest snapshot are required to interpret it.
+  The first owner probe reported zero-lead drift fallback but lost terminal measurements
+  at export; schema 2 writes the captured snapshot independently of the recorder pump.
+  See the engineering
   guide for its exact PowerShell command. No device XML or Codex Android runtime is claimed.
 
 The initial focused run exposed an overlap-ranking regression: prioritizing endpoint
