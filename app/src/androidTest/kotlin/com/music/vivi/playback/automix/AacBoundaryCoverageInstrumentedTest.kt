@@ -55,7 +55,9 @@ class AacBoundaryCoverageInstrumentedTest {
         assertEquals(CoverageStatus.PARTIAL,w.coverageStatus)
         assertEquals(137006L,d.aacBoundary!!.missingLeadingUs)
         assertEquals(0,w.preparation!!.gapCount)
-        assertTrue(BitChordNativeAnalysisEngine().analyze(w,AnalysisDetail.DETAIL,control()) is AnalysisResult.Failed)
+        val rejected=BitChordNativeAnalysisEngine().analyze(w,AnalysisDetail.DETAIL,control())
+        assertTrue(rejected is AnalysisResult.Failed)
+        assertEquals("NATIVE_INCOMPLETE_SOURCE_COVERAGE",(rejected as AnalysisResult.Failed).failure.code)
     }
     @Test fun initialEditListPrimingAndFourteenFrameTailAreNotTrimmedTwice()=source(tail) {s,_ ->
         val w=decode(s);val p=w.decoderDiagnostic!!.codecProgress!!
@@ -93,7 +95,9 @@ class AacBoundaryCoverageInstrumentedTest {
         assertEquals(d.reportFields(),DecoderInputEnd.NATURAL_EOS,d.inputEnd)
         assertEquals(d.reportFields(),true,d.codecEos)
         assertEquals(CoverageStatus.PARTIAL,w.coverageStatus)
-        assertTrue(BitChordNativeAnalysisEngine().analyze(w,AnalysisDetail.DETAIL,control()) is AnalysisResult.Failed)
+        val rejected=BitChordNativeAnalysisEngine().analyze(w,AnalysisDetail.DETAIL,control())
+        assertTrue(rejected is AnalysisResult.Failed)
+        assertEquals("NATIVE_INCOMPLETE_SOURCE_COVERAGE",(rejected as AnalysisResult.Failed).failure.code)
     }
     @Test fun actuallyOmittingACompressedPacketStillFailsStrictSourceIntegrity()=source(tail) {s,file ->
         val ref=AacBoundaryCodecReference.decode(file,request(s,0,8_000_000),control(),dropPacket=true)

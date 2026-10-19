@@ -134,5 +134,47 @@
       "containsPlannerV2": true,
       "containsExecutorV5": true
     }
-  ]
+  ],
+  "explicitRejectionAssertionFollowup": {
+    "scope": "Test assertions and this validation record only; production source/PCM/APKs unchanged from b57669da",
+    "assertions": [
+      "V7 PCM must return NATIVE_REQUIRES_CORRECTED_PCM, not arbitrary technical failure",
+      "Both genuine partial AAC cases must return NATIVE_INCOMPLETE_SOURCE_COVERAGE before JNI"
+    ],
+    "fullJvmSuites": {
+      "testArm64GmsDebugUnitTest": {
+        "tests": 563,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testUniversalFossDebugUnitTest": {
+        "tests": 563,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "actualHostJniExecutionsIncluded": 34,
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "buildResult": "BUILD SUCCESSFUL in 3m 9s; 362 actionable tasks: 42 executed, 320 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "androidExecutedByCodex": 0
+  },
+  "initialImplementationCi": {
+    "head": "b57669da2e6a45e76198c67cb4c3ef25ae99a595",
+    "Build PR": {
+      "run": 39249901649,
+      "conclusion": "success"
+    },
+    "CI & Debug Build": {
+      "run": 39249901691,
+      "conclusion": "success"
+    },
+    "duplicatePush": "conditionally skipped; not a test failure",
+    "lint": "existing nonblocking policy, not a clean-lint claim"
+  }
 }

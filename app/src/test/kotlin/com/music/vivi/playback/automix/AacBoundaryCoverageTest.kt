@@ -131,6 +131,7 @@ class AacBoundaryCoverageTest {
             override fun analyze(window:DecodedWindow,control:AnalysisControl):NativeDspPacket = error("Old PCM must not reach JNI")
         }).analyze(w,AnalysisDetail.DETAIL,AnalysisControl())
         assertTrue(result is AnalysisResult.Failed)
+        assertEquals("NATIVE_REQUIRES_CORRECTED_PCM",(result as AnalysisResult.Failed).failure.code)
         assertEquals(AnalysisPreprocessing.LEGACY,AnalysisPreprocessing.PRODUCTION)
     }
     @Test fun v7AndV8CacheAndInflightWorkRemainSeparateAfterCancellation() {
