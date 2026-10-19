@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "evidence": "Owner task summary only; encoded private files and full original raw reports not supplied",
+  "device": "Samsung Galaxy S25 Ultra",
+  "android": "17",
+  "tinium": {
+    "versionName": "6.0.8",
+    "versionCode": 77
+  },
+  "retainedSession": {
+    "nativePairs": 3,
+    "nativePlans": 1,
+    "nativeMixesObserved": 1,
+    "nativeCompleted": 1,
+    "nativeFallbackPairs": 2,
+    "legacyHandoffs": 1,
+    "completedHandoffs": 2
+  },
+  "incoming": {
+    "requestedUs": [
+      0,
+      32000000
+    ],
+    "sourceUs": [
+      137006,
+      32000000
+    ],
+    "firstInputPtsUs": 137006,
+    "firstCodecPtsUs": 137006,
+    "sampleRateHz": 44100,
+    "channels": 2,
+    "encoderDelayFrames": 0,
+    "encoderPaddingFrames": 0,
+    "codecFrames": 1405952,
+    "acceptedFrames": 1405159,
+    "outputFrames": 702557,
+    "fullyCached": true,
+    "range": "NOT_REQUIRED",
+    "gaps": 0
+  },
+  "outgoing": {
+    "requestedUs": [
+      123063000,
+      155063000
+    ],
+    "sourceUs": [
+      123065759,
+      155062856
+    ],
+    "sampleRateHz": 44100,
+    "channels": 2,
+    "encoderDelayFrames": 1024,
+    "encoderPaddingFrames": 0,
+    "seekTargetUs": 123063000,
+    "extractorAfterSeekUs": 123042539,
+    "firstCodecPtsUs": 123065759,
+    "lastCodecEndUs": 155062856,
+    "codecEos": true,
+    "inputEnd": "NATURAL_EOS",
+    "fullyCached": true,
+    "gaps": 0
+  },
+  "successfulGeometry": {
+    "outgoingDurationUs": 163865000,
+    "outgoingCueUs": 159274221,
+    "incomingCueUs": 290249,
+    "overlapUs": 3234207,
+    "expectedEndpointUs": 162508428,
+    "remainingUs": 1356572,
+    "preservedFraction": 0.9917214048149391,
+    "promotions": 1,
+    "reportedResult": "COMPLETED"
+  },
+  "privateInitialEditMetadataVerified": false,
+  "privateEosMetadataVerified": false,
+  "newAndroidExecutionByCodex": false
+}

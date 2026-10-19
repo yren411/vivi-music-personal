@@ -1,0 +1,202 @@
+{
+  "schema": 1,
+  "generator": "scripts/generate_automix_aac_boundary_fixtures.py",
+  "ffmpeg_version": "ffmpeg version 7.1.5-0+deb13u1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "fixtures": [
+    {
+      "asset": "boundary-empty-edit6042-44100-stereo.m4a",
+      "bytes": 412383,
+      "sha256": "ef4d6e786a388b221e1934db914f3ffb98d8a0e6f95dbb9123bf5e0b105845dc",
+      "mdat_sha256": "53e073218980ab635f1d42e0e5a3b322d43533fe4f568fab2e216d5e6966a481",
+      "movie_timescale": 44100,
+      "media_timescale": 44100,
+      "media_duration_frames": 1573874,
+      "raw_stts": [
+        [
+          1536,
+          1024
+        ],
+        [
+          1,
+          1010
+        ]
+      ],
+      "edits": [
+        {
+          "duration": 6042,
+          "media_time": -1,
+          "rate_integer": 1,
+          "rate_fraction": 0
+        },
+        {
+          "duration": 1573874,
+          "media_time": 0,
+          "rate_integer": 1,
+          "rate_fraction": 0
+        }
+      ],
+      "first_packets": [
+        {
+          "pts": 6042,
+          "duration": 1024,
+          "size": "310"
+        },
+        {
+          "pts": 7066,
+          "duration": 1024,
+          "size": "151"
+        }
+      ],
+      "last_packets": [
+        {
+          "pts": 1577882,
+          "duration": 1024,
+          "size": "97"
+        },
+        {
+          "pts": 1578906,
+          "duration": 1024,
+          "size": "569"
+        }
+      ],
+      "packet_count": 1537,
+      "stream": {
+        "sample_rate": "44100",
+        "channels": 2,
+        "duration": "35.688753"
+      }
+    },
+    {
+      "asset": "boundary-rounded-end-44100-stereo.m4a",
+      "bytes": 1244214,
+      "sha256": "b3d4278097ebcfd9afa005628d351a4ba25bd4b9734a4866dd9d17753c95e15d",
+      "mdat_sha256": "e3f8fb7245047ea78e728e0fd8a5e2bf0beed8242867c0ef5af04d9b006db2e1",
+      "movie_timescale": 1000,
+      "media_timescale": 44100,
+      "media_duration_frames": 6839296,
+      "raw_stts": [
+        [
+          6679,
+          1024
+        ]
+      ],
+      "edits": [
+        {
+          "duration": 155063,
+          "media_time": 1024,
+          "rate_integer": 1,
+          "rate_fraction": 0
+        }
+      ],
+      "first_packets": [
+        {
+          "pts": -1024,
+          "duration": 1024,
+          "size": "162",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "pts": 0,
+          "duration": 1024,
+          "size": "134"
+        }
+      ],
+      "last_packets": [
+        {
+          "pts": 6836224,
+          "duration": 1024,
+          "size": "112"
+        },
+        {
+          "pts": 6837248,
+          "duration": 1030,
+          "size": "281"
+        }
+      ],
+      "packet_count": 6679,
+      "stream": {
+        "sample_rate": "44100",
+        "channels": 2,
+        "duration": "155.062993"
+      }
+    },
+    {
+      "asset": "boundary-exact-48000-mono.m4a",
+      "bytes": 340148,
+      "sha256": "2f1ee9a7370eb13588a747e08a2b889987f4a9984749319f3837df962545a448",
+      "mdat_sha256": "3ef16aef1710e18a30dec6a567704a9e5bb8e7605d59935248998d1a25c9faf1",
+      "movie_timescale": 48000,
+      "media_timescale": 48000,
+      "media_duration_frames": 1729024,
+      "raw_stts": [
+        [
+          1688,
+          1024
+        ],
+        [
+          1,
+          512
+        ]
+      ],
+      "edits": [
+        {
+          "duration": 1728000,
+          "media_time": 1024,
+          "rate_integer": 1,
+          "rate_fraction": 0
+        }
+      ],
+      "first_packets": [
+        {
+          "pts": -1024,
+          "duration": 1024,
+          "size": "228",
+          "side_data_list": [
+            {
+              "side_data_type": "Skip Samples",
+              "skip_samples": 1024,
+              "discard_padding": 0,
+              "skip_reason": 0,
+              "discard_reason": 0
+            }
+          ]
+        },
+        {
+          "pts": 0,
+          "duration": 1024,
+          "size": "66"
+        }
+      ],
+      "last_packets": [
+        {
+          "pts": 1726464,
+          "duration": 1024,
+          "size": "289"
+        },
+        {
+          "pts": 1727488,
+          "duration": 512,
+          "size": "159"
+        }
+      ],
+      "packet_count": 1689,
+      "stream": {
+        "sample_rate": "48000",
+        "channels": 1,
+        "duration": "36.000000"
+      }
+    }
+  ],
+  "long_reference_decoded_frames": 6838272,
+  "reference_codec": "FFmpeg AAC; host only, not Android MediaCodec",
+  "commercial_audio": false,
+  "android_execution": "not executed by generator"
+}
