@@ -1,0 +1,215 @@
+{
+  "schema": 1,
+  "baseline": "862c92ba0a98cda22161e7ec9d20ffdd8854f923",
+  "sourceScope": "Initial implementation checkpoint 0d3afd26; test-trigger, startup-evidence and test-only export follow-ups recorded separately below.",
+  "fullJvmSuites": {
+    "Arm64GmsDebug": {
+      "tests": 546,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "UniversalFossDebug": {
+      "tests": 546,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "hostJniIncludedAbove": {
+    "Arm64GmsDebug": {
+      "BitChordJniHostTest": 10,
+      "NativeDjExecutionJniHostTest": 1,
+      "NativePlannerComparisonTest": 1,
+      "NativePlannerJniHostTest": 4,
+      "NativeServiceJniHostTest": 1
+    },
+    "UniversalFossDebug": {
+      "BitChordJniHostTest": 10,
+      "NativeDjExecutionJniHostTest": 1,
+      "NativePlannerComparisonTest": 1,
+      "NativePlannerJniHostTest": 4,
+      "NativeServiceJniHostTest": 1
+    }
+  },
+  "android": {
+    "instrumentationApksCompiled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "appDebugApksBuilt": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "newTestMethods": 10,
+    "priorTestMethods": 59,
+    "combinedTestMethods": 69,
+    "executedByCodex": 0,
+    "deviceAvailable": false,
+    "emulatorAvailable": false,
+    "ownerNewRun": "Owner reports all 69 combined Android acceptance tests passed after the separate route-method pass and healthy schema-2 probe. No failures/skips reported; no raw XML or independently verified installed SHA. Earlier failure checkpoints remain separate artifacts.",
+    "baselineOwner59Pass": "historical merged PR24; not attributed to Phase 3.3.2"
+  },
+  "nativeCtestAndSanitizers": "not rerun; no C++/JNI/native build changes",
+  "buildResult": "BUILD SUCCESSFUL in 3m 30s; 397 actionable tasks: 44 executed, 353 up-to-date",
+  "environment": {
+    "host": "Linux x86_64",
+    "java": 21,
+    "gradle": "9.3.1",
+    "agp": "9.1.1",
+    "kotlin": "2.3.10",
+    "sdk": 37,
+    "minSdk": 26,
+    "ndk": "27.0.12077973"
+  },
+  "hostJniLibrarySha256": "3216ce200c6acf2e24065770bd133cbf0718cfd89a6c2ebb247c0069d21ef880",
+  "historicalFocusedFailure": {
+    "tests": 192,
+    "failures": 2,
+    "cause": "Initial ranking prioritized endpoint before overlap and shortened valid long mixes; ranking fixed, original assertions retained."
+  },
+  "historicalHalfPulsePreRepair": {
+    "tests": 1,
+    "failures": 1,
+    "reason": "INVALID_EVIDENCE",
+    "measuredBpm": [
+      119.5,
+      60.0
+    ],
+    "effectiveOutgoingBpm": 59.75,
+    "fixed": "placement accepts existing effective pulse range; measured native BPM gate unchanged"
+  },
+  "testTriggerFollowup": {
+    "scope": "instrumentation test and documentation only; production source unchanged from 0d3afd26",
+    "jvmSuites": {
+      "Arm64GmsDebug": {
+        "tests": 546,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 546,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "hostJniExecutionsIncluded": 34,
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "androidExecutedByCodex": 0,
+    "buildResult": "BUILD SUCCESSFUL in 2m 58s; 362 actionable tasks: 24 executed, 338 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain"
+  },
+  "startupDiagnosticFollowup": {
+    "scope": "Observation-only reference/pre-release output evidence plus exact host reproduction and one separate actual-service diagnostic; no synchronization/prediction/guard/cue changes",
+    "fullJvmSuites": {
+      "Arm64GmsDebug": {
+        "tests": 548,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 548,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "hostJniExecutionsIncluded": 34,
+    "focusedTests": {
+      "tests": 24,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "appAndInstrumentationApks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "packagingReport": "startup-followup-apk-packaging.json",
+    "buildResult": "BUILD SUCCESSFUL in 3m 40s; 397 actionable tasks: 35 executed, 362 up-to-date",
+    "codexAndroidExecuted": 0,
+    "acceptanceMethods": 69,
+    "separateObservationDiagnosticMethods": 1,
+    "ownerNewDiagnosticExecuted": "Owner supplied first probe file with FALLBACK/EXCESSIVE_DRIFT; runner XML/count not supplied. See owner-zero-lead-probe-followup.json and test-only export follow-up below.",
+    "synchronizationRepairClaimed": false,
+    "nativeCtestAndSanitizers": "not rerun; native DSP/JNI/build unchanged",
+    "githubChecks": {
+      "head": "cbea1ccab503ba7407a6d7d3fd65929b520d2a4b",
+      "Build PR": {
+        "runId": 39177536314,
+        "conclusion": "success"
+      },
+      "CI & Debug Build": {
+        "runId": 39177536320,
+        "attempt": 2,
+        "conclusion": "success",
+        "firstAttempt": "External Maven mirror HTTP 504 during dependency resolution; no test failure"
+      }
+    }
+  },
+  "probeExportFollowup": {
+    "scope": "Test-only schema-2 export and two JVM regressions; no production source, behavior, DSP, JNI, preprocessing, Gradle or workflow changes",
+    "fullJvmSuites": {
+      "Arm64GmsDebug": {
+        "tests": 550,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "UniversalFossDebug": {
+        "tests": 550,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "hostJniExecutionsIncluded": 34,
+    "focusedTests": {
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "buildResult": "BUILD SUCCESSFUL in 2m 49s; 362 actionable tasks: 23 executed, 339 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "androidExecutedByCodex": 0,
+    "acceptanceMethods": 69,
+    "separateObservationDiagnosticMethods": 1,
+    "newSchemaOwnerRun": "Owner supplied healthy MIXING snapshot with 2,002,311 us common progression and 43,419 us peak guarded drift, then reported route method and all 69 acceptance tests passed. Separate probe excluded from 69; see owner-device-validation.json.",
+    "productionApkBuildAndPackaging": "Not repeated for test-only change; prior cbea1cca app/ABI/16KB/license results remain attributed to that checkpoint",
+    "nativeCtestAndSanitizers": "not rerun; native sources/build unchanged",
+    "synchronizationRepairClaimed": false,
+    "githubChecks": {
+      "head": "955000e2267807c75710fa19f0e1e600af96b04e",
+      "CI & Debug Build": {
+        "runId": 39195269924,
+        "conclusion": "success"
+      },
+      "Build PR": {
+        "runId": 39195269934,
+        "conclusion": "success"
+      }
+    }
+  },
+  "latestOwnerDeviceValidation": {
+    "artifact": "owner-device-validation.json",
+    "repositoryInstructionCheckpoint": "955000e2267807c75710fa19f0e1e600af96b04e",
+    "reportedPassed": 69,
+    "failuresOrSkipsReported": false,
+    "rawXmlSupplied": false,
+    "installedShaIndependentlyVerified": false,
+    "codexAndroidExecuted": 0,
+    "separateDiagnosticExcluded": true,
+    "intermittentStartupRepairEstablished": false
+  }
+}

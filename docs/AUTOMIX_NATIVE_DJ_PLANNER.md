@@ -1,5 +1,9 @@
 # Phase 3.1 — experimental native-aware transition planning
 
+Later interface note: [Phase 3.3.2](AUTOMIX_NATIVE_DJ_RELIABILITY_AND_PLACEMENT.md)
+adds planner v2 duration-preservation policy and end-aware bounded search. This
+document retains the original Phase 3.1 ranking, measurements and validation history.
+
 This document preserves the Phase 3.1 implementation and benchmark checkpoint.
 Phase 3.3 now connects it to MusicService behind explicit experimental opt-in, with
 legacy remaining default. The owner reports the later combined **49-test** Android

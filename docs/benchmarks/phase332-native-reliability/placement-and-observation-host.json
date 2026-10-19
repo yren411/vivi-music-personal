@@ -1,0 +1,228 @@
+{
+    "schema": 1,
+    "evidence": "host JVM generated mathematical beat evidence; no Android/acoustic execution",
+    "baselineRanking": "v1 ranking replayed through explicit ANALYZED_REGION policy in v2; not an old-binary rerun",
+    "planner": "tinium-native-dj-planner-v2-duration-preservation",
+    "executor": "tinium-native-dj-executor-v5-bracketed-media-clocks",
+    "cases": [
+        {
+            "fixture": "owner-duration-synthetic-beats",
+            "durationUs": 163865000,
+            "bpm": 147.95433486768678,
+            "incomingBpm": 146.44518730720463,
+            "ANALYZED_REGION": {
+                "hostPlannerNanos": 231041,
+                "candidates": 192,
+                "truncated": false,
+                "outgoingCueUs": 132097200,
+                "overlapUs": 3244244,
+                "endpointUs": 135341444,
+                "remainingUs": 28523556,
+                "preservedFraction": 0.8259325908522259,
+                "allowedLossUs": 3244244,
+                "p95ResidualUs": 33433,
+                "predictedTempoDriftUs": 33433,
+                "rejections": {
+                    "EXCESSIVE_DRIFT": 39,
+                    "POOR_ALIGNMENT": 39,
+                    "INSUFFICIENT_BEATS": 72
+                },
+                "laterCandidateRejections": {
+                    "EXCESSIVE_DRIFT": 33,
+                    "POOR_ALIGNMENT": 36,
+                    "INSUFFICIENT_BEATS": 72
+                }
+            },
+            "PRESERVE_OUTGOING": {
+                "hostPlannerNanos": 423009,
+                "candidates": 192,
+                "truncated": false,
+                "outgoingCueUs": 160484337,
+                "overlapUs": 3244244,
+                "endpointUs": 163728581,
+                "remainingUs": 136419,
+                "preservedFraction": 0.999167491532664,
+                "allowedLossUs": 3244244,
+                "p95ResidualUs": 33433,
+                "predictedTempoDriftUs": 33433,
+                "rejections": {
+                    "EXCESSIVE_DRIFT": 33,
+                    "POOR_ALIGNMENT": 36,
+                    "EXCESSIVE_OUTGOING_LOSS": 36,
+                    "INSUFFICIENT_BEATS": 81
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 24
+                }
+            }
+        },
+        {
+            "fixture": "strong-ending",
+            "durationUs": 180000000,
+            "bpm": 120.0,
+            "incomingBpm": 120.0,
+            "ANALYZED_REGION": {
+                "hostPlannerNanos": 266978,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 148232200,
+                "overlapUs": 16000000,
+                "endpointUs": 164232200,
+                "remainingUs": 15767800,
+                "preservedFraction": 0.9124011111111111,
+                "allowedLossUs": 4000000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 60
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 58
+                }
+            },
+            "PRESERVE_OUTGOING": {
+                "hostPlannerNanos": 291344,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 163732200,
+                "overlapUs": 16000000,
+                "endpointUs": 179732200,
+                "remainingUs": 267800,
+                "preservedFraction": 0.9985122222222222,
+                "allowedLossUs": 4000000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 66,
+                    "EXCESSIVE_OUTGOING_LOSS": 44
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 54,
+                    "EXCESSIVE_OUTGOING_LOSS": 14
+                }
+            }
+        },
+        {
+            "fixture": "short",
+            "durationUs": 8000000,
+            "bpm": 120.0,
+            "incomingBpm": 120.0,
+            "ANALYZED_REGION": {
+                "hostPlannerNanos": 138078,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 232200,
+                "overlapUs": 4000000,
+                "endpointUs": 4232200,
+                "remainingUs": 3767800,
+                "preservedFraction": 0.529025,
+                "allowedLossUs": 400000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 112
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 106
+                }
+            },
+            "PRESERVE_OUTGOING": {
+                "hostPlannerNanos": 122268,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 3732200,
+                "overlapUs": 4000000,
+                "endpointUs": 7732200,
+                "remainingUs": 267800,
+                "preservedFraction": 0.966525,
+                "allowedLossUs": 400000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 112,
+                    "EXCESSIVE_OUTGOING_LOSS": 14
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 64
+                }
+            }
+        },
+        {
+            "fixture": "long",
+            "durationUs": 1200000000,
+            "bpm": 120.0,
+            "incomingBpm": 120.0,
+            "ANALYZED_REGION": {
+                "hostPlannerNanos": 260245,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 1168232200,
+                "overlapUs": 16000000,
+                "endpointUs": 1184232200,
+                "remainingUs": 15767800,
+                "preservedFraction": 0.9868601666666666,
+                "allowedLossUs": 4000000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 60
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 58
+                }
+            },
+            "PRESERVE_OUTGOING": {
+                "hostPlannerNanos": 250518,
+                "candidates": 128,
+                "truncated": false,
+                "outgoingCueUs": 1183732200,
+                "overlapUs": 16000000,
+                "endpointUs": 1199732200,
+                "remainingUs": 267800,
+                "preservedFraction": 0.9997768333333333,
+                "allowedLossUs": 4000000,
+                "p95ResidualUs": 0,
+                "predictedTempoDriftUs": 0,
+                "rejections": {
+                    "INSUFFICIENT_BEATS": 66,
+                    "EXCESSIVE_OUTGOING_LOSS": 44
+                },
+                "laterCandidateRejections": {
+                    "INSUFFICIENT_BEATS": 54,
+                    "EXCESSIVE_OUTGOING_LOSS": 14
+                }
+            }
+        },
+        {
+            "fixture": "incompatible-tempo",
+            "durationUs": 180000000,
+            "bpm": 120.0,
+            "incomingBpm": 140.0,
+            "ANALYZED_REGION": {
+                "hostPlannerNanos": 101700,
+                "candidates": 0,
+                "truncated": false,
+                "fallback": "INCOMPATIBLE_TEMPO",
+                "rejections": {
+                    "INCOMPATIBLE_TEMPO": 1
+                },
+                "laterCandidateRejections": {}
+            },
+            "PRESERVE_OUTGOING": {
+                "hostPlannerNanos": 85660,
+                "candidates": 0,
+                "truncated": false,
+                "fallback": "INCOMPATIBLE_TEMPO",
+                "rejections": {
+                    "INCOMPATIBLE_TEMPO": 1
+                },
+                "laterCandidateRejections": {}
+            }
+        }
+    ],
+    "clockIterations": 100000,
+    "clockHostNanos": 13209459,
+    "routeIterations": 100000,
+    "routeHostNanos": 14082988,
+    "routeCancellations": 0
+}

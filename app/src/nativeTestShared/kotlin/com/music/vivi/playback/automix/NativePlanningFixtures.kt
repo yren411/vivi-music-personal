@@ -37,7 +37,7 @@ internal object NativePlanningFixtures {
             val m=(w.analysis as AnalysisResult.Completed).metadata
             return PlanningTrack(m.source,requireNotNull(m.duration.durationUs),requireNotNull(m.sampleInterval))
         }
-        return NativePlanningRequest(track(out),track(incoming),140_000_000,5_000_000,generation,"fixture-session-v1")
+        return NativePlanningRequest(track(out),track(incoming),140_000_000,5_000_000,generation,"fixture-session-v1",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
     }
     fun withAnalysis(window:PlanningWindowEvidence, change:(AnalysisResult.Completed)->AnalysisResult.Completed)=
         window.copy(analysis=change(window.analysis as AnalysisResult.Completed))

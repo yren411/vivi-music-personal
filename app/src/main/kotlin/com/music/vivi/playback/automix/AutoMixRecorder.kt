@@ -66,13 +66,16 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
     }
     @Synchronized fun native(attempt:Long,event:NativeServiceEvent,reason:String?=null,
         plan:NativeTransitionPlan?=null,execution:NativeDjExecutionReport?=null,generation:Long?=null,
-        elapsedUs:Long?=null,candidateCount:Int?=null,evidence:AnalysisResult?=null,role:MixRole?=null) {
+        elapsedUs:Long?=null,candidateCount:Int?=null,evidence:AnalysisResult?=null,role:MixRole?=null,
+        route:NativeRouteDecision?=null,planningRejections:Map<PlanningRejection,Int> = emptyMap(),
+        laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap()) {
         val target=attempts.firstOrNull {it.number==attempt} ?: return
         val c=plan?.candidate
         val record=NativeServiceRecord(event,reason?.takeIf {it.matches(Regex("[A-Z0-9_]{1,80}"))},
             generation,elapsedUs,candidateCount,c?.outgoingCueUs,c?.incomingCueUs,c?.overlapUs,
             c?.tempo,c?.alignment,plan?.readiness,c?.uncertainties?.toSet(),
-            execution?.copy(measurements=execution.measurements.copy(events=execution.measurements.events.takeLast(1))))
+            execution?.copy(measurements=execution.measurements.copy(events=execution.measurements.events.takeLast(1))),
+            c?.placement,plan?.placementPolicy,route,planningRejections.toMap(),c?.rank,laterCandidateRejections.toMap())
         val values=mutableMapOf<MixMetric,Double>()
         (evidence as? AnalysisResult.Completed)?.let { result ->
             fun add(key:MixMetric,value:Double?) {if(value!=null && value.isFinite())values[key]=value}
@@ -136,12 +139,21 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
                         if(n.outgoingCueUs!=null)append(" outgoingCueUs=${n.outgoingCueUs} incomingCueUs=${n.incomingCueUs} overlapUs=${n.overlapUs} readiness=${n.readiness}")
                         n.tempo?.let {append(" tempo=$it")};n.alignment?.let {append(" alignment=$it")}
                         n.uncertainties?.let {append(" uncertainties=$it")}
+                        n.placement?.let {append(" placementSchema=1 placementPolicy=${n.placementPolicy} selectedRank=1 placement=$it rank=${n.rank}")}
+                        if(n.planningRejections.isNotEmpty())append(" candidateRejections=${n.planningRejections}")
+                        if(n.laterCandidateRejections.isNotEmpty())append(" laterCueRejections=${n.laterCandidateRejections}")
+                        n.route?.let {append(" routeSchema=1 route=$it")}
                         n.execution?.let { e ->
                             val m=e.measurements
                             append(" stage=${e.status.stage} reason=${e.status.reason} curve=${e.curve} contentGains=${e.contentGains}")
                             append(" startCommandUs=${m.commandOutgoingUs} startupLeadUs=${m.startupLeadUs} firstOffsetUs=${m.estimatedStartOffsetUs}")
                             append(" commonProgressUs=${m.concurrentProgressUs} maxDriftUs=${m.maximumObservedDriftUs} maxTickGapUs=${m.maximumTickGapUs}")
                             append(" preparationUs=${m.preparationElapsedUs} promotions=${m.promotions}")
+                            append(" clockSchema=3 maxRawOffsetUs=${m.maximumRawOffsetUs} maxQuerySpanUs=${m.maximumQuerySpanUs} lastClock=${m.lastClock}")
+                            append(" commandMonotonicUs=${m.commandMonotonicUs} promotionOutgoingUs=${m.promotionOutgoingUs} prediction=${m.predictionState}")
+                            append(" firstIncomingProgressMonotonicUs=${m.firstIncomingProgressMonotonicUs} fadeStartedOutgoingUs=${m.fadeStartedOutgoingUs} steadyMinOffsetUs=${m.steadyMinimumOffsetUs} steadyMaxOffsetUs=${m.steadyMaximumOffsetUs}")
+                            e.outputTiming?.let {append(" rawOutputTimestamps=$it")}
+                            e.startupReference?.let {append(" startupReference=$it")}
                             m.events.lastOrNull()?.let {append(" lastPlayerObservation=$it")}
                         }
                     }
@@ -155,8 +167,11 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
 }
 
 /** Only compact controlled fields; no plan source handles, raw PCM, URLs or titles. */
-enum class NativeServiceEvent { PAIR, EVIDENCE, PLAN, EXECUTION, FALLBACK, CANCELED }
+enum class NativeServiceEvent { PAIR, EVIDENCE, PLAN, EXECUTION, FALLBACK, CANCELED, ROUTE }
 data class NativeServiceRecord(val event:NativeServiceEvent,val reason:String?,val generation:Long?,
     val elapsedUs:Long?,val candidateCount:Int?,val outgoingCueUs:Long?,val incomingCueUs:Long?,val overlapUs:Long?,
     val tempo:TempoHypothesis?,val alignment:BeatAlignment?,val readiness:NativePlanReadiness?,
-    val uncertainties:Set<PlanningUncertainty>?,val execution:NativeDjExecutionReport?)
+    val uncertainties:Set<PlanningUncertainty>?,val execution:NativeDjExecutionReport?,
+    val placement:NativeCuePlacement?=null,val placementPolicy:NativePlacementPolicy?=null,
+    val route:NativeRouteDecision?=null,val planningRejections:Map<PlanningRejection,Int> = emptyMap(),val rank:CandidateRank?=null,
+    val laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap())

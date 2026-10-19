@@ -19,14 +19,26 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
         var truncated = false
         var anchorGenerationNanos = 0L
         val rejects = linkedMapOf<PlanningRejection,Int>()
+        val anchorRejects=linkedMapOf<Long,MutableMap<PlanningRejection,Int>>()
+        var activeAnchor:Long?=null
         val best = ArrayList<NativeTransitionCandidate>()
-        fun reject(reason: PlanningRejection) { rejects[reason]=(rejects[reason] ?: 0)+1 }
+        fun reject(reason: PlanningRejection) {
+            rejects[reason]=(rejects[reason] ?: 0)+1
+            activeAnchor?.let {cue ->val counts=anchorRejects.getOrPut(cue){linkedMapOf()};counts[reason]=(counts[reason] ?: 0)+1}
+        }
+        fun laterRejections():Map<PlanningRejection,Int> {
+            val cue=best.firstOrNull()?.outgoingCueUs ?: return emptyMap()
+            val counts=linkedMapOf<PlanningRejection,Int>()
+            anchorRejects.filterKeys {it>cue}.values.forEach {map ->map.forEach {(r,n)->counts[r]=(counts[r] ?: 0)+n}}
+            return counts
+        }
         fun diagnostics() = PlanningDiagnostics(VERSION, reportId(request.diagnosticSalt,request.outgoing.source),
             reportId(request.diagnosticSalt,request.incoming.source),inspected,accepted,rejects.toMap(),best.toList(),
             (System.nanoTime()-validatedAt).coerceAtLeast(0), (validatedAt-start).coerceAtLeast(0),
             (System.nanoTime()-start).coerceAtLeast(0),truncated,anchorGenerationNanos,
-            (System.nanoTime()-validatedAt-anchorGenerationNanos).coerceAtLeast(0))
+            (System.nanoTime()-validatedAt-anchorGenerationNanos).coerceAtLeast(0),laterRejections())
         fun fallback(reason: PlanningRejection, failure: AnalysisFailure? = null): NativePlanningOutcome {
+            activeAnchor=null
             reject(reason)
             return NativePlanningOutcome.Fallback(reason,diagnostics(),failure)
         }
@@ -42,7 +54,19 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
             if (hypotheses.isEmpty()) return fallback(PlanningRejection.INCOMPATIBLE_TEMPO)
             val outRegion=a.beats.indices.filter {i ->a.beats[i] in request.outgoing.cueRegion.startUs until request.outgoing.cueRegion.endUs}
             if(outRegion.isEmpty()) return fallback(PlanningRejection.OUTSIDE_TRACK_OR_COVERAGE)
-            val outAnchors=anchors(outRegion.filter {i ->a.beats[i]>=earliest},config.maxOutgoingAnchors)
+            val eligibleOut=outRegion.filter {i ->a.beats[i]>=earliest}
+            val outAnchors=if(request.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING) {
+                // Uniform scan sampling can miss the last feasible start for a particular
+                // overlap length. Reserve anchors ending at the last supported real beat,
+                // then fill the same bounded anchor budget from the sampled late region.
+                val endings=config.pulseCounts.flatMap {count ->
+                    hypotheses.map {it.outgoingStride}.distinct().mapNotNull {stride ->
+                        control.checkpoint()
+                        eligibleOut.lastOrNull {i ->i+count*stride<a.beats.size}
+                    }
+                }
+                (endings+anchors(eligibleOut,config.maxOutgoingAnchors).reversed()).distinct().take(config.maxOutgoingAnchors)
+            } else anchors(eligibleOut,config.maxOutgoingAnchors)
             if (outAnchors.isEmpty()) return fallback(PlanningRejection.PREPARATION_DEADLINE)
             val quietEnd=b.signal?.leadingQuietEndUs ?: 0L
             val skipLimit=if (quietEnd > Long.MAX_VALUE-config.maxUnverifiedIntroSkipUs) Long.MAX_VALUE
@@ -61,6 +85,7 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
                 control.checkpoint()
                 if (inspected>=config.maxCandidates) { truncated=true;break@search }
                 inspected++
+                activeAnchor=a.beats[i]
                 val outLast=i+count*h.outgoingStride
                 val inLast=j+count*h.incomingStride
                 if (outLast>=a.beats.size || inLast>=b.beats.size) { reject(PlanningRejection.INSUFFICIENT_BEATS);continue }
@@ -84,6 +109,13 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
                 if ((outSupport!=null && outSupport<0.6) || (inSupport!=null && inSupport<0.6)) {
                     reject(PlanningRejection.SIGNAL_NOT_CORROBORATED);continue
                 }
+                if(request.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING &&
+                    transientSupport(a,outLast,0,h.outgoingStride,control)?.let {it<1.0}==true) {
+                    // An average audit can pass despite a quiet tail. A late placement
+                    // also needs a measured rise at its terminal outgoing beat, using
+                    // the existing 70ms event-matching tolerance, not invented outro labels.
+                    reject(PlanningRejection.SIGNAL_NOT_CORROBORATED);continue
+                }
                 val corroborated=(if(outSupport!=null) 1 else 0)+(if(inSupport!=null) 1 else 0)
                 val flags=mutableSetOf(PlanningUncertainty.UNCALIBRATED_NATIVE_CONFIDENCE,
                     PlanningUncertainty.PHRASE_UNKNOWN,PlanningUncertainty.VOCALS_UNKNOWN,PlanningUncertainty.HARMONY_UNKNOWN,
@@ -94,10 +126,14 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
                 val downbeatSupport=(if(outCue in a.heuristicDownbeats) 1 else 0)+(if(inCue in b.heuristicDownbeats) 1 else 0)
                 val rank=CandidateRank(corroborated,h.relation!=MetricalRelation.ONE_TO_ONE,count,
                     alignment.p95ResidualUs,inCue,outCue-max(earliest,request.outgoing.cueRegion.startUs),downbeatSupport)
-                val candidate=NativeTransitionCandidate(outCue,inCue,duration,h,alignment,rank,flags.toSet(),outSupport,inSupport)
+                val placement=NativeCuePreservation.describe(request.outgoing.durationUs,outCue,duration,h.effectiveOutgoingBpm)
+                if(request.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING && placement.remainingUs>placement.allowedLossUs) {
+                    reject(PlanningRejection.EXCESSIVE_OUTGOING_LOSS);continue
+                }
+                val candidate=NativeTransitionCandidate(outCue,inCue,duration,h,alignment,rank,flags.toSet(),outSupport,inSupport,placement)
                 accepted++
                 best+=candidate
-                best.sortWith(RANKING)
+                best.sortWith(if(request.placementPolicy==NativePlacementPolicy.PRESERVE_OUTGOING)PRESERVATION_RANKING else RANKING)
                 if(best.size>config.maxReportedCandidates) best.removeAt(best.lastIndex)
             }
             control.checkpoint()
@@ -105,7 +141,8 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
             NativePlanningOutcome.Selected(NativeTransitionPlan(VERSION,request.generation,request.outgoing,request.incoming,
                 a.profile,b.profile,a.sampleInterval,b.sampleInterval,request.earliestOutgoingUs,request.preparationLeadUs,
                 selected,if(selected.rank.corroboratedTracks==2) NativePlanReadiness.TIMING_AND_TRANSIENT_SUPPORTED
-                else NativePlanReadiness.TIMING_ONLY_SIGNAL_UNVERIFIED,a.rawNativeConfidence,b.rawNativeConfidence),diagnostics())
+                else NativePlanReadiness.TIMING_ONLY_SIGNAL_UNVERIFIED,a.rawNativeConfidence,b.rawNativeConfidence,
+                placementPolicy=request.placementPolicy),diagnostics())
         } catch (error: PlanningEvidenceRejected) { fallback(error.reason,error.analysisFailure)
         } catch (_: CancellationException) { fallback(PlanningRejection.CANCELED)
         } catch (_: InterruptedException) { fallback(PlanningRejection.CANCELED)
@@ -147,12 +184,12 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
         else if(limit==1) listOf(indices.first()) else (0 until limit).map { indices[it*(indices.size-1)/(limit-1)] }
 
     private fun primaryRejection(rejections: Map<PlanningRejection,Int>) = listOf(
-        PlanningRejection.SIGNAL_NOT_CORROBORATED,PlanningRejection.POOR_ALIGNMENT,PlanningRejection.EXCESSIVE_DRIFT,
+        PlanningRejection.EXCESSIVE_OUTGOING_LOSS,PlanningRejection.SIGNAL_NOT_CORROBORATED,PlanningRejection.POOR_ALIGNMENT,PlanningRejection.EXCESSIVE_DRIFT,
         PlanningRejection.OUTSIDE_TRACK_OR_COVERAGE,PlanningRejection.OVERLAP_UNSUPPORTED,PlanningRejection.INSUFFICIENT_BEATS)
         .firstOrNull { it in rejections } ?: PlanningRejection.NO_FEASIBLE_CANDIDATE
 
     companion object {
-        const val VERSION="tinium-native-dj-planner-v1"
+        const val VERSION="tinium-native-dj-planner-v2-duration-preservation"
         internal fun unavailable(request: NativePlanningRequest, reason: PlanningRejection) =
             NativePlanningOutcome.Fallback(reason,PlanningDiagnostics(VERSION,
                 reportId(request.diagnosticSalt,request.outgoing.source),reportId(request.diagnosticSalt,request.incoming.source),
@@ -166,6 +203,16 @@ class NativeAwareAutoMixPlanner(config: NativePlannerConfig = NativePlannerConfi
             .thenBy { it.rank.outgoingPreferenceDistanceUs }.thenBy { it.rank.p95ResidualUs }
             .thenByDescending { it.rank.heuristicDownbeatAnchors }
             .thenBy { it.outgoingCueUs }.thenBy { it.incomingCueUs }.thenBy { it.tempo.relation.ordinal }
+
+        // Equal evidence/metrical class and 10ms alignment bands first. Within those
+        // classes and the strict preservation budget, retain longer supported overlaps,
+        // then prefer an endpoint nearer the song end (one-pulse bands). No weighted score.
+        private val PRESERVATION_RANKING=compareByDescending<NativeTransitionCandidate>{it.rank.corroboratedTracks}
+            .thenBy {it.rank.octaveHypothesis}.thenBy {it.rank.p95ResidualUs/10_000}
+            .thenByDescending {it.rank.supportedPulseIntervals}
+            .thenBy {requireNotNull(it.placement).endDistancePulses}.thenBy {it.rank.incomingSkipUs}
+            .thenBy {requireNotNull(it.placement).remainingUs}.thenBy {it.rank.p95ResidualUs}
+            .thenByDescending {it.rank.heuristicDownbeatAnchors}.thenBy {it.outgoingCueUs}.thenBy {it.incomingCueUs}
 
         private fun reportId(salt: String, source: AnalysisSourceIdentity): String {
             if(salt.length !in 1..128) return "redacted-invalid-context"

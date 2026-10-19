@@ -21,7 +21,7 @@ class ExperimentalNativePlanningSessionTest {
     private fun source(w:DecodedWindow)=PlanningSourceRequest(w,DecodeRequest(w.requested,w.identity),immutableRendition=true)
     private fun request(a:DecodedWindow,b:DecodedWindow,generation:Long=1)=NativePlanningRequest(
         PlanningTrack(a.identity,180_000_000,a.requested),PlanningTrack(b.identity,180_000_000,b.requested),
-        140_000_000,5_000_000,generation,"session-fixture")
+        140_000_000,5_000_000,generation,"session-fixture",placementPolicy=NativePlacementPolicy.ANALYZED_REGION)
     private fun await(session:ExperimentalNativePlanningSession<DecodedWindow>, ticket:NativePlanningTicket):NativePlanningOutcome {
         val limit=System.nanoTime()+10_000_000_000
         while(System.nanoTime()<limit) {

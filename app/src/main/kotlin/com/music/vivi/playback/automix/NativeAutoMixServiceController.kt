@@ -49,10 +49,15 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
     private var analysisBegan=0L
     private var performance=AutoMixPerformance.BALANCED
     private val salt=UUID.randomUUID().toString()
+    private var lastRouteDecision:NativeRouteDecision?=null
     val nativeSelected get()=enabled && mode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL
     val ownsPlayback get()=executor?.terminal==false
     val currentExecutor get()=executor
     val confirmedPlan get()=plan
+    fun routeObserved(decision:NativeRouteDecision) {
+        if(decision!=lastRouteDecision || decision.material)recorder.native(attempt,NativeServiceEvent.ROUTE,route=decision)
+        lastRouteDecision=decision
+    }
 
     fun configure(enabled:Boolean,mode:AutoMixEngineMode,performance:AutoMixPerformance) {
         if(this.enabled==enabled && this.mode==mode && this.performance==performance)return
@@ -98,7 +103,7 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
         executor?.takeIf {it.terminal}?.let { e ->
             recorder.native(attempt,NativeServiceEvent.EXECUTION,plan=plan,execution=e.report())
             if(e.status.stage in setOf(NativeDjExecutionStage.COMPLETED,NativeDjExecutionStage.RECOVERED)) {
-                host.status(AutoMixStatus(AutoMixPhase.COMPLETED,nativeMode=true,nativePlan=plan))
+                host.status(AutoMixStatus(AutoMixPhase.COMPLETED,nativeMode=true,nativeExecutionStage=e.status.stage))
                 host.cancel(NativeDjExecutionReason.CANCELED);executor=null;plan=null;pair=null;lastStage=null
                 return
             } else {fallback(e.status.reason?.name ?: "NATIVE_EXECUTION_FAILED");return}
@@ -143,7 +148,8 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
             })
             analysisBegan=nowNanos()
             try {
-                ticket=session!!.begin(NativePlanningRequest(a,b,current.positionUs,2_000_000,current.queue.generation,salt),
+                ticket=session!!.begin(NativePlanningRequest(a,b,current.positionUs,2_000_000,current.queue.generation,salt,
+                    placementPolicy=NativePlacementPolicy.PRESERVE_OUTGOING),
                     PlanningSourceRequest(current.outgoingSource,DecodeRequest(AudioIntervalUs(start,a.durationUs),a.source),immutableRendition=current.immutableOutgoing),
                     PlanningSourceRequest(current.incomingSource,DecodeRequest(AudioIntervalUs(0,minOf(32_000_000,b.durationUs)),b.source),immutableRendition=current.immutableIncoming))
                 host.status(AutoMixStatus(AutoMixPhase.ANALYZING_CURRENT,a.source.recordingId,b.source.recordingId,nativeMode=true))
@@ -165,7 +171,8 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
                             if(outcome.plan.readiness!=NativePlanReadiness.TIMING_AND_TRANSIENT_SUPPORTED) {fallback("SIGNAL_NOT_CORROBORATED");return}
                             plan=outcome.plan;levels=outcome.outgoingLevel to outcome.incomingLevel
                             recorder.native(attempt,NativeServiceEvent.PLAN,plan=outcome.plan,
-                                generation=current.queue.generation,elapsedUs=analysisCostUs,candidateCount=outcome.diagnostics.candidateCount)
+                                generation=current.queue.generation,elapsedUs=analysisCostUs,candidateCount=outcome.diagnostics.candidateCount,
+                                planningRejections=outcome.diagnostics.rejections,laterCandidateRejections=outcome.diagnostics.laterCandidateRejections)
                         }
                     }
                 }
@@ -200,11 +207,12 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
             else -> AutoMixPhase.PREPARING
         }
         host.status(AutoMixStatus(phase,current.outgoing.source.recordingId,current.incoming.source.recordingId,
-            selected.outgoing.durationUs/1000,reason=e.status.reason?.name,actualStartMs=e.measurements().commandOutgoingUs?.div(1000),
+            selected.outgoing.durationUs/1000,reason=e.status.reason?.name,actualStartMs=e.measurements().fadeStartedOutgoingUs?.div(1000),
             nativeMode=true,nativePlan=selected,nativeExecutionStage=stage))
         if(e.terminal) {
             if(stage !in setOf(NativeDjExecutionStage.COMPLETED,NativeDjExecutionStage.RECOVERED))fallback(e.status.reason?.name ?: "NATIVE_EXECUTION_FAILED")
-            else {host.cancel(NativeDjExecutionReason.CANCELED);executor=null;plan=null}
+            else {host.cancel(NativeDjExecutionReason.CANCELED);executor=null;plan=null
+                host.status(AutoMixStatus(AutoMixPhase.COMPLETED,nativeMode=true,nativeExecutionStage=stage))}
         }
     }
     override fun close() {enabled=false;invalidate(NativeDjExecutionReason.SHUTDOWN);workers.close()}

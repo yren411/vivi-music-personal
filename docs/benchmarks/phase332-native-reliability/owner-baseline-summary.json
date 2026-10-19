@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "evidence": "owner-reported textual summaries supplied with Phase 3.3.2 request; not raw log/XML/acoustic measurements",
+  "device": "Samsung Galaxy S25 Ultra",
+  "android": "17",
+  "reportedSessionDate": "2026-10-18",
+  "appVersion": "6.0.8",
+  "versionCode": 77,
+  "planner": "tinium-native-dj-planner-v1",
+  "executor": "tinium-native-dj-executor-v4-reentrant-playback-controls",
+  "preprocessing": "sinc64-blackman-opus-support-mono-22050-v7",
+  "workers": 4,
+  "retainedHistory": {
+    "nativePairs": 22,
+    "plans": 7,
+    "observedMixes": 5,
+    "completedNativeMixes": 2,
+    "fallbackPairs": 6,
+    "allEngineHandoffs": 3,
+    "canceled": 8
+  },
+  "completions": [
+    {
+      "outgoingCueUsApprox": 153587000,
+      "overlapUsApprox": 6490000,
+      "maxPlayerDriftUsApprox": 105500,
+      "promotions": 1
+    },
+    {
+      "outgoingDurationUs": 163865000,
+      "outgoingCueUs": 132097200,
+      "overlapUs": 6490457,
+      "expectedEndpointUsCalculated": 138587657,
+      "remainingUsCalculated": 25277343,
+      "preservedFractionCalculated": 0.8457428798095994,
+      "maxPlayerDriftUsApprox": 115000,
+      "promotions": 1
+    }
+  ],
+  "failedDriftUsApprox": [
+    121000,
+    122000,
+    123000,
+    127000
+  ],
+  "reportedStartupLeadUs": 0,
+  "firstOffsetsUsApprox": [
+    10000,
+    15000
+  ],
+  "screenRecording": "owner reports detection refreshed when starting recording; material output change unproven",
+  "androidPhase332ExecutedByCodex": false,
+  "acousticValidation": false
+}

@@ -2,6 +2,23 @@
 
 This is an unversioned draft for review. No release version or tag is assigned.
 
+## Experimental Native DJ reliability and placement
+
+- Keep legacy AutoMix as the default. In experimental Native DJ mode, distinguish
+  actual playback-output changes from repeated device/capture notifications so an
+  unchanged route can retain its plan instead of repeatedly restarting analysis.
+- Prefer supported transitions that preserve at least 95% of the outgoing timeline,
+  with a tighter rhythm-based limit on unheard ending material. Unsuitable endings
+  still fall back; musical phrase and vocal suitability remain unknown.
+- Add conservative per-player clock-query bounds, startup prediction status and
+  redacted output/placement diagnostics. Preserve the 120 ms drift and 40 ms start
+  guards. Real-device startup reliability, screen-recording behavior and audible
+  synchronization still require validation; no new DJ EQ effects are added.
+- Preserve startup-reference and pre-cleanup output timestamps in redacted diagnostics.
+  Add a bounded service-startup probe whose completion reports the actual outcome,
+  including fallback, without claiming successful synchronization. Preserve its latest
+  executor snapshot even when the service diagnostic history has not updated yet.
+
 ## Branding
 
 - Use the updated Tinium logo with its purple gradient background during startup,
