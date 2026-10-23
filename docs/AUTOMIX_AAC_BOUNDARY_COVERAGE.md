@@ -7,6 +7,27 @@ rebase positive presentation origins, fill gaps, extend EOS, or claim that the o
 private AAC files have been inspected. The 137 ms initial offset and short EOS remain
 strict partial coverage unless genuine source evidence supports the requested interval.
 
+## Current validation status
+
+The owner reports that the ten new AAC tests passed, followed by **all 79 tests in
+one expanded Android regression selection** on their Samsung Galaxy S25 Ultra / Android 17.
+That selection includes the previous 69 decoder/native/planner/executor/service/reliability
+cases plus all ten new AAC boundary cases. These are owner-reported physical-device results;
+Codex did not execute them. No raw Android XML, exact execution date or independently
+verified installed commit SHA was supplied. The instructions selected PR #26 implementation
+head `fcde6cbab169fa72541de9860cc4afc302641218`; that association is not an installed-SHA audit.
+
+Both required GitHub workflows passed on that reviewed implementation head:
+[CI & Debug Build](https://github.com/yren411/vivi-music-personal/actions/runs/39252392567)
+and [Build PR](https://github.com/yren411/vivi-music-personal/actions/runs/39252392554).
+The 1,126 JVM passes below remain earlier local executions, not new runs triggered by
+this documentation follow-up. Existing nonblocking lint policy is not a clean-lint claim.
+
+Generated-media Android validation is therefore owner-reported passed. Private-source
+edit metadata, exact real-song endpoints, acoustic alignment and listening quality remain
+unverified. The next step is the authorized real-song retest below. Legacy stays default;
+no merge, release or broader activation follows automatically from these results.
+
 ## Evidence boundaries and owner baseline
 
 The owner reports S25 Ultra / Android 17, Tinium 6.0.8 (77), Performance / four workers,
@@ -184,12 +205,14 @@ The service harness gets only optional generated assets/durations; its previous 
 and all 69 earlier acceptance methods/assertions are retained. Expanded acceptance is
 **79**; the earlier observation-only startup probe is separate and excluded.
 
-No Android execution is claimed here. There is no emulator image/KVM or exposed USB
-device in the cloud environment; an adb enumeration attempt also hit a read-only home
-preference path. Tests compile/build here; physical execution remains pending. The owner
-reported 69 passes on the earlier v7 phase, not on v8. Native DSP/JNI/C++/NDK settings are
-unchanged; earlier CTest/sanitizer results remain historical, not rerun results for this PR.
-Exact current JVM/build/packaging outcomes are recorded in `validation.json` and the PR.
+At the initial cloud-validation checkpoint, physical execution remained pending: there
+was no emulator image/KVM or exposed USB device, and an adb enumeration attempt also hit
+a read-only home preference path. The earlier owner-reported 69-test pass belonged to v7.
+That checkpoint is now superseded for generated-media device validation by the owner's
+new ten-test and combined 79-test passes described above. Codex still claims no Android
+execution. Native DSP/JNI/C++/NDK settings are unchanged; earlier CTest/sanitizer results
+remain historical, not rerun results for this PR. Local JVM/build/packaging outcomes and
+the separately attributed owner follow-up are recorded in `validation.json` and the PR.
 
 Executed locally on this implementation: **563 Arm64 GMS + 563 Universal FOSS = 1,126
 JVM tests passed**, zero failures/errors/skips, including **17 actual host-JNI cases per
@@ -197,7 +220,8 @@ variant / 34 executions**. The focused selection passed 39 tests. Both debug app
 instrumentation APK variants assembled successfully (full matrix: 3m 58s). Actual APK
 inspection passed all four JNI ABIs, ELF/ZIP 16 KB alignment, JNI exports and license assets;
 DEX inspection confirmed current v8 policy code plus unchanged planner v2/executor v5.
-These results do not execute the new ten Android methods or the expanded 79-test suite.
+Those local results did not execute Android methods; the later ten-test and expanded
+79-test passes are separately owner-reported physical-device evidence.
 
 ## S25 Ultra / Android Studio PowerShell
 
@@ -238,7 +262,7 @@ Previous **69-test** regression:
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest,com.music.vivi.playback.automix.NativeDjReliabilityInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
 ```
 
-Expanded **79-test** selection, once the targeted class passes:
+Expanded **79-test** selection (owner reports all 79 passed; retained for future regression):
 
 ```powershell
 .\gradlew.bat :app:connectedArm64GmsDebugAndroidTest --rerun "-PautomixDecoderTests=true" "-Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true" "-Pandroid.testInstrumentationRunnerArguments.class=com.music.vivi.playback.automix.AacBoundaryCoverageInstrumentedTest,com.music.vivi.playback.automix.RealWorldDecoderInstrumentedTest,com.music.vivi.playback.automix.AndroidWindowDecoderInstrumentedTest,com.music.vivi.playback.automix.BitChordNativeAnalysisInstrumentedTest,com.music.vivi.playback.automix.NativeAwarePlannerInstrumentedTest,com.music.vivi.playback.automix.NativeDjExecutionInstrumentedTest,com.music.vivi.playback.automix.NativeAutoMixServiceInstrumentedTest,com.music.vivi.playback.automix.NativeDjReliabilityInstrumentedTest" --no-configuration-cache --no-daemon --stacktrace
@@ -246,7 +270,8 @@ Expanded **79-test** selection, once the targeted class passes:
 
 ## Authorized real-song retest and remaining work
 
-After Android validation, use the already installed isolated app for controlled listening
+With generated-media Android validation now owner-reported passed, use the already
+installed isolated app for controlled listening
 or update it explicitly with `:app:installArm64GmsDebug -PautomixDecoderTests=true` using
 the same debug key. Instrumentation does not update the normal Tinium app. Enable AutoMix
 and select Native DJ Experimental through its existing settings; legacy remains available.

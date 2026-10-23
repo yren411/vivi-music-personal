@@ -108,14 +108,14 @@
     "expandedAcceptanceMethods": 79,
     "diagnosticProbeExcluded": true,
     "executedByCodex": 0,
-    "ownerV8Result": "pending",
+    "ownerV8Result": "Owner reports ten targeted AAC tests passed, then all 79 tests passed in one expanded regression selection; see ownerDeviceFollowup",
     "environment": "No installed emulator system image/KVM/exposed USB device; adb enumeration hit read-only /home/agent/.android preference path; no runtime test claimed"
   },
   "nativeCtestAndSanitizers": "Not rerun; native DSP/JNI/CMake/build sources unchanged. Prior evidence remains historical.",
   "fixtureReproducibility": "Three independently regenerated asset SHA256 values match; see generated-fixtures.json",
   "sourceIntegrity": "No PTS rebasing, synthesis, repeated output, endpoint clamp or gap tolerance changes",
   "privateSourceRootCauses": {
-    "nonzeroSeek": "confirmed policy defect plus exact reported arithmetic/frame replay; actual Android test pending",
+    "nonzeroSeek": "Confirmed policy defect and exact reported arithmetic/frame replay; generated AAC device cases now owner-reported passed. Private encoded source not independently inspected.",
     "initial137ms": "valid empty-edit encoded fixture reproduces geometry; private edit/access-unit provenance not verified",
     "eos144us": "rounded-duration encoded fixture/reference reproduces geometry; private endpoint metadata not verified"
   },
@@ -174,6 +174,38 @@
       "run": 39249901691,
       "conclusion": "success"
     },
+    "duplicatePush": "conditionally skipped; not a test failure",
+    "lint": "existing nonblocking policy, not a clean-lint claim"
+  },
+  "ownerDeviceFollowup": {
+    "evidenceType": "owner-reported physical-device execution via chat; not Codex execution",
+    "device": "Samsung Galaxy S25 Ultra",
+    "os": "Android 17",
+    "targetedAacTestsReportedPassed": 10,
+    "combinedRegressionTestsReportedPassed": 79,
+    "combinedSelection": {
+      "previousAcceptanceMethods": 69,
+      "newAacMethods": 10
+    },
+    "instructionSourceHead": "fcde6cbab169fa72541de9860cc4afc302641218",
+    "installedCommitIndependentlyVerified": false,
+    "rawAndroidXmlSupplied": false,
+    "exactExecutionDateSupplied": false,
+    "privateCommercialSourceTimelineVerified": false,
+    "realSongListeningOutcome": "not supplied for this repair",
+    "historicalLocalAndReplayResults": "unchanged; no JVM/native/Android rerun performed for documentation-only follow-up"
+  },
+  "reviewedImplementationCi": {
+    "head": "fcde6cbab169fa72541de9860cc4afc302641218",
+    "Build PR": {
+      "run": 39252392554,
+      "conclusion": "success"
+    },
+    "CI & Debug Build": {
+      "run": 39252392567,
+      "conclusion": "success"
+    },
+    "scope": "Reviewed implementation head; not automatically attributed to later documentation commits",
     "duplicatePush": "conditionally skipped; not a test failure",
     "lint": "existing nonblocking policy, not a clean-lint claim"
   }

@@ -8,7 +8,7 @@ Base is merged PR #25, `c102d080ab91ddf8d80cf1707c84c6c2bbc2cf68`.
 | `owner-summary.json` | Owner's supplied task summary; no raw/private audio or independently verified track identities |
 | `generated-fixtures.json` | Genuine AAC/MP4 generation, bounded fixture metadata, ffprobe packet facts, FFmpeg decoded frame count and SHA-256 values |
 | `host-boundary-replay.json` | Deterministic PCM/frame replay through the actual corrected capture and preroll policy; not Android codec execution |
-| `validation.json` | Executed test/build counts, commands and explicit unavailable runtime work |
+| `validation.json` | Local test/build counts and commands, initial runtime limits, and separately attributed owner-device follow-up |
 | `apk-packaging.json` | Actual APK ABI/ELF/ZIP/license inspection, separate from device loading/execution |
 
 Reproduce fixtures without commercial recordings or changes to the earlier fixture bytes:
@@ -31,8 +31,8 @@ PNS is disabled only in the new controlled parity fixtures, never in the decoder
 The host replay independently distinguishes the old 2,759 µs seek loss from the trailing
 144 µs shortfall. Preroll recovers 122 real leading frames; an actual unsupported EOS
 remains partial. All four nonconstant 44.1/48 kHz mono/stereo frame-order comparisons
-measured max absolute canonical PCM error **0.0**. These measurements do not assert
-bit-exact Android AAC seek output; a real forward/seek codec test must run on the phone.
+measured max absolute canonical PCM error **0.0**. These host measurements do not assert
+bit-exact Android AAC seek output; the separate owner-reported device follow-up is below.
 
 Local matrix (actual counts/results in `validation.json`):
 
@@ -40,7 +40,7 @@ Local matrix (actual counts/results in `validation.json`):
 executions included. Focused selection: 39 passed. Both debug app and instrumentation
 APK variants built. Actual four-ABI/16 KB/JNI/license inspection passed; current Kotlin
 v8 code and the unchanged planner/executor version strings were verified in APK DEX.
-No physical-device execution is claimed.
+Codex did not execute physical-device tests; the later owner report is recorded below.
 
 ```bash
 bash gradlew :app:testArm64GmsDebugUnitTest --rerun \
@@ -70,3 +70,18 @@ New Android class has 10 methods; prior acceptance inventory remains 69, expande
 historical and is not carried forward to v8. The optional startup diagnostic is excluded
 from the acceptance count. Initial private-source cause and EOS metadata cannot be proven
 from generated fixtures alone; those limits and genuine partial outcomes are preserved.
+
+## Owner-reported Android follow-up
+
+After the initial pending-device checkpoint above, the owner reported that the ten new
+AAC cases passed, then **all 79 cases passed in the combined regression selection** on
+the Samsung Galaxy S25 Ultra / Android 17. This is fresh owner-reported v8 device evidence,
+not a transfer of the earlier 69-test v7 result or Codex execution. Raw Android XML,
+exact execution date and independently verified installed SHA were not supplied. The
+provided instructions targeted implementation `fcde6cbab169fa72541de9860cc4afc302641218`.
+Both required workflows passed on that head; later documentation edits are not new
+JVM/Android executions. Historical fixture/replay measurements are unchanged.
+
+The generated-media device cases are now owner-reported passed. The private-song
+container/endpoint investigation and authorized real-song listening procedure remain
+separate, unresolved validation work. No automatic merge, release or default activation.
