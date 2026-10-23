@@ -1,0 +1,212 @@
+{
+  "schema": 1,
+  "baseline": "c102d080ab91ddf8d80cf1707c84c6c2bbc2cf68",
+  "preprocessing": "sinc64-blackman-aac-preroll-mono-22050-v8",
+  "fullJvmSuites": {
+    "testArm64GmsDebugUnitTest": {
+      "tests": 563,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "testUniversalFossDebugUnitTest": {
+      "tests": 563,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "actualHostJniIncluded": {
+    "testArm64GmsDebugUnitTest": {
+      "BitChordJniHostTest": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativeDjExecutionJniHostTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativePlannerComparisonTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativePlannerJniHostTest": {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativeServiceJniHostTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "testUniversalFossDebugUnitTest": {
+      "BitChordJniHostTest": {
+        "tests": 10,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativeDjExecutionJniHostTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativePlannerComparisonTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativePlannerJniHostTest": {
+        "tests": 4,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "NativeServiceJniHostTest": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "hostNativeLibrarySha256": "3216ce200c6acf2e24065770bd133cbf0718cfd89a6c2ebb247c0069d21ef880",
+  "focusedTests": {
+    "tests": 39,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "builds": {
+    "appDebugApks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "instrumentationApks": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "result": "BUILD SUCCESSFUL in 3m 58s; 397 actionable tasks: 39 executed, 358 up-to-date"
+  },
+  "fullCommand": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebug :app:assembleUniversalFossDebug :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+  "packaging": "apk-packaging.json; four ABIs, ELF/ZIP 16KB, JNI symbols, license assets PASS",
+  "android": {
+    "newMethods": 10,
+    "previousAcceptanceMethods": 69,
+    "expandedAcceptanceMethods": 79,
+    "diagnosticProbeExcluded": true,
+    "executedByCodex": 0,
+    "ownerV8Result": "Owner reports ten targeted AAC tests passed, then all 79 tests passed in one expanded regression selection; see ownerDeviceFollowup",
+    "environment": "No installed emulator system image/KVM/exposed USB device; adb enumeration hit read-only /home/agent/.android preference path; no runtime test claimed"
+  },
+  "nativeCtestAndSanitizers": "Not rerun; native DSP/JNI/CMake/build sources unchanged. Prior evidence remains historical.",
+  "fixtureReproducibility": "Three independently regenerated asset SHA256 values match; see generated-fixtures.json",
+  "sourceIntegrity": "No PTS rebasing, synthesis, repeated output, endpoint clamp or gap tolerance changes",
+  "privateSourceRootCauses": {
+    "nonzeroSeek": "Confirmed policy defect and exact reported arithmetic/frame replay; generated AAC device cases now owner-reported passed. Private encoded source not independently inspected.",
+    "initial137ms": "valid empty-edit encoded fixture reproduces geometry; private edit/access-unit provenance not verified",
+    "eos144us": "rounded-duration encoded fixture/reference reproduces geometry; private endpoint metadata not verified"
+  },
+  "kotlinDexEvidence": [
+    {
+      "apk": "app-arm64-gms-debug.apk",
+      "containsCurrentV8": true,
+      "containsAacAnalysisWindow": true,
+      "containsPlannerV2": true,
+      "containsExecutorV5": true
+    },
+    {
+      "apk": "app-universal-foss-debug.apk",
+      "containsCurrentV8": true,
+      "containsAacAnalysisWindow": true,
+      "containsPlannerV2": true,
+      "containsExecutorV5": true
+    }
+  ],
+  "explicitRejectionAssertionFollowup": {
+    "scope": "Test assertions and this validation record only; production source/PCM/APKs unchanged from b57669da",
+    "assertions": [
+      "V7 PCM must return NATIVE_REQUIRES_CORRECTED_PCM, not arbitrary technical failure",
+      "Both genuine partial AAC cases must return NATIVE_INCOMPLETE_SOURCE_COVERAGE before JNI"
+    ],
+    "fullJvmSuites": {
+      "testArm64GmsDebugUnitTest": {
+        "tests": 563,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testUniversalFossDebugUnitTest": {
+        "tests": 563,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "actualHostJniExecutionsIncluded": 34,
+    "instrumentationApksAssembled": [
+      "Arm64GmsDebug",
+      "UniversalFossDebug"
+    ],
+    "buildResult": "BUILD SUCCESSFUL in 3m 9s; 362 actionable tasks: 42 executed, 320 up-to-date",
+    "command": "bash gradlew :app:testArm64GmsDebugUnitTest --rerun :app:testUniversalFossDebugUnitTest --rerun :app:assembleArm64GmsDebugAndroidTest :app:assembleUniversalFossDebugAndroidTest -PautomixNativeHostLibrary=/tmp/tinium-android-jni-host/libtinium_automix.so -PautomixDecoderTests=true --no-configuration-cache --no-daemon --max-workers=4 --console=plain",
+    "androidExecutedByCodex": 0
+  },
+  "initialImplementationCi": {
+    "head": "b57669da2e6a45e76198c67cb4c3ef25ae99a595",
+    "Build PR": {
+      "run": 39249901649,
+      "conclusion": "success"
+    },
+    "CI & Debug Build": {
+      "run": 39249901691,
+      "conclusion": "success"
+    },
+    "duplicatePush": "conditionally skipped; not a test failure",
+    "lint": "existing nonblocking policy, not a clean-lint claim"
+  },
+  "ownerDeviceFollowup": {
+    "evidenceType": "owner-reported physical-device execution via chat; not Codex execution",
+    "device": "Samsung Galaxy S25 Ultra",
+    "os": "Android 17",
+    "targetedAacTestsReportedPassed": 10,
+    "combinedRegressionTestsReportedPassed": 79,
+    "combinedSelection": {
+      "previousAcceptanceMethods": 69,
+      "newAacMethods": 10
+    },
+    "instructionSourceHead": "fcde6cbab169fa72541de9860cc4afc302641218",
+    "installedCommitIndependentlyVerified": false,
+    "rawAndroidXmlSupplied": false,
+    "exactExecutionDateSupplied": false,
+    "privateCommercialSourceTimelineVerified": false,
+    "realSongListeningOutcome": "not supplied for this repair",
+    "historicalLocalAndReplayResults": "unchanged; no JVM/native/Android rerun performed for documentation-only follow-up"
+  },
+  "reviewedImplementationCi": {
+    "head": "fcde6cbab169fa72541de9860cc4afc302641218",
+    "Build PR": {
+      "run": 39252392554,
+      "conclusion": "success"
+    },
+    "CI & Debug Build": {
+      "run": 39252392567,
+      "conclusion": "success"
+    },
+    "scope": "Reviewed implementation head; not automatically attributed to later documentation commits",
+    "duplicatePush": "conditionally skipped; not a test failure",
+    "lint": "existing nonblocking policy, not a clean-lint claim"
+  }
+}

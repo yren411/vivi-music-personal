@@ -1,0 +1,80 @@
+{
+  "schema": 1,
+  "evidenceType": "Deterministic decoded-frame replay through actual Kotlin capture/policy; not Android codec execution",
+  "verifiedBy": "AacBoundaryCoverageTest; all assertions passed in focused and complete JVM matrices",
+  "initialPositiveOrigin": {
+    "requestedUs": [
+      0,
+      32000000
+    ],
+    "actualUs": [
+      137006,
+      32000000
+    ],
+    "acceptedFrames": 1405159,
+    "canonicalFrames": 702557,
+    "coverage": "PARTIAL",
+    "syntheticFrames": 0,
+    "timestampRebaseApplied": false
+  },
+  "interiorEndpointSeek": {
+    "requestedUs": [
+      123063000,
+      155000000
+    ],
+    "oldActualUs": [
+      123065759,
+      155000000
+    ],
+    "oldAcceptedFrames": 1408301,
+    "oldCoverage": "PARTIAL",
+    "newActualUs": [
+      123063000,
+      155000000
+    ],
+    "newAcceptedFrames": 1408423,
+    "newCoverage": "FULL",
+    "additionalGenuineLeadingFrames": 122,
+    "seekTargetUs": 122993340,
+    "supportFrames": 3072,
+    "supportUs": 69660
+  },
+  "roundedEos": {
+    "requestedUs": [
+      123063000,
+      155063000
+    ],
+    "newActualUs": [
+      123063000,
+      155062856
+    ],
+    "newAcceptedFrames": 1411194,
+    "newCoverage": "PARTIAL",
+    "missingTrailingUs": 144,
+    "syntheticFrames": 0
+  },
+  "sourceFrameParity": [
+    {
+      "rateHz": 44100,
+      "channels": 1,
+      "maximumAbsoluteCanonicalPcmError": 0.0
+    },
+    {
+      "rateHz": 44100,
+      "channels": 2,
+      "maximumAbsoluteCanonicalPcmError": 0.0
+    },
+    {
+      "rateHz": 48000,
+      "channels": 1,
+      "maximumAbsoluteCanonicalPcmError": 0.0
+    },
+    {
+      "rateHz": 48000,
+      "channels": 2,
+      "maximumAbsoluteCanonicalPcmError": 0.0
+    }
+  ],
+  "actualCodecParity": "new PNS-disabled AAC Android forward/seek parity test compiled; not executed",
+  "preservedExistingTailParity": "AacBoundaryRegressionTest: PCM16/FLOAT32 x mono/stereo x 44100/48000, all maxAbsError=0.0; included in current JVM runs"
+}

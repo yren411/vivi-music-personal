@@ -9,7 +9,7 @@ enum class AnalysisPreprocessing(val version: String) {
 enum class DecoderStage { SOURCE, EXTRACTOR, CODEC_SETUP, CODEC_OUTPUT, PCM_CONVERSION, RESAMPLING, COMPLETE }
 enum class DecoderFailureSubtype {
     NONE, SOURCE_ACCESS, RANGE_UNSUPPORTED, BYTE_BUDGET, FLAC_PARSER_BUDGET, NO_AUDIO_TRACK, DURATION_UNAVAILABLE,
-    REQUEST_TOO_SHORT, SOFTWARE_CODEC_UNAVAILABLE, CODEC_ERROR, UNSUPPORTED_PCM, UNSUPPORTED_OPUS_TIMING,
+    REQUEST_TOO_SHORT, SOFTWARE_CODEC_UNAVAILABLE, CODEC_ERROR, UNSUPPORTED_PCM, UNSUPPORTED_OPUS_TIMING, UNSUPPORTED_AAC_TIMING,
     MALFORMED_PCM_BUFFER, NONFINITE_PCM, FORMAT_CHANGED, TIMESTAMP_REGRESSION, SOURCE_GAP,
     UNKNOWN_COVERAGE, EMPTY_OUTPUT, TRUNCATED_WINDOW, PARTIAL_SOURCE_COVERAGE,
     DEADLINE, CANCELED, INVALID_REQUEST, UNCLASSIFIED
@@ -27,6 +27,7 @@ data class PcmPreparationMetadata(
     /** No inserted silence/repeated samples. Edge support doesn't extend source coverage. */
     val synthesizedTimelineFrames: Long = 0,
     val lastBoundary:PcmBoundaryEvidence?=null,
+    val preRequestDecodedFrames:Long=0,
 )
 
 /** Last observed source-frame mapping only; bounded numeric evidence, never sample data. */
@@ -59,6 +60,7 @@ data class DecoderDiagnostic(
     val lastCodecFrameEndUs: Long? = null,
     val codecProgress: DecoderCodecProgress? = null,
     val stageElapsedUs:Map<DecoderStage,Long> = emptyMap(),
+    val aacBoundary:AacBoundaryEvidence?=null,
 ) {
     fun reportFields(): String = buildString {
         append(" preprocessing=" + preprocessing.version + " decoderStage=" + stage + " subtype=" + subtype)
@@ -76,6 +78,7 @@ data class DecoderDiagnostic(
         append(" codecEos=" + codecEos + " inputEnd=" + inputEnd + " bytesRead=" + sourceBytesRead)
         append(" fullyCached=" + fullyCached + " range=" + rangeStatus + " elapsedUs=" + elapsedUs)
         codecProgress?.let { append(it.reportFields()) }
+        aacBoundary?.let { append(it.reportFields()) }
         stageElapsedUs.entries.take(DecoderStage.entries.size).forEach { append(" stageUs_"+it.key+"="+it.value) }
         preparation?.let { append(" droppedOverlapFrames=" + it.droppedOverlapFrames + " jitterBuffers=" + it.jitterAdjustedBuffers +
             " maxJitterUs=" + it.maximumJitterUs + " gaps=" + it.gapCount + " filterEdgeFrames=" + it.edgeSupportedOutputFrames +

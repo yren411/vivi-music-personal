@@ -2,6 +2,15 @@
 
 This is an unversioned draft for review. No release version or tag is assigned.
 
+## Experimental AAC analysis reliability
+
+- Decode bounded genuine AAC preroll before nonzero native-analysis windows, preserving
+  codec-owned encoder-delay trimming and the existing tail-padding fix. Version corrected
+  preprocessing separately so earlier PCM evidence cannot be reused under the new policy.
+- Add redacted boundary evidence and generated AAC regression cases. Real leading
+  presentation gaps and unsupported EOS intervals still fall back; no missing audio is
+  invented and no timing/confidence gate or default AutoMix selection is changed.
+
 ## Experimental Native DJ reliability and placement
 
 - Keep legacy AutoMix as the default. In experimental Native DJ mode, distinguish

@@ -179,7 +179,8 @@ class NativeAutoMixServiceInstrumentedTest {
             try {block(h)}catch(error:Throwable){h.captureFailure(error);throw error}
         }
     }
-    internal class Harness(private val testMethod:String,native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean):AutoCloseable {
+    internal class Harness(private val testMethod:String,native:Boolean,silentIncoming:Boolean,longIncoming:Boolean,codec:Boolean,
+        codecFixtures:List<Pair<String,Int>>?=null):AutoCloseable {
         private val instrumentation=InstrumentationRegistry.getInstrumentation()
         private val context=instrumentation.targetContext.also {
             check(it.packageName.endsWith(".decodercheck")){"Use -PautomixDecoderTests=true; normal Tinium must not be touched"}
@@ -211,8 +212,9 @@ class NativeAutoMixServiceInstrumentedTest {
                 it[SkipSilenceKey]=false;it[AudioOffload]=false;it[RepeatModeKey]=Player.REPEAT_MODE_OFF
             }}
             items=(0..2).map {index ->
-                val seconds=if(codec)30 else if(index>0 && longIncoming)100 else 40
-                val asset=if(codec)if(index==0)"rhythm-128-48000.m4a" else "rhythm-128-44100.flac" else null
+                val custom=codecFixtures?.get(index)
+                val seconds=custom?.second ?: if(codec)30 else if(index>0 && longIncoming)100 else 40
+                val asset=custom?.first ?: if(codec)if(index==0)"rhythm-128-48000.m4a" else "rhythm-128-44100.flac" else null
                 val pcm=if(asset!=null)FloatArray(0) else if(index==1 && silentIncoming)FloatArray(seconds*22050) else NativeAnalysisFixtures.groove(seconds=seconds,phase=if(index==0).137 else .333)
                 val file=File.createTempFile("phase33-",if(asset==null)".wav" else "."+asset.substringAfterLast('.'),context.cacheDir);files+=file
                 if(asset!=null)instrumentation.context.assets.open("automix/$asset").use {input->file.outputStream().use {input.copyTo(it)}}

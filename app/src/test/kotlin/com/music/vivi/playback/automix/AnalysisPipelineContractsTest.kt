@@ -157,9 +157,9 @@ class AnalysisPipelineContractsTest {
     }
     @Test fun opusSupportVersionSeparatesV6CacheAndInflightResultsAndRejectsOldPcm() {
         val profile=BitChordNativeAnalysisEngine.PROFILE;val w=window()
-        assertEquals("sinc64-blackman-opus-support-mono-22050-v7",profile.preprocessingVersion)
-        val versions=listOf(PcmPreprocessing.LEGACY,PcmPreprocessing.BANDLIMITED_V2,PcmPreprocessing.BANDLIMITED_V3,PcmPreprocessing.BANDLIMITED_V4,PcmPreprocessing.BANDLIMITED_V5,PcmPreprocessing.BANDLIMITED_V6,PcmPreprocessing.BANDLIMITED)
-        assertEquals(7,versions.map{profile.copy(preprocessingVersion=it).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)}.distinct().size)
+        assertEquals("sinc64-blackman-aac-preroll-mono-22050-v8",profile.preprocessingVersion)
+        val versions=listOf(PcmPreprocessing.LEGACY,PcmPreprocessing.BANDLIMITED_V2,PcmPreprocessing.BANDLIMITED_V3,PcmPreprocessing.BANDLIMITED_V4,PcmPreprocessing.BANDLIMITED_V5,PcmPreprocessing.BANDLIMITED_V6,PcmPreprocessing.BANDLIMITED_V7,PcmPreprocessing.BANDLIMITED)
+        assertEquals(8,versions.map{profile.copy(preprocessingVersion=it).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)}.distinct().size)
         val oldKey=profile.copy(preprocessingVersion=PcmPreprocessing.BANDLIMITED_V6).cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
         val newKey=profile.cacheKey(w.identity,0,4000,AnalysisDetail.SCAN)
         val entered=CountDownLatch(2);val release=CountDownLatch(1);val calls=AtomicInteger();val oldValue=Any();val newValue=Any()

@@ -78,6 +78,8 @@ class AndroidWindowDecoder(
         var fetched = 0L
         var packets: DecoderPacketAccounting? = null
         var aacTail: AacAnalysisTailTrim? = null
+        var aacWindow: AacAnalysisWindow? = null
+        var aacPrerollPackets = 0L
         var codecOutputFrames: Long? = null
         var firstCodecPtsUs: Long? = null
         var lastCodecFrameEndUs: Long? = null
@@ -86,13 +88,23 @@ class AndroidWindowDecoder(
             packets?.tail(aacTail?.retainedFrames,aacTail?.discardedAtNaturalEos)
             val now=System.nanoTime()
             val timing=DecoderStage.entries.associateWith {(elapsed[it.ordinal]+if(it==stage)now-stageBegan else 0)/1000}
+            val observedCoverage=window?.coverage ?: corrected?.coverage ?: legacyWindow?.coverage
+            val boundary=aacWindow?.let { a ->
+                val spans=observedCoverage?.intervals
+                val leading=spans?.firstOrNull()?.let {(it.startUs-request.interval.startUs).coerceAtLeast(0)}
+                val trailing=spans?.lastOrNull()?.let {(requireNotNull(effective).endUs-it.endUs).coerceAtLeast(0)}
+                val rate=corrected?.sourceFormats?.lastOrNull()?.format?.sampleRateHz ?: a.sampleRate
+                fun frames(us:Long?)=us?.let {(it*rate+999_999)/1_000_000}
+                AacBoundaryEvidence(a.sampleRate,a.encoderDelayFrames,rate,a.supportFrames,a.supportUs,aacPrerollPackets,
+                    corrected?.preparation?.preRequestDecodedFrames,leading,trailing,frames(leading),frames(trailing))
+            }
             return DecoderDiagnostic(preprocessing, stage, subtype, category, request.interval, effective,
                 window?.coverage ?: corrected?.coverage ?: legacyWindow?.coverage,
                 window?.frameCount ?: legacyWindow?.frameCount,
                 window?.sourceFormats ?: corrected?.sourceFormats ?: legacyWindow?.sourceFormats ?: emptyList(),
                 duration, codecEos, inputEnd, fetched, cached, range, (System.nanoTime() - began) / 1000,
                 window?.preparation ?: corrected?.preparation, window?.repeatedOutputFrames ?: legacyWindow?.repeatedOutputFrames,
-                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot(),timing)
+                codecOutputFrames, firstCodecPtsUs, lastCodecFrameEndUs, packets?.snapshot(),timing,boundary)
         }
     }
 
@@ -142,10 +154,16 @@ class AndroidWindowDecoder(
             if (lengthMs < 4000) throw AnalysisUnavailable("insufficient-audio")
             observation.effective = AudioIntervalUs(startMs * 1000, (startMs + lengthMs) * 1000)
             val mime = format.getString(MediaFormat.KEY_MIME)!!
+            val encoderDelay=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_DELAY)}?.getInteger(MediaFormat.KEY_ENCODER_DELAY)
+            val encoderPadding=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_PADDING)}?.getInteger(MediaFormat.KEY_ENCODER_PADDING)
+            val aacWindow=if(preprocessing==AnalysisPreprocessing.BANDLIMITED && mime=="audio/mp4a-latm")
+                AacAnalysisWindow.create(startMs*1000,format.getInteger(MediaFormat.KEY_SAMPLE_RATE),encoderDelay)
+                    .also {observation.aacWindow=it} else null
             val opusWindow = if (preprocessing == AnalysisPreprocessing.BANDLIMITED && mime == "audio/opus")
                 OpusAnalysisWindow.create(startMs * 1000, (startMs + lengthMs) * 1000,
                     format.getByteBuffer("csd-1"), format.getByteBuffer("csd-2")) else null
             val seekTarget=if(flac!=null)startMs*1000 else if(opusWindow!=null)opusWindow.seekTargetUs
+                else if(aacWindow!=null)aacWindow.seekTargetUs
                 else DecoderSeekPolicy.targetUs(preprocessing,startMs*1000)
             // Do not fetch the initial packet just to observe a pre-seek timestamp.
             // Nonzero tail seeks must retain the original bounded source-read behavior.
@@ -173,8 +191,6 @@ class AndroidWindowDecoder(
                     C.ENCODING_PCM_FLOAT -> PcmEncoding.FLOAT32
                     else -> PcmEncoding.UNKNOWN
                 }), if(flac!=null)DecoderExtractor.MEDIA3_FLAC_1_7_1 else DecoderExtractor.ANDROID_MEDIA_EXTRACTOR)
-            val encoderDelay=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_DELAY)}?.getInteger(MediaFormat.KEY_ENCODER_DELAY)
-            val encoderPadding=format.takeIf {it.containsKey(MediaFormat.KEY_ENCODER_PADDING)}?.getInteger(MediaFormat.KEY_ENCODER_PADDING)
             val configuredPadding=AacAnalysisTrimPolicy.codecPadding(corrected=preprocessing==AnalysisPreprocessing.BANDLIMITED,mime=mime,padding=encoderPadding)
             if(configuredPadding!=encoderPadding) {
                 if(encoderPadding!!>AacAnalysisTailTrim.MAX_PADDING_FRAMES)throw PcmPreparationException(DecoderFailureSubtype.UNSUPPORTED_PCM)
@@ -227,6 +243,7 @@ class AndroidWindowDecoder(
                             if (flac==null && (extractor.sampleFlags and MediaExtractor.SAMPLE_FLAG_ENCRYPTED) != 0) throw AnalysisUnavailable("encrypted-source")
                             codec.queueInputBuffer(index, 0, size, sampleTime, 0)
                             observation.packets?.input(size, sampleTime)
+                            if(aacWindow!=null && sampleTime<startMs*1000)observation.aacPrerollPackets++
                             if(flac==null)extractor.advance()
                         }
                     }
