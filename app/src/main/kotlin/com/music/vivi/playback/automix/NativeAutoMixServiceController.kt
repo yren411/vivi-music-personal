@@ -17,6 +17,8 @@ data class NativeServicePair<S>(val queue:NativeDjQueue,val outgoing:PlanningTra
 /** Application-thread boundary, shared by MusicService and actual service instrumentation. */
 interface NativeAutoMixServiceHost<S> {
     fun pair():NativeServicePair<S>?
+    /** Return a freshly verified offline-only handle, or null. Optional scans cannot fetch network bytes. */
+    fun cachedAnalysisSource(source:S):S?=null
     /** Initial renderer/sink setup is transient, not a rejected attempt. Checked before claiming a pair. */
     fun waitingForOutput():Boolean=false
     fun incompatibility():String?
@@ -48,6 +50,17 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
     private var analysisCostUs=2_000_000L
     private var analysisBegan=0L
     private var performance=AutoMixPerformance.BALANCED
+    private val regions=NativeRegionCatalog()
+    private var optional:java.util.concurrent.Future<PlanningWindowEvidence>?=null
+    private var optionalCompleted=0L;private var optionalCanceled=0L;private var adaptedWindows=0L
+    private var seekReplans=0L;private var routeReplans=0L
+    val analysisReuse get()=NativeReuseSnapshot(AdaptiveNativeRegions.VERSION,workers.snapshot(),
+        pair?.let {regions.summary(it.outgoing.source)} ?: NativeRegionSummary(0,0,null,null,NativeTempoAgreement.NOT_COMPARED),
+        pair?.let {regions.summary(it.incoming.source)} ?: NativeRegionSummary(0,0,null,null,NativeTempoAgreement.NOT_COMPARED),
+        seekReplans,routeReplans,optionalCompleted,optionalCanceled,adaptedWindows,
+        optional?.isDone==false,pair?.immutableOutgoing==true,pair?.immutableIncoming==true,
+        analysis.actualDecoderCalls,analysis.measuredDecodedSourceFrames)
+    private fun cancelOptional() {optional?.let {if(!it.isDone){it.cancel(true);optionalCanceled++}};optional=null}
     private val salt=UUID.randomUUID().toString()
     private var lastRouteDecision:NativeRouteDecision?=null
     val nativeSelected get()=enabled && mode==AutoMixEngineMode.NATIVE_DJ_EXPERIMENTAL
@@ -69,14 +82,21 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
         if(!enabled)host.status(AutoMixStatus(AutoMixPhase.DISABLED))
     }
     fun invalidate(reason:NativeDjExecutionReason) {
-        session?.close();session=null;ticket=null;workers.cancelAll()
+        cancelOptional()
+        session?.close();session=null;ticket=null
+        val preserve=analysis.adaptive && reason in setOf(NativeDjExecutionReason.USER_SEEK,NativeDjExecutionReason.ROUTE_CHANGED)
+        if(!preserve)workers.cancelAll()
+        if(reason==NativeDjExecutionReason.USER_SEEK)seekReplans++
+        if(reason==NativeDjExecutionReason.ROUTE_CHANGED)routeReplans++
         if(executor!=null)host.cancel(reason)
         if(pair!=null)recorder.native(attempt,NativeServiceEvent.CANCELED,reason=reason.name)
         executor=null;plan=null;levels=null to null;pair=null;attempted=null;lastStage=null
         host.status(AutoMixStatus(if(enabled)AutoMixPhase.WAITING_SOURCE else AutoMixPhase.DISABLED,nativeMode=nativeSelected))
     }
     private fun fallback(reason:String) {
+        cancelOptional()
         session?.close();session=null;ticket=null
+        workers.cancelAll() // fallback must release pending analysis before independent legacy work
         host.cancel(NativeDjExecutionReason.CANCELED)
         executor=null;plan=null
         recorder.native(attempt,NativeServiceEvent.FALLBACK,reason=reason)
@@ -97,6 +117,7 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
     }
     fun tick() {
         if(!nativeSelected)return
+        workers.cancelExpired(nowNanos())
         if(suspended) {host.legacyEnabled(true);return}
         // Promotion changes the authoritative pair before the next controller pump. Record
         // the terminal report first; never mislabel a successful handoff as queue cancellation.
@@ -143,8 +164,11 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
                 recorder.record(attemptNumber,MixEvent.DECODER,decoder=it)
             })
             session=ExperimentalNativePlanningSession(workers,analysis,control,useDecodedDurations=true,onEvidence={a,b ->
-                recorder.native(attemptNumber,NativeServiceEvent.EVIDENCE,evidence=a.analysis,role=MixRole.OUTGOING)
-                recorder.native(attemptNumber,NativeServiceEvent.EVIDENCE,evidence=b.analysis,role=MixRole.INCOMING)
+                if(current.immutableOutgoing)regions.remember(a)
+                if(current.immutableIncoming)regions.remember(b)
+                adaptedWindows+=listOf(a,b).count {it.region?.adapted==true}
+                recorder.native(attemptNumber,NativeServiceEvent.EVIDENCE,evidence=a.analysis,role=MixRole.OUTGOING,region=a.region,reuse=analysisReuse)
+                recorder.native(attemptNumber,NativeServiceEvent.EVIDENCE,evidence=b.analysis,role=MixRole.INCOMING,region=b.region,reuse=analysisReuse)
             })
             analysisBegan=nowNanos()
             try {
@@ -188,10 +212,13 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
             // Preparation gets at least the plan's 2s lead plus observed analysis cost (2..8s).
             // No idle prebuffered deck is retained for the entire remaining song.
             val preparation=maxOf(4_000_000L,analysisCostUs+2_000_000).coerceAtMost(10_000_000)
-            if(!current.playing || selected.candidate.outgoingCueUs-current.positionUs>preparation)return
+            if(!current.playing || selected.candidate.outgoingCueUs-current.positionUs>preparation) {
+                enrich(current,selected);return
+            }
             if(host.incompatibility()!=null || current.positionUs>selected.candidate.outgoingCueUs-selected.assumedPreparationLeadUs) {
                 fallback("PREPARATION_DEADLINE");return
             }
+            cancelOptional() // optional decoding never competes with prepared/active execution
             executor=try {host.execute(selected,levels.first,levels.second)}catch(_:Exception){fallback("PREPARATION_FAILED");return}
         }
         val e=executor ?: return
@@ -215,7 +242,41 @@ class NativeAutoMixServiceController<S>(private val host:NativeAutoMixServiceHos
                 host.status(AutoMixStatus(AutoMixPhase.COMPLETED,nativeMode=true,nativeExecutionStage=stage))}
         }
     }
-    override fun close() {enabled=false;invalidate(NativeDjExecutionReason.SHUTDOWN);workers.close()}
+    /** At most one offline optional region, sharing the existing low-priority bounded pool.
+     * Only a confirmed plan with ample lead permits enrichment; no work during fallback/mixing. */
+    private fun enrich(current:NativeServicePair<S>,selected:NativeTransitionPlan) {
+        if(!analysis.adaptive)return
+        val lead=selected.candidate.outgoingCueUs-current.positionUs
+        val reserve=maxOf(10_000_000L,analysisCostUs*3+2_000_000)
+        if(!current.playing || lead<reserve || executor!=null) {cancelOptional();return}
+        optional?.let {future ->
+            if(!future.isDone)return
+            try {regions.remember(future.get());optionalCompleted++}catch(_:Exception) { /* bounded failed enrichment never triggers playback fallback */ }
+            recorder.native(attempt,NativeServiceEvent.ANALYSIS_REUSE,reuse=analysisReuse)
+            optional=null
+        }
+        for((track,source,immutable) in listOf(Triple(current.outgoing,current.outgoingSource,current.immutableOutgoing),
+            Triple(current.incoming,current.incomingSource,current.immutableIncoming))) {
+            if(!immutable)continue
+            val interval=regions.next(track.source,track.durationUs) ?: continue
+            val offline=host.cachedAnalysisSource(source) ?: continue
+            regions.started(track.source,interval)
+            val request=DecodeRequest(interval,track.source)
+            val key=AdaptiveNativeRegions.key(request,AnalysisDetail.DETAIL,true,true)
+            val number=attempt
+            val control=AnalysisControl(nowNanos()+minOf(AdaptiveNativeRegions.OPTIONAL_DEADLINE_US,lead-reserve)*1000,
+                decoderDiagnostics=DecoderDiagnosticSink {recorder.record(number,MixEvent.DECODER,decoder=it)})
+            optional=workers.acquire(key,true,retainOnCancel=false,deadlineNanos=control.deadlineNanos) {
+                val evidence=analysis.analyze(offline,request,AnalysisDetail.DETAIL,control)
+                control.checkpoint()
+                if(evidence.analysis is AnalysisResult.Failed)throw AnalysisUnavailable("OPTIONAL_REGION_UNAVAILABLE")
+                evidence
+            }
+            recorder.native(attempt,NativeServiceEvent.ANALYSIS_REUSE,reuse=analysisReuse)
+            return
+        }
+    }
+    override fun close() {enabled=false;invalidate(NativeDjExecutionReason.SHUTDOWN);regions.clear();workers.close()}
 }
 
 /** Waiting native resolution must not overwrite a real ongoing legacy fade/plan in Stats. */

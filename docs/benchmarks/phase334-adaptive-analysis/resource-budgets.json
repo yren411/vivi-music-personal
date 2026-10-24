@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "evidence": "calculated bounds, not measured phone allocations",
+  "canonicalPcm": {
+    "rateHz": 22050,
+    "channels": 1,
+    "sampleBytes": 4,
+    "window32SecondsBytes": 2822400,
+    "whole180SecondsBytes": 15876000,
+    "whole1800SecondsBytes": 158760000
+  },
+  "sourceCapture32SecondsMonoFloatBytes": {
+    "44100": 5644808,
+    "48000": 6144008,
+    "192000": 24576008
+  },
+  "nativeInternal32Seconds11025FloatBytes": 1411200,
+  "limits": {
+    "existingWorkers": [
+      1,
+      2,
+      4
+    ],
+    "existingQueue": 8,
+    "completedFeatureLru": 64,
+    "catalogSources": 8,
+    "regionsPerSource": 6,
+    "maxDistinctFeatureResultsIncludingIndependentlyEvictedCatalogReferences": 112,
+    "rawPcmCacheEntries": 0,
+    "optionalConcurrentJobs": 1,
+    "optionalAttemptsPerSourcePerCatalogLifetime": 3,
+    "optionalJobDeadlineUs": 6000000,
+    "maximumWindowUs": 32000000,
+    "minimumAdaptedWindowUs": 8000000,
+    "maximumDecodesPerPrimaryRegionJob": 2,
+    "maximumOptionalIntentDurationPerSourceUs": 96000000
+  },
+  "scheduling": "Only confirmed plan, playing, offline verified source; reserve=max(10s, observed pair cost*3+2s); stop before prepare/mix or fallback",
+  "unmeasured": [
+    "Android CPU/RSS",
+    "battery",
+    "thermals",
+    "acoustic timing",
+    "real network/CDN behavior"
+  ],
+  "featureMemoryEstimate": "112 results * at most 1536 boxed beat/downbeat/rise timestamps; several MB including objects/metadata, not a measured heap or hard byte bound",
+  "jniCopiedCanonicalWindowBytes": 2822400,
+  "additionalDiscoveryPcmMayRemainDuringRetryBytes": 2822400,
+  "additionalUnestimatedAllocations": [
+    "codec buffers",
+    "native FFT/DSP working memory",
+    "JVM objects/GC",
+    "runtime and player allocations"
+  ]
+}

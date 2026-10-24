@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "evidence": "actual host corrected capture/resampling/JNI; simulated source; no Android execution",
+  "strategy": "native-regions-v1-verified-inset",
+  "preprocessing": "sinc64-blackman-aac-preroll-mono-22050-v8",
+  "originalStartUs": 0,
+  "originalCoverageStartUs": 137006,
+  "selectedStartUs": 138000,
+  "selectedEndUs": 32000000,
+  "canonicalFrames": 702557,
+  "bpm": 128.08320517339098,
+  "rawConfidence": 0.9242556417299467,
+  "nativeElapsedUs": 191522.754,
+  "coldHostNanos": 358008941,
+  "sourceDecodeExecutions": 2,
+  "cacheHits": 100,
+  "cache100Nanos": 501586,
+  "syntheticTimelineFrames": 0,
+  "sourceOriginPreserved": true,
+  "fullTrackPcmRetained": false
+}
