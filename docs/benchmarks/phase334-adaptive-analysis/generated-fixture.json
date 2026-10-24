@@ -1,0 +1,63 @@
+{
+  "asset": "adaptive-empty-edit30s-44100-stereo.m4a",
+  "bytes": 412383,
+  "sha256": "18c29af71438735c0e90ffcc686fcf259c98b59e095a31a313a7ba8748145024",
+  "mdat_sha256": "53e073218980ab635f1d42e0e5a3b322d43533fe4f568fab2e216d5e6966a481",
+  "movie_timescale": 44100,
+  "media_timescale": 44100,
+  "media_duration_frames": 1573874,
+  "raw_stts": [
+    [
+      1536,
+      1024
+    ],
+    [
+      1,
+      1010
+    ]
+  ],
+  "edits": [
+    {
+      "duration": 1323000,
+      "media_time": -1,
+      "rate_integer": 1,
+      "rate_fraction": 0
+    },
+    {
+      "duration": 1573874,
+      "media_time": 0,
+      "rate_integer": 1,
+      "rate_fraction": 0
+    }
+  ],
+  "first_packets": [
+    {
+      "pts": 1323000,
+      "duration": 1024,
+      "size": "310"
+    },
+    {
+      "pts": 1324024,
+      "duration": 1024,
+      "size": "151"
+    }
+  ],
+  "last_packets": [
+    {
+      "pts": 2894840,
+      "duration": 1024,
+      "size": "97"
+    },
+    {
+      "pts": 2895864,
+      "duration": 1024,
+      "size": "569"
+    }
+  ],
+  "packet_count": 1537,
+  "stream": {
+    "sample_rate": "44100",
+    "channels": 2,
+    "duration": "35.688753"
+  }
+}

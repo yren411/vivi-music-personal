@@ -1,0 +1,205 @@
+{
+  "schema": 1,
+  "android_runtime_tested": false,
+  "debug_test_apks_only": true,
+  "apks": [
+    {
+      "apk": "app-arm64-gms-debug.apk",
+      "apk_bytes": 76816015,
+      "zipalign_16k": true,
+      "abis": [
+        {
+          "abi": "arm64-v8a",
+          "elf_bytes": 482560,
+          "zip_bytes": 482560,
+          "zip_data_offset": 71450624,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "9e820fa4431ac42731973362b39a295fad480981569551dca42c3266c87996c8"
+        },
+        {
+          "abi": "armeabi-v7a",
+          "elf_bytes": 282728,
+          "zip_bytes": 282728,
+          "zip_data_offset": 14991360,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "6ed61e5304efb2339874f5dd892ee525368fdf54e7edcdc57327e0c0c98a0296"
+        },
+        {
+          "abi": "x86",
+          "elf_bytes": 471812,
+          "zip_bytes": 471812,
+          "zip_data_offset": 46956544,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "82a54c11eae603a5d28e1be0b994ece7702c6bc4e9ca543f8eae640187253157"
+        },
+        {
+          "abi": "x86_64",
+          "elf_bytes": 465832,
+          "zip_bytes": 465832,
+          "zip_data_offset": 48447488,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "68fc0c4c2b88076e828f81d0bcf9eacbd3e06c7818f3789c9cbb9c3d26a154a1"
+        }
+      ],
+      "notices": {
+        "COPYING": {
+          "bytes": 34020,
+          "zip_bytes": 13172
+        },
+        "NOTICE.md": {
+          "bytes": 4214,
+          "zip_bytes": 2168
+        },
+        "provenance.json": {
+          "bytes": 2086,
+          "zip_bytes": 846
+        },
+        "JNI-NOTICE.md": {
+          "bytes": 1952,
+          "zip_bytes": 1138
+        },
+        "NDK-LIBCXX-NOTICE": {
+          "bytes": 130424,
+          "zip_bytes": 17450
+        }
+      },
+      "added_native_and_notice_zip_payload": 1737706,
+      "size_caveat": "Exact new-entry ZIP payload only; not a controlled total APK before/after delta (DEX/alignment/signing overhead excluded)."
+    },
+    {
+      "apk": "app-universal-foss-debug.apk",
+      "apk_bytes": 73622528,
+      "zipalign_16k": true,
+      "abis": [
+        {
+          "abi": "arm64-v8a",
+          "elf_bytes": 482560,
+          "zip_bytes": 482560,
+          "zip_data_offset": 43548672,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "9e820fa4431ac42731973362b39a295fad480981569551dca42c3266c87996c8"
+        },
+        {
+          "abi": "armeabi-v7a",
+          "elf_bytes": 282728,
+          "zip_bytes": 282728,
+          "zip_data_offset": 44777472,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "6ed61e5304efb2339874f5dd892ee525368fdf54e7edcdc57327e0c0c98a0296"
+        },
+        {
+          "abi": "x86",
+          "elf_bytes": 471812,
+          "zip_bytes": 471812,
+          "zip_data_offset": 46039040,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "82a54c11eae603a5d28e1be0b994ece7702c6bc4e9ca543f8eae640187253157"
+        },
+        {
+          "abi": "x86_64",
+          "elf_bytes": 465832,
+          "zip_bytes": 465832,
+          "zip_data_offset": 47513600,
+          "elf_load_alignments": [
+            16384,
+            16384,
+            16384
+          ],
+          "needed": [
+            "libm.so",
+            "libdl.so",
+            "libc.so"
+          ],
+          "sha256": "68fc0c4c2b88076e828f81d0bcf9eacbd3e06c7818f3789c9cbb9c3d26a154a1"
+        }
+      ],
+      "notices": {
+        "COPYING": {
+          "bytes": 34020,
+          "zip_bytes": 13172
+        },
+        "NOTICE.md": {
+          "bytes": 4214,
+          "zip_bytes": 2168
+        },
+        "provenance.json": {
+          "bytes": 2086,
+          "zip_bytes": 846
+        },
+        "JNI-NOTICE.md": {
+          "bytes": 1952,
+          "zip_bytes": 1138
+        },
+        "NDK-LIBCXX-NOTICE": {
+          "bytes": 130424,
+          "zip_bytes": 17450
+        }
+      },
+      "added_native_and_notice_zip_payload": 1737706,
+      "size_caveat": "Exact new-entry ZIP payload only; not a controlled total APK before/after delta (DEX/alignment/signing overhead excluded)."
+    }
+  ]
+}

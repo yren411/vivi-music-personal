@@ -4075,7 +4075,7 @@ class MusicService :
         nativeAutoMix?.currentExecutor?.report(),outputIdentities.size,player.currentMediaItem?.mediaId,
         player.volume,nativePlayback?.incomingVolume(),nativePlayback?.incomingPlaying(),
         outputIdentities.values.map(effectSessions::session).filter {it>0}.toSet(),nativePlayback?.incomingSessionId(),
-        nativeAutoMix?.ownsPlayback==true || intelligentAutoMix?.mixing==true || isCrossfading)
+        nativeAutoMix?.ownsPlayback==true || intelligentAutoMix?.mixing==true || isCrossfading,nativeAutoMix?.analysisReuse)
 
     private fun invalidateNative(reason:NativeDjExecutionReason) {
         if(nativePromoting)return
@@ -4156,7 +4156,22 @@ class MusicService :
                 PlanningTrack(identity(a),outDuration,AudioIntervalUs((outDuration-32_000_000).coerceAtLeast(0),outDuration)),
                 PlanningTrack(identity(b),inDuration,AudioIntervalUs(0,minOf(inDuration,32_000_000))),
                 a,b,player.currentPosition*1000,player.isPlaying,
-                a.fullyCached && a.uri.scheme!="file",b.fullyCached && b.uri.scheme!="file")
+                a.fullyCached,b.fullyCached)
+        }
+        override fun cachedAnalysisSource(source:AnalysisSource):AnalysisSource? {
+            if(!source.fullyCached || source.length<=0)return null
+            if(source.uri.scheme=="file") {
+                val file=java.io.File(source.uri.path ?: return null)
+                return source.takeIf {it.identity=="${it.cacheKey}|local|${file.length()}|${file.lastModified()}|${it.uri}" && file.length()==it.length}
+            }
+            val cache=when {
+                downloadCache.isCached(source.cacheKey,0,source.length)->downloadCache
+                playerCache.isCached(source.cacheKey,0,source.length)->playerCache
+                else->return null
+            }
+            // Re-check completeness per job. Eviction during decoding fails closed, never downloads.
+            return source.copy(factory=CacheDataSource.Factory().setCache(cache).setUpstreamDataSourceFactory(null)
+                .setCacheWriteDataSinkFactory(null))
         }
         // Source/timeline resolution can finish before the PCM chain and AudioTrack exist.
         // Wait for this item's actual output before testing processor capability. No delay,
@@ -4978,4 +4993,4 @@ private data class SponsorBlockConfig(
 internal data class NativeServiceInspection(val mode:AutoMixEngineMode,val nativeSelected:Boolean,val legacyEnabled:Boolean,
     val execution:NativeDjExecutionReport?,val outputs:Int,val primaryId:String?,val primaryVolume:Float,
     val incomingVolume:Float?,val incomingPlaying:Boolean?,val activeSessions:Set<Int>,val incomingSessionId:Int?,
-    val transitionActive:Boolean)
+    val transitionActive:Boolean,val analysisReuse:NativeReuseSnapshot?=null)
