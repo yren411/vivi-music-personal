@@ -152,7 +152,9 @@ class AacBoundaryCoverageInstrumentedTest {
         }
     }
     @Test fun genuineLeadingGapFallsBackInActualServiceWithoutChangingSelectedMode() {
-        val fixtures=listOf(mono to 36,positive to 36,mono to 36)
+        // Adaptive analysis may now recover the small 137ms edge. Retain the original
+        // fallback assertions using a genuine 30s presentation gap: <8s supported in the request.
+        val fixtures=listOf(mono to 36,"adaptive-empty-edit30s-44100-stereo.m4a" to 66,mono to 36)
         NativeAutoMixServiceInstrumentedTest.Harness("aac333-native-fallback",true,false,false,true,fixtures).use {h ->
             h.play()
             h.await("actual AAC coverage fallback",20_000){h.history().attempts.any {a->a.records.any {it.native?.event==NativeServiceEvent.FALLBACK && it.native.reason=="PARTIAL_SOURCE_COVERAGE"}}}

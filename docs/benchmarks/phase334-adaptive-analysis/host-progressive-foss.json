@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "evidence": "actual host JNI; generated 96s stable-tempo source model, three independent corrected 32s captures; no Android/cache-I/O claim",
+  "decodedRegions": 3,
+  "maximumPcmWindowFrames": 705600,
+  "verifiedAnalyzedUnionUs": 96000000,
+  "firstRegionHostNanos": 261893189,
+  "optionalTwoRegionsHostNanos": 490178696,
+  "regionalBpms": [
+    128.07925123625316,
+    128.08658560620893,
+    128.07428371494186
+  ],
+  "regionalNativeElapsedUs": [
+    192302.639,
+    193563.421,
+    205194.764
+  ],
+  "comparison": "REGIONAL_AGREEMENT_NOT_GLOBAL_PROOF",
+  "globalBpmInvented": false,
+  "gridsStitched": false
+}

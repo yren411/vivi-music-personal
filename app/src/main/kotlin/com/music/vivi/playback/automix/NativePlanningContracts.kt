@@ -174,4 +174,4 @@ sealed interface NativePlanningOutcome {
 
 /** Compact evidence only; never retains DecodedWindow or PCM. */
 data class PlanningWindowEvidence(val analysis: AnalysisResult, val signal: PlanningSignalObservation? = null,
-                                  val level:NativeDjLevel?=null)
+                                  val level:NativeDjLevel?=null,val region:NativeRegionAudit?=null)

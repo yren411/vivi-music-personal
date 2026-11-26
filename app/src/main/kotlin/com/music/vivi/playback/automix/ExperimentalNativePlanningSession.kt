@@ -22,7 +22,9 @@ sealed interface NativePlanningPoll {
  * executors, blocking future joins, raw PCM cache or dependency on MusicService.
  * Several pairs may share a window; only the LAST observer's invalidation cancels that job.
  * Start a replacement before invalidating the old ticket to preserve still-needed work.
- * Close before reusing this pool with a new batch/deadline. Completed feature cache survives. */
+ * Close before reusing this pool with a new batch/deadline. Completed feature cache survives.
+ * Adaptive immutable source leases may outlive a ticket, under their original deadline;
+ * only pair planning is abandoned. The service expires retained work on its existing tick. */
 class ExperimentalNativePlanningSession<S>(
     private val workers: AnalysisWorkers<PlanningWindowEvidence>,
     private val analysis: NativePlanningAnalysis<S>,
@@ -43,7 +45,7 @@ class ExperimentalNativePlanningSession<S>(
     }
     private val jobs=mutableMapOf<String,Job>()
     private val attempts=linkedMapOf<NativePlanningTicket,Attempt>()
-    private class WindowFailure(val result: AnalysisResult.Failed) : Exception()
+    private class WindowFailure(val evidence: PlanningWindowEvidence) : Exception()
 
     fun begin(request: NativePlanningRequest, outgoing: PlanningSourceRequest<S>, incoming: PlanningSourceRequest<S>): NativePlanningTicket = synchronized(lock) {
         check(!closed) { "Experimental planning session closed" }
@@ -62,21 +64,22 @@ class ExperimentalNativePlanningSession<S>(
 
     private fun acquire(source: PlanningSourceRequest<S>): Job {
         val request=source.decode
-        val digest=BitChordNativeAnalysisEngine.PROFILE.cacheKey(request.identity,0,0,source.detail)
-        val key="$digest:${PlanningSignalObservation.VERSION}:${NativeDjLevel.VERSION}:${request.interval.startUs}:${request.interval.endUs}:${source.immutableRendition}"
+        val key=AdaptiveNativeRegions.key(request,source.detail,source.immutableRendition,analysis.adaptive)
         jobs[key]?.let { it.observers++;return it }
         val token=AnalysisCancellationToken()
         val workControl=control.copy(cancellation=AnalysisCancellation {
-            control.cancellation.throwIfCancelled();token.throwIfCancelled()
+            control.cancellation.throwIfCancelled();if(!analysis.adaptive)token.throwIfCancelled()
         })
-        val future=workers.submit(key,cacheable=source.immutableRendition) {
+        val work:()->PlanningWindowEvidence = {
             workControl.checkpoint()
             val result=analysis.analyze(source.source,request,source.detail,workControl)
             workControl.checkpoint()
             // A completed lack of rhythm is cacheable evidence; technical failures are not.
-            (result.analysis as? AnalysisResult.Failed)?.let { throw WindowFailure(it) }
+            (result.analysis as? AnalysisResult.Failed)?.let { throw WindowFailure(result) }
             result
         }
+        val future=if(analysis.adaptive)workers.acquire(key,source.immutableRendition,retainOnCancel=true,deadlineNanos=workControl.deadlineNanos,work=work)
+            else workers.submit(key,source.immutableRendition,work)
         return Job(key,token,future).also { jobs[key]=it }
     }
 
@@ -150,11 +153,12 @@ class ExperimentalNativePlanningSession<S>(
     private fun completed(future: Future<PlanningWindowEvidence>): PlanningWindowEvidence = try { future.get() }
         catch(error: Exception) {
             val original=error.cause
-            if(original is WindowFailure) PlanningWindowEvidence(original.result)
+            if(original is WindowFailure) original.evidence
             else PlanningWindowEvidence(AnalysisResult.Failed(BitChordNativeAnalysisEngine.BACKEND,
                 AnalysisFailure(AnalysisFailureStage.ANALYSIS,
                     if(error is CancellationException) AutoMixFailure.ANALYSIS_CANCELED else AutoMixFailure.of(original ?: error),
-                    if(error is CancellationException) "ANALYSIS_CANCELED" else "EXPERIMENTAL_ANALYSIS_FAILED")))
+                    if(error is CancellationException) "ANALYSIS_CANCELED" else if(AutoMixFailure.of(original ?: error)==AutoMixFailure.ANALYSIS_TIMEOUT)
+                        "ANALYSIS_TIMEOUT" else "EXPERIMENTAL_ANALYSIS_FAILED")))
         }
 
     fun invalidate(ticket: NativePlanningTicket, reason: PlanningRejection = PlanningRejection.QUEUE_CHANGED) = synchronized(lock) {

@@ -282,3 +282,8 @@ This is an unversioned draft for review. No release version or tag is assigned.
 - Add bounded trim, seek, source-frame boundary and stage-time diagnostics plus generated
   AAC/Opus regressions. Legacy remains default; original commercial-source metadata
   and real-song outcomes still require verification. No listening-quality fix is claimed.
+
+- Experimental Native DJ can retry a smaller, verified audio interval when source edges are
+  unavailable, and reuse compatible analysis after seeks or route changes. Cached tracks
+  may receive bounded offline region analysis when playback has time available. Legacy
+  remains the default; genuine source gaps and unsafe transitions still fall back.

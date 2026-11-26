@@ -75,13 +75,42 @@ data class PlanningSignalObservation(
 class NativePlanningAnalysis<S>(
     private val decoder: AnalysisWindowDecoder<S>,
     private val engine: AnalysisEngine = BitChordNativeAnalysisEngine(),
+    val adaptive:Boolean=false,
 ) {
+    private val executedDecodes=java.util.concurrent.atomic.AtomicLong()
+    private val decodedSourceFrames=java.util.concurrent.atomic.AtomicLong()
+    val actualDecoderCalls get()=executedDecodes.get()
+    val measuredDecodedSourceFrames get()=decodedSourceFrames.get()
     init { require(engine.backend == BitChordNativeAnalysisEngine.BACKEND) }
     fun analyze(source: S, request: DecodeRequest, detail: AnalysisDetail, control: AnalysisControl): PlanningWindowEvidence {
         var observation: PlanningSignalObservation? = null
         var level:NativeDjLevel?=null
+        val began=System.nanoTime()
+        var selected=request
+        var decodes=0
+        var frames=0L
         val observedDecoder = AnalysisWindowDecoder<S> { input, wanted, jobControl ->
-            decoder.decode(input, wanted, jobControl).also { result ->
+            fun decode(r:DecodeRequest):DecodeResult {
+                jobControl.checkpoint();decodes++;executedDecodes.incrementAndGet()
+                return decoder.decode(input,r,jobControl).also {v ->
+                    val measured=when(v) {is DecodeResult.Decoded->v.window.decoderDiagnostic?.codecOutputFrames ?: v.window.coverage.acceptedDecodedFrames ?: 0L
+                        is DecodeResult.Failed->v.diagnostic?.codecOutputFrames ?: 0L}
+                    frames+=measured;decodedSourceFrames.addAndGet(measured)
+                }
+            }
+            var decoded=decode(wanted)
+            if(adaptive && decoded is DecodeResult.Decoded) {
+                val window=decoded.window
+                // Discovery is not permission to relabel partial PCM. Verify a new request.
+                if(window.identity==wanted.identity && window.requested==wanted.interval) {
+                    AdaptiveNativeRegions.supportedInset(window)?.let {span ->
+                        selected=wanted.copy(interval=span);decoded=decode(selected)
+                    }
+                }
+            }
+            if(adaptive && decoded is DecodeResult.Decoded && decoded.window.coverage.status(selected.interval)!=CoverageStatus.FULL)
+                decoded=DecodeResult.Failed(AnalysisFailure(AnalysisFailureStage.INPUT_VALIDATION,AutoMixFailure.INSUFFICIENT_AUDIO_DATA,"PARTIAL_SOURCE_COVERAGE"))
+            decoded.also { result ->
                 if (result is DecodeResult.Decoded && result.window.invalidReason() == null &&
                     result.window.preprocessingVersion == PcmPreprocessing.BANDLIMITED &&
                     result.window.coverage.status(result.window.decodeInterval) == CoverageStatus.FULL) {
@@ -90,9 +119,15 @@ class NativePlanningAnalysis<S>(
                 }
             }
         }
-        val result = WindowAnalysisPipeline(observedDecoder, engine, PcmPreprocessing.BANDLIMITED)
-            .analyze(source, request, detail, control)
+        val decoded=try {observedDecoder.decode(source,request,control)} catch(error:Exception) {
+            DecodeResult.Failed(AnalysisFailure(AnalysisFailureStage.DECODING,AutoMixFailure.of(error),
+                if(error is AnalysisUnavailable)error.reason else AutoMixFailure.of(error).name,error))
+        }
+        val result = WindowAnalysisPipeline(AnalysisWindowDecoder<S>{_,_,_->decoded}, engine, PcmPreprocessing.BANDLIMITED)
+            .analyze(source, selected, detail, control)
         return PlanningWindowEvidence(result, if (result is AnalysisResult.Completed) observation else null,
-            if(result is AnalysisResult.Completed)level else null)
+            if(result is AnalysisResult.Completed)level else null,
+            if(adaptive)NativeRegionAudit(AdaptiveNativeRegions.VERSION,request.interval,selected.interval,decodes,
+                (System.nanoTime()-began)/1000,frames) else null)
     }
 }

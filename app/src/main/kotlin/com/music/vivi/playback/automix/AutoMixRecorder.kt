@@ -68,14 +68,14 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
         plan:NativeTransitionPlan?=null,execution:NativeDjExecutionReport?=null,generation:Long?=null,
         elapsedUs:Long?=null,candidateCount:Int?=null,evidence:AnalysisResult?=null,role:MixRole?=null,
         route:NativeRouteDecision?=null,planningRejections:Map<PlanningRejection,Int> = emptyMap(),
-        laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap()) {
+        laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap(),region:NativeRegionAudit?=null,reuse:NativeReuseSnapshot?=null) {
         val target=attempts.firstOrNull {it.number==attempt} ?: return
         val c=plan?.candidate
         val record=NativeServiceRecord(event,reason?.takeIf {it.matches(Regex("[A-Z0-9_]{1,80}"))},
             generation,elapsedUs,candidateCount,c?.outgoingCueUs,c?.incomingCueUs,c?.overlapUs,
             c?.tempo,c?.alignment,plan?.readiness,c?.uncertainties?.toSet(),
             execution?.copy(measurements=execution.measurements.copy(events=execution.measurements.events.takeLast(1))),
-            c?.placement,plan?.placementPolicy,route,planningRejections.toMap(),c?.rank,laterCandidateRejections.toMap())
+            c?.placement,plan?.placementPolicy,route,planningRejections.toMap(),c?.rank,laterCandidateRejections.toMap(),region,reuse)
         val values=mutableMapOf<MixMetric,Double>()
         (evidence as? AnalysisResult.Completed)?.let { result ->
             fun add(key:MixMetric,value:Double?) {if(value!=null && value.isFinite())values[key]=value}
@@ -142,6 +142,8 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
                         n.placement?.let {append(" placementSchema=1 placementPolicy=${n.placementPolicy} selectedRank=1 placement=$it rank=${n.rank}")}
                         if(n.planningRejections.isNotEmpty())append(" candidateRejections=${n.planningRejections}")
                         if(n.laterCandidateRejections.isNotEmpty())append(" laterCueRejections=${n.laterCandidateRejections}")
+                        n.region?.let {append(" analysisRegionSchema=1 region=$it")}
+                        n.reuse?.let {append(" analysisReuseSchema=1 reuse=$it")}
                         n.route?.let {append(" routeSchema=1 route=$it")}
                         n.execution?.let { e ->
                             val m=e.measurements
@@ -167,11 +169,11 @@ class AutoMixRecorder(private val maxAttempts: Int=30, private val maxEvents: In
 }
 
 /** Only compact controlled fields; no plan source handles, raw PCM, URLs or titles. */
-enum class NativeServiceEvent { PAIR, EVIDENCE, PLAN, EXECUTION, FALLBACK, CANCELED, ROUTE }
+enum class NativeServiceEvent { PAIR, EVIDENCE, PLAN, EXECUTION, FALLBACK, CANCELED, ROUTE, ANALYSIS_REUSE }
 data class NativeServiceRecord(val event:NativeServiceEvent,val reason:String?,val generation:Long?,
     val elapsedUs:Long?,val candidateCount:Int?,val outgoingCueUs:Long?,val incomingCueUs:Long?,val overlapUs:Long?,
     val tempo:TempoHypothesis?,val alignment:BeatAlignment?,val readiness:NativePlanReadiness?,
     val uncertainties:Set<PlanningUncertainty>?,val execution:NativeDjExecutionReport?,
     val placement:NativeCuePlacement?=null,val placementPolicy:NativePlacementPolicy?=null,
     val route:NativeRouteDecision?=null,val planningRejections:Map<PlanningRejection,Int> = emptyMap(),val rank:CandidateRank?=null,
-    val laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap())
+    val laterCandidateRejections:Map<PlanningRejection,Int> = emptyMap(),val region:NativeRegionAudit?=null,val reuse:NativeReuseSnapshot?=null)
